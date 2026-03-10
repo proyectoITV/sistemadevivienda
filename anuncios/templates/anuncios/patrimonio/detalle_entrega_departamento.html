@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-clipboard-check" style="color: #ab0033;"></i> Detalle Entrega #{{ entrega.identrega }}</h1>
+            <p class="text-muted mb-0">Patrimonio / Entregas de Departamento</p>
+        </div>
+        <a href="{% url 'listar_entregas_departamento' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3"><strong>Fecha:</strong><br>{{ entrega.fecha_entrega|date:"d/m/Y" }}</div>
+                <div class="col-md-3"><strong>Departamento:</strong><br>{{ entrega.departamento.departamento }}</div>
+                <div class="col-md-3"><strong>Entrega:</strong><br>{{ entrega.empleado_saliente.nombre }} {{ entrega.empleado_saliente.apellido_paterno }}</div>
+                <div class="col-md-3"><strong>Recibe:</strong><br>{{ entrega.empleado_entrante.nombre }} {{ entrega.empleado_entrante.apellido_paterno }}</div>
+            </div>
+            {% if entrega.observaciones %}
+                <hr>
+                <strong>Observaciones:</strong>
+                <p class="mb-0">{{ entrega.observaciones }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <strong>Bienes transferidos: {{ entrega.total_bienes }}</strong>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>No. Inventario</th>
+                        <th>Descripción</th>
+                        <th>Fecha transferencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in detalles %}
+                        <tr>
+                            <td><strong>{{ detalle.bien.numero_inventario_itavu }}</strong></td>
+                            <td>{{ detalle.bien.descripcion }}</td>
+                            <td>{{ detalle.fecha_transferencia|date:"d/m/Y" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">No hay bienes en esta entrega.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

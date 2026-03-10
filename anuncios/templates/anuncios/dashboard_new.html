@@ -1,0 +1,545 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div style="display: flex; min-height: calc(100vh - 70px);">
+    <!-- Sidebar Menu -->
+    <div id="sidebar" class="sidebar-menu">
+        <div class="sidebar-header">
+            <div class="header-content">
+                <i class="fas fa-th-list"></i>
+                <h4>Menú</h4>
+            </div>
+            <div class="header-actions">
+                <button class="btn-toggle-compact" id="toggleCompact" title="Modo compacto">
+                    <i class="fas fa-compress-alt"></i>
+                </button>
+                <button class="btn-close-sidebar d-lg-none" id="closeSidebar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" title="Dashboard">
+                        <i class="fas fa-tachometer-alt icon"></i>
+                        <span class="label">Dashboard</span>
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#daf" title="Dirección de Administración">
+                        <i class="fas fa-landmark icon"></i>
+                        <span class="label">Dirección de Administración</span>
+                        <i class="fas fa-chevron-down chevron-icon"></i>
+                    </a>
+                    <div class="collapse" id="daf">
+                        <ul class="nav flex-column ms-3 submenu">
+                            <li>
+                                <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#recursos_humanos_menu" title="Recursos Humanos">
+                                    <i class="fas fa-users"></i> <span class="label">Recursos Humanos</span>
+                                    <i class="fas fa-chevron-down chevron-icon"></i>
+                                </a>
+                                <div class="collapse" id="recursos_humanos_menu">
+                                    <ul class="nav flex-column ms-4 submenu">
+                                        <li><a class="nav-link" href="{% url 'listar_empleados' %}" title="Empleados"><i class="fas fa-id-badge"></i> <span class="label">Empleados</span></a></li>
+                                        <li><a class="nav-link" href="{% url 'listar_direcciones' %}" title="Direcciones"><i class="fas fa-sitemap"></i> <span class="label">Direcciones</span></a></li>
+                                        <li><a class="nav-link" href="{% url 'listar_departamentos' %}" title="Departamentos"><i class="fas fa-building"></i> <span class="label">Departamentos</span></a></li>
+                                        <li><a class="nav-link" href="{% url 'listar_puestos' %}" title="Puestos"><i class="fas fa-briefcase"></i> <span class="label">Puestos</span></a></li>
+                                        <li><a class="nav-link" href="{% url 'listar_tipos_contratacion' %}" title="Tipos de contratación"><i class="fas fa-file-signature"></i> <span class="label">Tipos de contratación</span></a></li>
+                                    </ul>
+                                </div>
+                            </li>
+                            <li>
+                                <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#patrimonio_menu" title="Patrimonio">
+                                    <i class="fas fa-cube"></i> <span class="label">Patrimonio</span>
+                                    <i class="fas fa-chevron-down chevron-icon"></i>
+                                </a>
+                                <div class="collapse" id="patrimonio_menu">
+                                    <ul class="nav flex-column ms-4 submenu">
+                                        <li>
+                                            <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#bienes_submenu" title="Bienes del Instituto">
+                                                <i class="fas fa-boxes"></i> <span class="label">Bienes del Instituto</span>
+                                                <i class="fas fa-chevron-down chevron-icon"></i>
+                                            </a>
+                                            <div class="collapse" id="bienes_submenu">
+                                                <ul class="nav flex-column ms-4 submenu">
+                                                    <li><a class="nav-link" href="{% url 'listar_bienes' %}" title="Listar Bienes"><i class="fas fa-list"></i> <span class="label">Listar Bienes</span></a></li>
+                                                    <li><a class="nav-link" href="{% url 'listar_marcas' %}" title="Marcas"><i class="fas fa-tag"></i> <span class="label">Marcas</span></a></li>
+                                                    <li><a class="nav-link" href="{% url 'listar_proveedores' %}" title="Proveedores"><i class="fas fa-truck"></i> <span class="label">Proveedores</span></a></li>
+                                                    <li><a class="nav-link" href="{% url 'listar_clasificaciones_serap' %}" title="Clasificación SERAP"><i class="fas fa-list-alt"></i> <span class="label">Clasificación SERAP</span></a></li>
+                                                    <li><a class="nav-link" href="{% url 'listar_clasificaciones_contraloria' %}" title="Clasificación de Contraloría"><i class="fas fa-list-ul"></i> <span class="label">Clasificación de Contraloría</span></a></li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                        <li><a class="nav-link" href="{% url 'listar_resguardos' %}" title="Resguardos Internos"><i class="fas fa-file-signature"></i> <span class="label">Resguardos Internos</span></a></li>
+                                    </ul>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#vivienda" title="Vivienda">
+                        <i class="fas fa-home icon"></i>
+                        <span class="label">Vivienda</span>
+                        <i class="fas fa-chevron-down chevron-icon"></i>
+                    </a>
+                    <div class="collapse" id="vivienda">
+                        <ul class="nav flex-column ms-3 submenu">
+                            <li><a class="nav-link" href="#" title="Proyectos"><i class="fas fa-list"></i> <span class="label">Proyectos</span></a></li>
+                            <li><a class="nav-link" href="#" title="Reportes"><i class="fas fa-chart-bar"></i> <span class="label">Reportes</span></a></li>
+                        </ul>
+                    </div>
+                </li>
+                
+                {% if user.is_authenticated and user.usuario_sistema.rol == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#seguridad" title="Seguridad del Sistema">
+                        <i class="fas fa-shield-alt icon"></i>
+                        <span class="label">Seguridad del Sistema</span>
+                        <i class="fas fa-chevron-down chevron-icon"></i>
+                    </a>
+                    <div class="collapse" id="seguridad">
+                        <ul class="nav flex-column ms-3 submenu">
+                            <li><a class="nav-link" href="{% url 'listar_usuarios_sistema' %}" title="Usuarios del Sistema"><i class="fas fa-users-cog"></i> <span class="label">Usuarios del Sistema</span></a></li>
+                            <li><a class="nav-link" href="{% url 'configuracion_sistema' %}" title="Configuración del Sistema"><i class="fas fa-server"></i> <span class="label">Configuración del Sistema</span></a></li>
+                            <li><a class="nav-link" href="{% url 'monitor_cola_correos' %}" title="Monitor de Correos"><i class="fas fa-envelope"></i> <span class="label">Monitor de Correos</span></a></li>
+                        </ul>
+                    </div>
+                </li>
+                {% endif %}
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#configuracion" title="Configuración">
+                        <i class="fas fa-cog icon"></i>
+                        <span class="label">Configuración</span>
+                        <i class="fas fa-chevron-down chevron-icon"></i>
+                    </a>
+                    <div class="collapse" id="configuracion">
+                        <ul class="nav flex-column ms-3 submenu">
+                            <li><a class="nav-link" href="{% url 'configuracion_sistema' %}" title="Configuración del Sistema"><i class="fas fa-server"></i> <span class="label">Configuración del Sistema</span></a></li>
+                            <li><a class="nav-link" href="{% url 'listar_usuarios_sistema' %}" title="Usuarios del Sistema"><i class="fas fa-users-cog"></i> <span class="label">Usuarios del Sistema</span></a></li>
+                            <li><a class="nav-link" href="/admin/" target="_blank" title="Admin"><i class="fas fa-key"></i> <span class="label">Admin</span></a></li>
+                        </ul>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <a href="{% url 'logout' %}" class="btn btn-danger btn-sm w-100 logout-btn" title="Cerrar Sesión">
+                <i class="fas fa-sign-out-alt"></i> 
+                <span class="label">Cerrar Sesión</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Overlay -->
+    <div id="sidebarOverlay" class="sidebar-overlay d-lg-none"></div>
+    
+    <!-- Main Content -->
+    <div class="dashboard-content flex-grow-1">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show m-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <h2 class="mb-4 mt-3 ms-3">Dashboard</h2>
+
+        <div class="row mx-3">
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background: rgba(171, 0, 51, 0.1); color: #ab0033;">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <h5 class="card-title">Empleados</h5>
+                        <p class="stat-number">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background: rgba(188, 149, 92, 0.1); color: #bc955c;">
+                            <i class="fas fa-home"></i>
+                        </div>
+                        <h5 class="card-title">Proyectos</h5>
+                        <p class="stat-number">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background: rgba(84, 86, 90, 0.1); color: #54565a;">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h5 class="card-title">Reportes</h5>
+                        <p class="stat-number">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="stat-icon" style="background: rgba(253, 217, 163, 0.3); color: #fdd9a3;">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <h5 class="card-title">Config</h5>
+                        <p class="stat-number">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mx-3">
+            <div class="col-md-12 mb-3">
+                <div class="card">
+                    <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                        <h5 class="mb-0">Información del Perfil</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Nombre:</strong> {{ user.nombre_completo }}</p>
+                                <p><strong>Usuario:</strong> {{ user.usuario }}</p>
+                                <p><strong>Email:</strong> {{ user.email }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Puesto:</strong> {{ user.puesto|default:"Sin asignar" }}</p>
+                                <p><strong>Departamento:</strong> {{ user.iddepartamento|default:"Sin asignar" }}</p>
+                                <p><strong>Fecha de Ingreso:</strong> {{ user.fecha_ingreso|date:"d/m/Y"|default:"Sin asignar" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    :root {
+        --color1: #ab0033;
+        --color2: #bc955c;
+        --sidebar-width: 360px;
+        --sidebar-compact-width: 80px;
+    }
+
+    .sidebar-menu {
+        width: var(--sidebar-width);
+        background: #2c3e50;
+        color: white;
+        padding: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        transition: width 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar-menu.compact {
+        width: var(--sidebar-compact-width);
+    }
+
+    .sidebar-header {
+        padding: 1.5rem;
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-shrink: 0;
+        transition: padding 0.3s ease;
+    }
+
+    .sidebar-menu.compact .sidebar-header {
+        padding: 1rem;
+        justify-content: center;
+    }
+
+    .header-content {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .sidebar-menu.compact .header-content h4 {
+        display: none;
+    }
+
+    .sidebar-header h4 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-left: auto;
+    }
+
+    .sidebar-menu.compact .header-actions {
+        margin-left: 0;
+    }
+
+    .btn-toggle-compact,
+    .btn-close-sidebar {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0.3rem 0.6rem;
+        border-radius: 5px;
+        transition: all 0.3s;
+    }
+
+    .btn-toggle-compact:hover,
+    .btn-close-sidebar:hover {
+        background: rgba(255,255,255,0.1);
+        transform: scale(1.1);
+    }
+
+    .sidebar-nav {
+        padding: 1rem 0;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .sidebar-nav .nav-link {
+        color: rgba(255,255,255,0.8);
+        padding: 0.75rem 1.5rem;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .sidebar-menu.compact .sidebar-nav .nav-link {
+        padding: 0.75rem;
+        justify-content: center;
+        gap: 0;
+    }
+
+    .sidebar-menu.compact .sidebar-nav .label {
+        display: none;
+    }
+
+    .sidebar-menu.compact .sidebar-nav .chevron-icon {
+        display: none;
+    }
+
+    .sidebar-nav .icon {
+        font-size: 1.2rem;
+        min-width: 1.5rem;
+        text-align: center;
+    }
+
+    .sidebar-nav .label {
+        flex: 1;
+    }
+
+    .chevron-icon {
+        font-size: 0.8rem;
+        margin-left: auto;
+        transition: transform 0.3s;
+    }
+
+    .sidebar-nav .nav-link:hover,
+    .sidebar-nav .nav-link.active {
+        color: white;
+        background: rgba(171, 0, 51, 0.2);
+        border-left: 4px solid var(--color1);
+        padding-left: calc(1.5rem - 4px);
+    }
+
+    .sidebar-menu.compact .sidebar-nav .nav-link:hover,
+    .sidebar-menu.compact .sidebar-nav .nav-link.active {
+        background: rgba(171, 0, 51, 0.3);
+        border-left: none;
+        border-radius: 8px;
+    }
+
+    .sidebar-nav .submenu {
+        background: rgba(0,0,0,0.2);
+    }
+
+    .sidebar-nav .submenu .nav-link {
+        padding-left: 3rem;
+        font-size: 0.95rem;
+    }
+
+    .sidebar-menu.compact .submenu {
+        display: none !important;
+    }
+
+    .sidebar-footer {
+        padding: 1.5rem;
+        border-top: 2px solid rgba(255,255,255,0.1);
+        flex-shrink: 0;
+        transition: padding 0.3s ease;
+    }
+
+    .sidebar-menu.compact .sidebar-footer {
+        padding: 1rem;
+    }
+
+    .logout-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .sidebar-menu.compact .logout-btn {
+        padding: 0.5rem !important;
+    }
+
+    .sidebar-menu.compact .logout-btn .label {
+        display: none;
+    }
+
+    .sidebar-overlay {
+        position: fixed;
+        top: 70px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 998;
+        display: none;
+    }
+
+    .sidebar-overlay.show {
+        display: block;
+    }
+
+    .dashboard-content {
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .stat-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .stat-icon {
+        font-size: 2rem;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--color1);
+    }
+
+    @media (max-width: 991.98px) {
+        .sidebar-menu {
+            position: fixed;
+            transform: translateX(-100%);
+            height: calc(100vh - 70px);
+            z-index: 1000;
+        }
+
+        .sidebar-menu.show {
+            transform: translateX(0);
+        }
+
+        .sidebar-menu.compact {
+            width: 280px;
+        }
+
+        .btn-toggle-compact {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 992px) {
+        .btn-close-sidebar {
+            display: none !important;
+        }
+
+        .btn-toggle-compact {
+            display: inline-block !important;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.querySelector('[id*="toggleSidebar"]');
+    const toggleCompactBtn = document.getElementById('toggleCompact');
+    const closeSidebarBtn = document.getElementById('closeSidebar');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            sidebar.classList.add('show');
+            overlay.classList.add('show');
+        });
+    }
+
+    if (closeSidebarBtn) {
+        closeSidebarBtn.addEventListener('click', function() {
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        });
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        });
+    }
+
+    if (toggleCompactBtn) {
+        toggleCompactBtn.addEventListener('click', function() {
+            sidebar.classList.toggle('compact');
+            const isCompact = sidebar.classList.contains('compact');
+            localStorage.setItem('sidebarCompact', isCompact);
+        });
+    }
+
+    const savedCompact = localStorage.getItem('sidebarCompact') === 'true';
+    if (savedCompact) {
+        sidebar.classList.add('compact');
+    }
+});
+</script>
+{% endblock %}

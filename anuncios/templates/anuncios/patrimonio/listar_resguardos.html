@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-2"><i class="fas fa-file-signature" style="color: #ab0033;"></i> Resguardos Internos</h1>
+            <p class="text-muted">Control de asignación de bienes a empleados</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Regresar al Dashboard
+            </a>
+            <a href="{% url 'listar_entregas_departamento' %}" class="btn btn-outline-primary">
+                <i class="fas fa-people-arrows"></i> Entregas de Departamento
+            </a>
+            <a href="{% url 'asignar_resguardo' %}" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;">
+                <i class="fas fa-plus"></i> Asignar Resguardo
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-8">
+                    <input type="text" name="search" class="form-control" placeholder="Buscar por bien, inventario o empleado..." value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="estado" class="form-select">
+                        <option value="activos" {% if filtro_estado == 'activos' %}selected{% endif %}>Activos</option>
+                        <option value="devueltos" {% if filtro_estado == 'devueltos' %}selected{% endif %}>Devueltos</option>
+                        <option value="todos" {% if filtro_estado == 'todos' %}selected{% endif %}>Todos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100"><i class="fas fa-search"></i> Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                    <tr>
+                        <th>No. Inventario</th>
+                        <th>Bien</th>
+                        <th>Empleado</th>
+                        <th>Fecha Asignación</th>
+                        <th>Oficio</th>
+                        <th>Fecha Devolución</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resguardo in resguardos %}
+                        <tr>
+                            <td><strong>{{ resguardo.bien.numero_inventario_itavu }}</strong></td>
+                            <td>
+                                {{ resguardo.bien.descripcion|truncatewords:10 }}
+                                <a href="{% url 'historial_resguardo_bien' resguardo.bien.idbien %}" class="btn btn-sm btn-link p-0" title="Ver historial del bien">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                            </td>
+                            <td>
+                                {{ resguardo.empleado.nombre }} {{ resguardo.empleado.apellido_paterno }}
+                                <a href="{% url 'historial_resguardo_empleado' resguardo.empleado.idempleado %}" class="btn btn-sm btn-link p-0" title="Ver historial del empleado">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                            </td>
+                            <td>{{ resguardo.fecha_asignacion|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if resguardo.numero_oficio %}
+                                    <div>{{ resguardo.numero_oficio }}</div>
+                                    {% if resguardo.archivo_oficio %}
+                                        <a href="{% url 'descargar_oficio_resguardo' resguardo.idresguardo %}" class="btn btn-sm btn-outline-danger" title="Descargar PDF del oficio">
+                                            <i class="fas fa-download"></i> PDF
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.fecha_devolucion %}
+                                    {{ resguardo.fecha_devolucion|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if resguardo.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Devuelto</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if resguardo.activo %}
+                                    <a href="{% url 'devolver_resguardo' resguardo.idresguardo %}" class="btn btn-sm btn-outline-warning" title="Registrar devolución">
+                                        <i class="fas fa-undo"></i> Devolver
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">No hay resguardos registrados.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

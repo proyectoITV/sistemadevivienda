@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-undo" style="color: #ab0033;"></i> {{ titulo }}</h1>
+            <p class="text-muted mb-0">Patrimonio / Resguardos Internos</p>
+        </div>
+        <a href="{% url 'listar_resguardos' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información del Resguardo Actual</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>No. Inventario:</strong> {{ resguardo.bien.numero_inventario_itavu }}</p>
+                    <p><strong>Bien:</strong> {{ resguardo.bien.descripcion }}</p>
+                    <p><strong>Empleado:</strong> {{ resguardo.empleado.nombre }} {{ resguardo.empleado.apellido_paterno }} {{ resguardo.empleado.apellido_materno }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Fecha de Asignación:</strong> {{ resguardo.fecha_asignacion|date:"d/m/Y" }}</p>
+                    <p><strong>Observaciones de Asignación:</strong></p>
+                    <p class="text-muted">{{ resguardo.observaciones_asignacion|default:"Sin observaciones" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Atención:</strong> Al registrar la devolución, el resguardo se marcará como finalizado y el bien quedará disponible para una nueva asignación.
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">{{ form.fecha_devolucion.label }}</label>
+                    {{ form.fecha_devolucion }}
+                    {% if form.fecha_devolucion.errors %}<div class="text-danger small">{{ form.fecha_devolucion.errors }}</div>{% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">{{ form.observaciones_devolucion.label }}</label>
+                    {{ form.observaciones_devolucion }}
+                    {% if form.observaciones_devolucion.errors %}<div class="text-danger small">{{ form.observaciones_devolucion.errors }}</div>{% endif %}
+                    <small class="form-text text-muted">Registre el estado del bien al momento de la devolución</small>
+                </div>
+                
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-save"></i> {{ accion }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

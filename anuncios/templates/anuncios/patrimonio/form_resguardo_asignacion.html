@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-file-signature" style="color: #ab0033;"></i> {{ titulo }}</h1>
+            <p class="text-muted mb-0">Patrimonio / Resguardos Internos</p>
+        </div>
+        <a href="{% url 'listar_resguardos' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="POST" id="formResguardo" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> <strong>Nota:</strong> 
+                    <ul class="mb-0 mt-2">
+                        <li>Si el bien <strong>NO tiene resguardo</strong>, se creará una nueva asignación.</li>
+                        <li>Si el bien <strong>YA tiene resguardo activo</strong>, se transferirá automáticamente al nuevo empleado y se mantendrá el historial completo.</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">{{ form.bien.label }}</label>
+                    {{ form.bien }}
+                    {% if form.bien.errors %}<div class="text-danger small">{{ form.bien.errors }}</div>{% endif %}
+                    <small class="form-text text-muted">Busque por número de inventario ITAVU o descripción del bien</small>
+                    <div id="info-resguardo-actual" class="alert alert-warning mt-2" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Este bien ya tiene un resguardo activo.</strong><br>
+                        <span id="texto-resguardo-actual"></span><br>
+                        <small>Al continuar, se transferirá automáticamente al nuevo empleado.</small>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">{{ form.empleado.label }}</label>
+                    {{ form.empleado }}
+                    {% if form.empleado.errors %}<div class="text-danger small">{{ form.empleado.errors }}</div>{% endif %}
+                    <small class="form-text text-muted">Busque por número de empleado, nombre, apellido paterno o materno</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">{{ form.fecha_asignacion.label }}</label>
+                    {{ form.fecha_asignacion }}
+                    {% if form.fecha_asignacion.errors %}<div class="text-danger small">{{ form.fecha_asignacion.errors }}</div>{% endif %}
+                </div>
+                
+                <hr class="my-4">
+                <h5 class="mb-3"><i class="fas fa-file-pdf"></i> Información del Oficio (Opcional)</h5>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.numero_oficio.label }}</label>
+                        {{ form.numero_oficio }}
+                        {% if form.numero_oficio.errors %}<div class="text-danger small">{{ form.numero_oficio.errors }}</div>{% endif %}
+                        <small class="form-text text-muted">Número del oficio de asignación</small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.fecha_oficio.label }}</label>
+                        {{ form.fecha_oficio }}
+                        {% if form.fecha_oficio.errors %}<div class="text-danger small">{{ form.fecha_oficio.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label">{{ form.archivo_oficio.label }}</label>
+                    {{ form.archivo_oficio }}
+                    {% if form.archivo_oficio.errors %}<div class="text-danger small">{{ form.archivo_oficio.errors }}</div>{% endif %}
+                    <small class="form-text text-muted">Cargue el PDF del oficio (máximo 10 MB)</small>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="mb-4">
+                    <label class="form-label">{{ form.observaciones_asignacion.label }}</label>
+                    {{ form.observaciones_asignacion }}
+                    {% if form.observaciones_asignacion.errors %}<div class="text-danger small">{{ form.observaciones_asignacion.errors }}</div>{% endif %}
+                    <small class="form-text text-muted">Registre detalles sobre la asignación o transferencia (opcional)</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;">
+                    <i class="fas fa-save"></i> {{ accion }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- jQuery (requerido por Select2) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    const selectBien = document.querySelector('.select2-bien');
+    const selectEmpleado = document.querySelector('.select2-empleado');
+    const infoResguardo = document.getElementById('info-resguardo-actual');
+    const textoResguardo = document.getElementById('texto-resguardo-actual');
+    
+    // Inicializar Select2 para bienes
+    if (selectBien) {
+        $(selectBien).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            allowClear: true,
+            placeholder: 'Buscar por No. Inventario ITAVU o descripción...',
+        });
+        
+        // Evento para verificar resguardo actual
+        $(selectBien).on('change', function() {
+            const bienId = this.value;
+            
+            if (bienId) {
+                fetch(`/patrimonio/resguardos/api/verificar-bien/${bienId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.tiene_resguardo) {
+                            textoResguardo.textContent = `Actualmente asignado a: ${data.empleado} desde ${data.fecha_asignacion}`;
+                            infoResguardo.style.display = 'block';
+                        } else {
+                            infoResguardo.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        infoResguardo.style.display = 'none';
+                    });
+            } else {
+                infoResguardo.style.display = 'none';
+            }
+        });
+    }
+    
+    // Inicializar Select2 para empleados
+    if (selectEmpleado) {
+        $(selectEmpleado).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            allowClear: true,
+            placeholder: 'Buscar por número, nombre o apellido...',
+        });
+    }
+});
+</script>
+{% endblock %}

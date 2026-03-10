@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid my-5">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">
+            <i class="fas fa-users" style="color: #ab0033;"></i> Usuarios del Sistema
+        </h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Regresar al Dashboard
+            </a>
+            <a href="{% url 'crear_usuario_sistema' %}" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;">
+                <i class="fas fa-user-plus"></i> Nuevo Usuario
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="busqueda" class="form-control" placeholder="Usuario, correo o nombre..." 
+                           value="{{ request.GET.busqueda }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="rol" class="form-select">
+                        <option value="">-- Todos los roles --</option>
+                        <option value="admin" {% if request.GET.rol == 'admin' %}selected{% endif %}>Administrador</option>
+                        <option value="supervisor" {% if request.GET.rol == 'supervisor' %}selected{% endif %}>Supervisor</option>
+                        <option value="empleado" {% if request.GET.rol == 'empleado' %}selected{% endif %}>Empleado</option>
+                        <option value="viewer" {% if request.GET.rol == 'viewer' %}selected{% endif %}>Visualizador</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="estado" class="form-select">
+                        <option value="">-- Todos los estados --</option>
+                        <option value="activo" {% if request.GET.estado == 'activo' %}selected{% endif %}>Activos</option>
+                        <option value="inactivo" {% if request.GET.estado == 'inactivo' %}selected{% endif %}>Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100" style="background: #ab0033; border-color: #ab0033;">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Usuarios Activos -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-user-check"></i> Usuarios del Sistema ({{ total_usuarios }})</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                <i class="fas fa-info-circle"></i> Empleados que tienen usuario, contraseña y correo electrónico configurados.
+            </p>
+            {% if usuarios %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead style="background: #f8f9fa;">
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Correo</th>
+                                <th>Nombre Completo</th>
+                                <th>Departamento</th>
+                                <th>Puesto</th>
+                                <th>Estado</th>
+                                <th>Última Conexión</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for usuario in usuarios %}
+                            <tr>
+                                <td>
+                                    <strong>{{ usuario.usuario }}</strong>
+                                </td>
+                                <td>{{ usuario.email }}</td>
+                                <td>
+                                    <small>{{ usuario.nombre_completo }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ usuario.iddepartamento|default:"Sin asignar" }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ usuario.idpuesto|default:"Sin asignar" }}</small>
+                                </td>
+                                <td>
+                                    {% if usuario.is_active %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle"></i> Activo
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times-circle"></i> Inactivo
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if usuario.fecha_ultimo_login %}
+                                        <small>{{ usuario.fecha_ultimo_login|date:"d/m/Y H:i" }}</small>
+                                    {% else %}
+                                        <small class="text-muted">Nunca</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'editar_empleado' usuario.id_empleado %}" 
+                                       class="btn btn-sm btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle"></i> No hay usuarios que coincidan con los criterios de búsqueda.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tabla de Empleados Candidatos -->
+    <div class="card shadow-sm">
+        <div class="card-header" style="background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-user-plus"></i> Empleados Candidatos para Usuario ({{ total_candidatos }})</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                <i class="fas fa-info-circle"></i> Estos empleados aún no tienen usuario del sistema. Puedes crear uno haciendo clic en el botón de acción.
+            </p>
+            {% if candidatos %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead style="background: #f8f9fa;">
+                            <tr>
+                                <th>Nombre Completo</th>
+                                <th>Email</th>
+                                <th>Usuario (Login)</th>
+                                <th>Departamento</th>
+                                <th>Puesto</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for empleado in candidatos %}
+                            <tr>
+                                <td>
+                                    <strong>{{ empleado.nombre_completo }}</strong>
+                                </td>
+                                <td>
+                                    {% if empleado.email %}
+                                        {{ empleado.email }}
+                                    {% else %}
+                                        <span class="text-muted small">Sin email</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if empleado.usuario %}
+                                        <span class="badge bg-secondary">{{ empleado.usuario }}</span>
+                                    {% else %}
+                                        <span class="text-muted small">Sin usuario</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ empleado.iddepartamento|default:"Sin asignar" }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ empleado.idpuesto|default:"Sin asignar" }}</small>
+                                </td>
+                                <td>
+                                    <a href="{% url 'editar_empleado' empleado.id_empleado %}" 
+                                       class="btn btn-sm btn-success" title="Configurar Usuario">
+                                        <i class="fas fa-user-cog"></i> Configurar Usuario
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-success" role="alert">
+                    <i class="fas fa-check-circle"></i> Todos los empleados activos ya tienen usuario del sistema.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

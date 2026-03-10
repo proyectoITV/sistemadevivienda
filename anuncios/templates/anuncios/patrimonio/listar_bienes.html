@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bienes del Instituto - ITAVU{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Encabezado con botón de regreso -->
+    <div class="row mb-4">
+        <div class="col-md-12 d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h2><i class="fas fa-boxes"></i> Bienes del Instituto</h2>
+                <p class="text-muted mb-0">Gestión del inventario patrimonial</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Regresar al Dashboard
+                </a>
+                {% if user.usuario == 'cannoguzman' %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalImportar">
+                    <i class="fas fa-upload"></i> Importar
+                </button>
+                {% endif %}
+                <a href="{% url 'crear_bien' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Bien
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Búsqueda y Filtros -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-8">
+                            <input type="text" name="busqueda" class="form-control" 
+                                   placeholder="Buscar por número de inventario, serie, descripción..."
+                                   value="{{ busqueda }}">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="estado" class="form-select">
+                                <option value="">-- Todos los estados --</option>
+                                <option value="activo" {% if estado_filtro == 'activo' %}selected{% endif %}>Activos</option>
+                                <option value="inactivo" {% if estado_filtro == 'inactivo' %}selected{% endif %}>Inactivos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-info w-100">
+                                <i class="fas fa-search"></i> Buscar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de bienes -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Listado de Bienes (Total: {{ total_bienes }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th></th>
+                                    <th>Inventario ITAVU</th>
+                                    <th>Inventario Gobierno</th>
+                                    <th>Descripción</th>
+                                    <th>Factura</th>
+                                    <th>Marca/Modelo</th>
+                                    <th>Serie</th>
+                                    <th>Costo</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bien in bienes %}
+                                <tr>
+                                    <td>
+                                        {% if bien.fotografia %}
+                                            <img src="{{ bien.fotografia.url }}" alt="{{ bien.descripcion }}" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="img-thumbnail">
+                                        {% else %}
+                                            <span class="badge bg-light text-dark"><i class="fas fa-image"></i></span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ bien.numero_inventario_itavu }}</strong>
+                                    </td>
+                                    <td>
+                                        <small>{{ bien.numero_inventario_gobierno|default:"-" }}</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ bien.descripcion }}</small>
+                                    </td>
+                                    <td>
+                                        {% if bien.archivo_factura %}
+                                            <a href="{{ bien.archivo_factura.url }}" target="_blank" title="Descargar factura" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>
+                                            {% if bien.marca %}{{ bien.marca.nombre }}{% endif %}
+                                            {% if bien.modelo %} / {{ bien.modelo }}{% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <small>{{ bien.serie|default:"-" }}</small>
+                                    </td>
+                                    <td>
+                                        <small>${{ bien.costo_articulo|floatformat:2 }}</small>
+                                    </td>
+                                    <td>
+                                        {% if bien.activo %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'editar_bien' bien.idbien %}" class="btn btn-primary" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'cambiar_estado_bien' bien.idbien %}" class="btn btn-warning" title="Cambiar Estado">
+                                                <i class="fas fa-toggle-on"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        No hay bienes registrados
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-responsive {
+        border-radius: 0.5rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .mapeo-campo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    .mapeo-campo .campo-excel {
+        flex: 1;
+        font-weight: 500;
+    }
+    
+    .mapeo-campo .campo-sistema {
+        flex: 1;
+    }
+</style>
+
+<!-- Modal de Importación -->
+{% if user.usuario == 'cannoguzman' %}
+<div class="modal fade" id="modalImportar" tabindex="-1" aria-labelledby="modalImportarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalImportarLabel">
+                    <i class="fas fa-upload"></i> Importar Bienes desde Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formImportar" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <!-- Paso 1: Seleccionar archivo -->
+                    <div id="paso1" class="paso-importacion">
+                        <h6 class="mb-3">Paso 1: Seleccionar archivo Excel</h6>
+                        <div class="mb-3">
+                            <label for="archivoExcel" class="form-label">Archivo Excel <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" id="archivoExcel" name="archivo" accept=".xlsx,.xls" required>
+                            <small class="form-text text-muted">Formatos soportados: .xlsx, .xls</small>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="btnAnalizarArchivo">
+                            <i class="fas fa-search"></i> Analizar Archivo
+                        </button>
+                    </div>
+                    
+                    <!-- Paso 2: Mapear campos -->
+                    <div id="paso2" class="paso-importacion" style="display: none;">
+                        <h6 class="mb-3">Paso 2: Mapear Campos</h6>
+                        <p class="text-muted mb-3">A continuación, relaciona los campos del archivo Excel con los campos del sistema:</p>
+                        <div id="contenedorMapeo"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnVolverPaso1" style="display: none;" onclick="volverPaso1()">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </button>
+                <button type="button" class="btn btn-success" id="btnImportar" style="display: none;" onclick="procesarImportacion()">
+                    <i class="fas fa-check"></i> Importar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const camposSistema = [
+        'numero_inventario_itavu',
+        'numero_inventario_gobierno',
+        'descripcion',
+        'marca',
+        'modelo',
+        'serie',
+        'fecha_factura',
+        'numero_factura',
+        'costo_articulo',
+        'proveedor',
+        'clasificacion_serap',
+        'clasificacion_contraloria',
+        'observaciones'
+    ];
+    
+    const etiquetasCampos = {
+        'numero_inventario_itavu': 'Número de Inventario ITAVU',
+        'numero_inventario_gobierno': 'Número de Inventario Gobierno',
+        'descripcion': 'Descripción',
+        'marca': 'Marca',
+        'modelo': 'Modelo',
+        'serie': 'Serie',
+        'fecha_factura': 'Fecha de Factura',
+        'numero_factura': 'Número de Factura',
+        'costo_articulo': 'Costo del Artículo',
+        'proveedor': 'Proveedor',
+        'clasificacion_serap': 'Clasificación SERAP',
+        'clasificacion_contraloria': 'Clasificación Contraloría',
+        'observaciones': 'Observaciones'
+    };
+    
+    let camposExcel = [];
+    let mapeoSeleccionado = {};
+    
+    document.getElementById('btnAnalizarArchivo').addEventListener('click', function() {
+        const archivo = document.getElementById('archivoExcel').files[0];
+        if (!archivo) {
+            alert('Por favor selecciona un archivo Excel');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('archivo', archivo);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch('{% url "analizar_excel_bienes" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                camposExcel = data.campos;
+                generarInterfazMapeo();
+                document.getElementById('paso1').style.display = 'none';
+                document.getElementById('paso2').style.display = 'block';
+                document.getElementById('btnVolverPaso1').style.display = 'block';
+                document.getElementById('btnImportar').style.display = 'block';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al procesar el archivo');
+        });
+    });
+    
+    function generarInterfazMapeo() {
+        const contenedor = document.getElementById('contenedorMapeo');
+        contenedor.innerHTML = '';
+        
+        camposExcel.forEach(campoExcel => {
+            const div = document.createElement('div');
+            div.className = 'mapeo-campo';
+            div.innerHTML = `
+                <div class="campo-excel">
+                    <strong>${campoExcel}</strong>
+                    <small class="text-muted d-block">Campo Excel</small>
+                </div>
+                <div style="width: 20px; text-align: center;">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                <div class="campo-sistema">
+                    <select class="form-select mapeo-select" data-excel="${campoExcel}">
+                        <option value="">-- No mapear --</option>
+                        ${camposSistema.map(campo => 
+                            `<option value="${campo}">${etiquetasCampos[campo]}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+            `;
+            contenedor.appendChild(div);
+            
+            div.querySelector('.mapeo-select').addEventListener('change', function() {
+                mapeoSeleccionado[campoExcel] = this.value;
+            });
+        });
+    }
+    
+    function volverPaso1() {
+        document.getElementById('paso1').style.display = 'block';
+        document.getElementById('paso2').style.display = 'none';
+        document.getElementById('btnVolverPaso1').style.display = 'none';
+        document.getElementById('btnImportar').style.display = 'none';
+        mapeoSeleccionado = {};
+    }
+    
+    function procesarImportacion() {
+        const archivo = document.getElementById('archivoExcel').files[0];
+        const formData = new FormData();
+        formData.append('archivo', archivo);
+        formData.append('mapeo', JSON.stringify(mapeoSeleccionado));
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        document.getElementById('btnImportar').disabled = true;
+        document.getElementById('btnImportar').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+        
+        fetch('{% url "importar_bienes_excel" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Importación completada!\nBienes importados: ${data.importados}\nErrores: ${data.errores}`);
+                document.getElementById('btnImportar').disabled = false;
+                document.getElementById('btnImportar').innerHTML = '<i class="fas fa-check"></i> Importar';
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                document.getElementById('btnImportar').disabled = false;
+                document.getElementById('btnImportar').innerHTML = '<i class="fas fa-check"></i> Importar';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al importar los datos');
+            document.getElementById('btnImportar').disabled = false;
+            document.getElementById('btnImportar').innerHTML = '<i class="fas fa-check"></i> Importar';
+        });
+    }
+</script>
+{% endif %}
+
+{% endblock %}

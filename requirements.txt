@@ -1,0 +1,6 @@
+Django==6.0.2
+openpyxl==3.1.2
+Pillow==12.1.1
+requests==2.31.0
+psycopg2-binary==2.9.11
+django-cors-headers==4.3.1

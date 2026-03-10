@@ -1,0 +1,252 @@
+# SISTEMA DE CASCADA DIRECCIÓN → DEPARTAMENTO
+## Implementación Completada
+
+---
+
+## 🎯 Objetivo Alcanzado
+
+Implementar un sistema de filtrado en cascada donde:
+1. Usuario selecciona una **DIRECCIÓN**
+2. Sistema carga automáticamente los **DEPARTAMENTOS** de esa dirección
+3. Usuario selecciona el departamento deseado
+
+**Resultado:** Menor cantidad de errores, mejor UX, validación en cliente
+
+---
+
+## ✅ Cambios Realizados
+
+### Backend (Python/Django)
+
+#### 1. Nueva Vista AJAX - `anuncios/views.py`
+```python
+@login_required(login_url='login')
+def get_departamentos_por_direccion(request):
+    """Devuelve departamentos filtrados por dirección en JSON"""
+```
+**Características:**
+- Recibe `iddireccion` como parámetro GET
+- Filtra departamentos activos
+- Devuelve JSON con: `iddepartamento`, `departamento`
+- Manejo de errores
+
+#### 2. Nueva Ruta - `anuncios/urls.py`
+```
+GET /api/departamentos-por-direccion/?iddireccion=<id>
+```
+
+#### 3. Actualización del Formulario - `anuncios/forms.py`
+- Agregado campo `iddireccion` para pre-seleccionar dirección
+- Método `__init__` que detecta si estamos editando
+- Pre-carga la dirección automáticamente en edición
+
+### Frontend (JavaScript/HTML)
+
+#### 1. Nuevo Script - `static/anuncios/js/departamentos-cascada.js`
+**Características:**
+- Escucha cambios en select de dirección
+- Realiza petición AJAX
+- Limpia y actualiza opciones de departamento
+- Preserva valores seleccionados
+- Manejo robusto de errores
+
+#### 2. Templates Actualizados
+- ✅ `crear_empleado.html` - Nuevo layout con dirección/departamento
+- ✅ `editar_empleado.html` - Nuevo layout con pre-carga
+
+---
+
+## 📊 Flujo de Datos
+
+### Crear Empleado (Nuevo)
+```
+1. Pagina carga
+   ├─ Dirección: dropdown vacío con todas las direcciones
+   └─ Departamento: disabled
+
+2. Usuario selecciona dirección
+   ├─ onChange → JavaScript dispara AJAX
+   └─ GET /api/departamentos-por-direccion/?iddireccion=1
+
+3. Server responde con JSON
+   ├─ Lista de departamentos de esa dirección
+   └─ JavaScript actualiza el select
+
+4. Usuario selecciona departamento
+   └─ Formulario listo para enviar
+```
+
+### Editar Empleado (Existente)
+```
+1. Página carga
+   ├─ Dirección: pre-cargada con la dirección del empleado
+   ├─ Departamento: pre-cargado con el departamento del empleado
+   └─ __init__ detecta iddepartamento y extrae la dirección
+
+2. Al inicializar el select de dirección
+   ├─ JavaScript dispara onChange automáticamente
+   └─ Carga los departamentos de esa dirección
+
+3. Se preserva el departamento seleccionado
+   └─ Usuario puede modificar o dejar igual
+```
+
+---
+
+## 🔄 Ejemplo de Respuesta API
+
+### Request
+```
+GET /api/departamentos-por-direccion/?iddireccion=1
+```
+
+### Response
+```json
+{
+  "departamentos": [
+    {
+      "iddepartamento": 5,
+      "departamento": "COORDINACION DE DELEGACIONES"
+    },
+    {
+      "iddepartamento": 6,
+      "departamento": "DELEGACION ABASOLO"
+    },
+    {
+      "iddepartamento": 7,
+      "departamento": "DELEGACION ALDAMA"
+    }
+  ]
+}
+```
+
+---
+
+## 📁 Archivos Modificados/Creados
+
+```
+CREADOS:
+✅ anuncios/static/anuncios/js/departamentos-cascada.js
+
+MODIFICADOS:
+✅ anuncios/views.py                    - Agregada vista AJAX
+✅ anuncios/urls.py                     - Agregada ruta AJAX
+✅ anuncios/forms.py                    - Agregado campo + __init__
+✅ templates/anuncios/empleados/crear_empleado.html
+✅ templates/anuncios/empleados/editar_empleado.html
+```
+
+---
+
+## 🧪 Cómo Probar
+
+### En Navegador (Manual)
+1. Abrir formulario de crear empleado: `/empleados/crear/`
+2. Ver que Dirección está vacío y Departamento está disabled
+3. Seleccionar una dirección
+4. Ver que Departamento se llena con opciones
+5. Probar editar empleado: `/empleados/<id>/editar/`
+6. Ver que Dirección y Departamento vienen pre-cargados
+
+### Vía AJAX (Directo)
+Abrir en navegador:
+```
+http://localhost:8000/api/departamentos-por-direccion/?iddireccion=1
+```
+
+Debería retornar JSON con los departamentos de la dirección 1
+
+### Script Python
+```bash
+cd "c:\xampp\htdocs\Desarrollos web\sistemadevivienda"
+.\.venv\Scripts\Activate.ps1
+python manage.py runserver
+# En otra terminal:
+python probar_api_departamentos.py
+```
+
+---
+
+## 🛡️ Validaciones
+
+- ✅ Solo muestra departamentos ACTIVOS
+- ✅ Validación en servidor (no solo cliente)
+- ✅ Manejo robusto de errores AJAX
+- ✅ Protegido con @login_required
+- ✅ Funciona en crear y editar
+
+---
+
+## 🚀 Beneficios Implementados
+
+| Beneficio | Descripción |
+|-----------|------------|
+| **Reducción de Errores** | Solo muestra opciones válidas |
+| **Mejor UX** | Interfaz más intuitiva |
+| **Performance** | Carga dinámica de datos |
+| **Validación** | Menos datos inválidos en BD |
+| **Escalabilidad** | Fácil agregar más cascadas |
+| **Mantenimiento** | No necesita cambiar código |
+
+---
+
+## 🔗 URLs Importantes
+
+| Endpoint | Método | Descripción |
+|----------|--------|------------|
+| `/empleados/crear/` | GET, POST | Crear nuevo empleado |
+| `/empleados/<id>/editar/` | GET, POST | Editar empleado |
+| `/api/departamentos-por-direccion/` | GET | API - Obtener departamentos |
+
+---
+
+## 📝 Ejemplo Práctico
+
+### Datos en BD
+```
+DIRECCIÓN: DIRECCIÓN GENERAL
+├─ DEPARTAMENTO DE INFORMÁTICA
+├─ DEPARTAMENTO DE SOPORTE TÉCNICO
+└─ SECRETARÍA PARTICULAR
+
+DIRECCIÓN: DIRECCIÓN JURÍDICA
+├─ DEPARTAMENTO LEGAL
+└─ DEPARTAMENTO ADMINISTRATIVO
+```
+
+### Comportamiento
+1. Usuario abre formulario
+2. Selecciona "DIRECCIÓN GENERAL"
+3. Automáticamente aparecen:
+   - DEPARTAMENTO DE INFORMÁTICA
+   - DEPARTAMENTO DE SOPORTE TÉCNICO
+   - SECRETARÍA PARTICULAR
+4. Usuario selecciona "DEPARTAMENTO DE INFORMÁTICA"
+5. Guarda el empleado
+
+---
+
+## ✨ Próximas Mejoras Posibles
+
+- [ ] Agregar indicador visual de carga (spinner)
+- [ ] Agregar búsqueda/filtro en los selectores
+- [ ] Validar campos requeridos dinámicamente
+- [ ] Agregar más cascadas (provincia → municipio)
+- [ ] Agregar tooltips informativos
+
+---
+
+## 🎓 Tecnologías Utilizadas
+
+- **Backend:** Django 6.0.2
+- **Frontend:** JavaScript Vanilla (sin frameworks)
+- **API:** REST con JSON
+- **AJAX:** Fetch API (nativa del navegador)
+
+---
+
+**Estado:** ✅ IMPLEMENTADO, PROBADO Y FUNCIONAL
+
+**Fecha:** 2026-03-03
+
+**Licencia:** Interna - Sistema de Vivienda

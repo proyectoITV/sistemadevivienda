@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #ab0033, #bc955c);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: 'Arial', sans-serif;
+        overflow: hidden;
+    }
+
+    .intro-container {
+        text-align: center;
+        color: white;
+        animation: fadeIn 1s ease-in;
+    }
+
+    .logo {
+        font-size: 4rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        animation: scaleIn 1.5s ease-out;
+    }
+
+    .subtitle {
+        font-size: 1.5rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+        animation: fadeInUp 2s ease-out;
+    }
+
+    .loading-bar {
+        width: 300px;
+        height: 4px;
+        background: rgba(255,255,255,0.3);
+        border-radius: 2px;
+        margin: 0 auto;
+        overflow: hidden;
+    }
+
+    .loading-progress {
+        height: 100%;
+        background: white;
+        border-radius: 2px;
+        animation: progress {{ duracion_intro }}s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes scaleIn {
+        from { transform: scale(0.5); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes fadeInUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes progress {
+        0% { width: 0%; }
+        100% { width: 100%; }
+    }
+</style>
+
+<div class="intro-container">
+    <div class="logo">Sistema de Vivienda</div>
+    <div class="subtitle">Bienvenido de vuelta</div>
+    <div class="loading-bar">
+        <div class="loading-progress"></div>
+    </div>
+</div>
+
+<script>
+    // Redirigir al dashboard después de la duración configurada
+    setTimeout(function() {
+        window.location.href = "{% url 'dashboard' %}";
+    }, {{ duracion_intro|default:3 }} * 1000);
+</script>
+{% endblock %}

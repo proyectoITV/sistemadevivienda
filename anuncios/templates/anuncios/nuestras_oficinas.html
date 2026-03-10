@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="py-4 py-md-5">
+	<div class="container-fluid">
+		<div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #ab0033 0%, #7a0025 100%);">
+			<div class="card-body p-4 p-md-5 text-white">
+				<div class="d-flex align-items-center gap-3 mb-2">
+					<i class="bi bi-building fs-2"></i>
+					<h1 class="h2 mb-0">Nuestras Oficinas</h1>
+				</div>
+				<p class="mb-0" style="opacity:.92;">Ubicación, teléfono y horarios de atención de todas nuestras delegaciones en Tamaulipas. Haz clic en cualquier marcador para ver más detalles.</p>
+			</div>
+		</div>
+
+		<div class="row g-0">
+			<!-- Mapa -->
+			<div class="col-lg-9">
+				<div id="mapa" style="width: 100%; height: 600px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"></div>
+			</div>
+
+			<!-- Panel lateral con lista de delegaciones -->
+			<div class="col-lg-3 bg-light" style="max-height: 600px; overflow-y: auto;">
+				<div class="p-3">
+					<h6 class="text-uppercase" style="color: #ab0033; font-weight: bold;">Delegaciones</h6>
+					<div id="lista-delegaciones">
+						{% for delegacion in delegaciones %}
+							<div class="delegacion-item p-2 mb-2 bg-white rounded" style="border-left: 3px solid #ab0033; transition: all 0.3s;">
+								<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+									<div style="flex: 1;">
+										<h6 class="mb-1" style="color: #ab0033; font-size: 0.9rem; cursor: pointer;" onclick="irAlMarcador('delegacion-{{ delegacion.id }}')">{{ delegacion.nombre }}</h6>
+										<p class="small text-muted mb-0">
+											<i class="bi bi-telephone"></i> {{ delegacion.telefono }}
+										</p>
+									</div>
+									{% if delegacion.direccion %}
+										<a href="https://www.google.com/maps/dir/?api=1&destination={{ delegacion.latitud }},{{ delegacion.longitud }}&travelmode=driving" target="_blank" class="btn btn-sm btn-outline-danger" style="white-space: nowrap;">
+											<i class="bi bi-map"></i> Llegar
+										</a>
+									{% endif %}
+								</div>
+							</div>
+						{% endfor %}
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="text-center mt-4">
+			<a href="{% url 'index' %}" class="btn btn-outline-primary btn-lg">
+				<i class="bi bi-house"></i> Volver a Inicio
+			</a>
+		</div>
+	</div>
+</section>
+
+<!-- Modal para mostrar detalles de delegación -->
+<div class="modal fade" id="delegacionModal" tabindex="-1">
+	<div class="modal-dialog modal-dialog-centered">
+		<div class="modal-content">
+			<div class="modal-header" style="background-color: #ab0033; color: white;">
+				<h5 class="modal-title" id="modalTitulo"></h5>
+				<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+			</div>
+			<div class="modal-body">
+				<div id="modalContenido"></div>
+			</div>
+			<div class="modal-footer">
+				<a href="#" id="btnMapas" target="_blank" class="btn btn-outline-danger">
+					<i class="bi bi-map"></i> Ver en Google Maps
+				</a>
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const delegacionesData = [
+		{% for delegacion in delegaciones %}
+			{
+				id: '{{ delegacion.id }}',
+				nombre: '{{ delegacion.nombre|escapejs }}',
+				telefono: '{{ delegacion.telefono|escapejs }}',
+				correo: '{{ delegacion.correo|escapejs }}',
+				direccion: '{{ delegacion.direccion|escapejs }}',
+				horario: '{{ delegacion.horario|escapejs }}',
+				responsable: '{{ delegacion.responsable|escapejs }}',
+				municipio: '{{ delegacion.municipio|escapejs }}',
+				latitud: {{ delegacion.latitud|default:'25.2622' }},
+				longitud: {{ delegacion.longitud|default:'-97.5007' }},
+				foto: '{% if delegacion.foto %}{{ delegacion.foto.url|escapejs }}{% endif %}',
+			},
+		{% endfor %}
+	];
+
+	let mapa;
+	let marcadores = {};
+
+	function inicializarMapa() {
+		// Centro en el estado de Tamaulipas (Victoria)
+		const centroTamaulipas = [23.2345, -97.1592];
+
+		// Crear mapa con Leaflet (OpenStreetMap - Gratuito)
+		mapa = L.map('mapa').setView(centroTamaulipas, 8);
+
+		// Agregar capa de tiles de OpenStreetMap
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			attribution: '&copy; OpenStreetMap contributors',
+			maxZoom: 19,
+		}).addTo(mapa);
+
+		// Crear marcadores para cada delegación
+		delegacionesData.forEach(delegacion => {
+			if (delegacion.latitud && delegacion.longitud) {
+				const marcador = L.marker([parseFloat(delegacion.latitud), parseFloat(delegacion.longitud)], {
+					title: delegacion.nombre
+				}).addTo(mapa);
+
+				marcador.bindPopup(`<b>${delegacion.nombre}</b><br>${delegacion.telefono}`);
+				marcador.on('click', () => {
+					mostrarModalDelegacion(delegacion);
+				});
+
+				marcadores['delegacion-' + delegacion.id] = marcador;
+			}
+		});
+	}
+
+	function mostrarModalDelegacion(delegacion) {
+		document.getElementById('modalTitulo').textContent = delegacion.nombre;
+		
+		let contenidoHtml = `
+			<div class="delegacion-detalles">
+				${delegacion.foto ? `<img src="${delegacion.foto}" class="img-fluid rounded mb-3" alt="${delegacion.nombre}" style="width: 100%; height: 200px; object-fit: cover;">` : ''}
+				
+				<div class="info-item mb-3">
+					<h6 style="color: #ab0033;"><i class="bi bi-telephone"></i> Teléfono</h6>
+					<p><a href="tel:${delegacion.telefono}">${delegacion.telefono}</a></p>
+				</div>
+
+				${delegacion.correo ? `
+					<div class="info-item mb-3">
+						<h6 style="color: #ab0033;"><i class="bi bi-envelope"></i> Correo</h6>
+						<p><a href="mailto:${delegacion.correo}">${delegacion.correo}</a></p>
+					</div>
+				` : ''}
+
+				${delegacion.municipio ? `
+					<div class="info-item mb-3">
+						<h6 style="color: #ab0033;"><i class="bi bi-geo-alt"></i> Municipio</h6>
+						<p>${delegacion.municipio}</p>
+					</div>
+				` : ''}
+
+				${delegacion.direccion ? `
+					<div class="info-item mb-3">
+						<h6 style="color: #ab0033;"><i class="bi bi-map"></i> Dirección</h6>
+						<p>${delegacion.direccion}</p>
+					</div>
+				` : ''}
+
+				${delegacion.horario ? `
+					<div class="info-item mb-3">
+						<h6 style="color: #ab0033;"><i class="bi bi-clock"></i> Horario</h6>
+						<p>${delegacion.horario}</p>
+					</div>
+				` : ''}
+
+				${delegacion.responsable ? `
+					<div class="info-item mb-3">
+						<h6 style="color: #ab0033;"><i class="bi bi-person"></i> Responsable</h6>
+						<p>${delegacion.responsable}</p>
+					</div>
+				` : ''}
+			</div>
+		`;
+
+		document.getElementById('modalContenido').innerHTML = contenidoHtml;
+		
+		// Actualizar botón de Google Maps
+		document.getElementById('btnMapas').href = `https://maps.google.com/?q=${delegacion.latitud},${delegacion.longitud}`;
+		
+		// Mostrar modal
+		new bootstrap.Modal(document.getElementById('delegacionModal')).show();
+	}
+
+	function irAlMarcador(idMarcador) {
+		if (marcadores[idMarcador]) {
+			const marcador = marcadores[idMarcador];
+			mapa.flyTo(marcador.getLatLng(), 15);
+			marcador.openPopup();
+		}
+	}
+
+	// Inicializar mapa cuando carga la página - usar setTimeout para asegurar que L está disponible
+	window.addEventListener('load', function() {
+		setTimeout(inicializarMapa, 100);
+	});
+</script>
+
+<style>
+	.delegacion-item:hover {
+		background-color: #f9f9f9 !important;
+		transform: translateX(3px);
+	}
+
+	.info-item h6 {
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+	}
+
+	.info-item p {
+		margin-bottom: 0;
+		color: #555;
+	}
+
+	.info-item a {
+		color: #ab0033;
+		text-decoration: none;
+		font-weight: 500;
+	}
+
+	.info-item a:hover {
+		text-decoration: underline;
+	}
+</style>
+{% endblock %}

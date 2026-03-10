@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-2"><i class="fas fa-history" style="color: #ab0033;"></i> Historial de Resguardos</h1>
+            <p class="text-muted mb-0">Bien: {{ bien.numero_inventario_itavu }} - {{ bien.descripcion }}</p>
+        </div>
+        <a href="{% url 'listar_resguardos' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-box"></i> Información del Bien</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>No. Inventario ITAVU:</strong> {{ bien.numero_inventario_itavu }}</p>
+                    <p><strong>No. Inventario Gobierno:</strong> {{ bien.numero_inventario_gobierno|default:"N/A" }}</p>
+                    <p><strong>Descripción:</strong> {{ bien.descripcion }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Marca:</strong> {{ bien.marca.nombre|default:"N/A" }}</p>
+                    <p><strong>Modelo:</strong> {{ bien.modelo|default:"N/A" }}</p>
+                    <p><strong>Serie:</strong> {{ bien.serie|default:"N/A" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Historial de Resguardos ({{ historial.count }})</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead style="background: #f8f9fa;">
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Fecha Asignación</th>
+                        <th>Oficio</th>
+                        <th>Fecha Devolución</th>
+                        <th>Días</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resguardo in historial %}
+                        <tr>
+                            <td>{{ resguardo.empleado.nombre }} {{ resguardo.empleado.apellido_paterno }}</td>
+                            <td>{{ resguardo.fecha_asignacion|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if resguardo.numero_oficio %}
+                                    <div>{{ resguardo.numero_oficio }}</div>
+                                    {% if resguardo.archivo_oficio %}
+                                        <small>
+                                            <a href="{% url 'descargar_oficio_resguardo' resguardo.idresguardo %}" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-download"></i> PDF
+                                            </a>
+                                        </small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.fecha_devolucion %}
+                                    {{ resguardo.fecha_devolucion|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="badge bg-success">En uso</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.fecha_devolucion %}
+                                    {{ resguardo.fecha_devolucion|timesince:resguardo.fecha_asignacion }}
+                                {% else %}
+                                    {{ resguardo.fecha_asignacion|timesince }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Devuelto</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.observaciones_asignacion %}
+                                    <small><strong>Asignación:</strong> {{ resguardo.observaciones_asignacion|truncatewords:15 }}</small><br>
+                                {% endif %}
+                                {% if resguardo.observaciones_devolucion %}
+                                    <small><strong>Devolución:</strong> {{ resguardo.observaciones_devolucion|truncatewords:15 }}</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">Este bien no tiene historial de resguardos.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

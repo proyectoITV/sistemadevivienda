@@ -1,0 +1,565 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="mb-4">
+                <a href="{% url 'ver_empleado' empleado.id_empleado %}" class="btn btn-outline-secondary mb-3">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </a>
+                <h1 class="h2 mb-2">
+                    <i class="fas fa-user-edit" style="color: #ab0033;"></i> Editar Empleado
+                </h1>
+                <p class="text-muted">Actualiza la información de {{ empleado.nombre_completo }}</p>
+            </div>
+
+            <!-- Formulario -->
+            <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                <!-- Card de Identificación -->
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                        <h5 class="mb-0"><i class="fas fa-id-card"></i> Identificación</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.usuario.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.usuario.label }}
+                                </label>
+                                {{ form.usuario }}
+                                <small class="form-text text-muted">No se puede cambiar</small>
+                                {% if form.usuario.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.usuario.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.email.label }}
+                                </label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.fotografia.id_for_label }}" class="form-label fw-bold">
+                                    <i class="fas fa-camera"></i> {{ form.fotografia.label }}
+                                </label>
+                                <input type="file" class="form-control" id="id_fotografia_temp" accept="image/*">
+                                <input type="file" name="fotografia" id="id_fotografia" style="display: none;">
+                                <small class="form-text text-muted d-block mt-1">Formato: JPG, PNG (máx 5MB)</small>
+                                
+                                <!-- Foto actual -->
+                                {% if empleado.fotografia %}
+                                <div class="mt-2">
+                                    <p class="small text-muted mb-1">Foto actual:</p>
+                                    <img src="{{ empleado.fotografia.url }}" class="img-thumbnail rounded-circle" style="width: 80px; height: 80px; object-fit: cover;">
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Preview nueva foto confirmada -->
+                                <div id="photoPreviewContainer" class="mt-2" style="display: none;">
+                                    <p class="small text-success mb-1"><i class="fas fa-check-circle"></i> Nueva foto:</p>
+                                    <img id="photoPreviewThumb" src="" class="img-thumbnail rounded-circle" style="width: 80px; height: 80px; object-fit: cover;">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="btnChangePhoto">
+                                        <i class="fas fa-edit"></i> Cambiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Campo de Nombre Completo (Oculto, se genera automáticamente) -->
+                        {{ form.nombre_completo }}
+
+                        <!-- Campos de Nombre Dividido -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.apellido_paterno.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.apellido_paterno.label }}
+                                </label>
+                                {{ form.apellido_paterno }}
+                                {% if form.apellido_paterno.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.apellido_paterno.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.apellido_materno.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.apellido_materno.label }}
+                                </label>
+                                {{ form.apellido_materno }}
+                                {% if form.apellido_materno.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.apellido_materno.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.nombre.id_for_label }}" class="form-label fw-bold">
+                                {{ form.nombre.label }}
+                            </label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="invalid-feedback d-block">{{ form.nombre.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Vista previa del nombre completo -->
+                        <div class="alert alert-info" role="alert">
+                            <small><strong>Nombre Completo (generado automáticamente):</strong></small>
+                            <div id="nombre-completo-preview" class="mt-2" style="font-size: 1.1em; font-weight: 600;">
+                                (se generará automáticamente)
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.password.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.password.label }}
+                                </label>
+                                {{ form.password }}
+                                <small class="form-text text-muted">Déjalo en blanco para no cambiar la contraseña</small>
+                            </div>
+                        </div>
+
+                        <!-- Botón para enviar credenciales -->
+                        {% if empleado.usuario and empleado.email %}
+                        <div class="alert alert-success d-flex align-items-center justify-content-between" role="alert">
+                            <div>
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Este empleado tiene credenciales de acceso configuradas</strong>
+                                <p class="mb-0 mt-1 small text-muted">
+                                    Usuario: <strong>{{ empleado.usuario }}</strong> | Email: <strong>{{ empleado.email }}</strong>
+                                </p>
+                            </div>
+                            <button type="button" 
+                                    class="btn btn-sm btn-primary" 
+                                    style="background: #ab0033; border-color: #ab0033;"
+                                    onclick="enviarCredenciales({{ empleado.id_empleado }})">
+                                <i class="fas fa-envelope"></i> Enviar credenciales
+                            </button>
+                        </div>
+                        {% elif empleado.usuario or empleado.email %}
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Credenciales incompletas:</strong> Este empleado necesita tener usuario Y email para poder recibir credenciales. Completa ambos campos.
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Este empleado aún no tiene credenciales de acceso. Para configurarlas, completa los campos Usuario, Contraseña y Email, luego guarda los cambios. Se enviará automáticamente un correo de bienvenida.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Card de Información Personal -->
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                        <h5 class="mb-0"><i class="fas fa-user"></i> Información Personal</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.curp.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.curp.label }}
+                                </label>
+                                {{ form.curp }}
+                                {% if form.curp.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.curp.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.rfc.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.rfc.label }}
+                                </label>
+                                {{ form.rfc }}
+                                {% if form.rfc.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.rfc.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.fecha_nacimiento.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.fecha_nacimiento.label }}
+                                </label>
+                                {{ form.fecha_nacimiento }}
+                                {% if form.fecha_nacimiento.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.fecha_nacimiento.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.sexo.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.sexo.label }}
+                                </label>
+                                {{ form.sexo }}
+                                {% if form.sexo.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.sexo.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.telefono.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.telefono.label }}
+                                </label>
+                                {{ form.telefono }}
+                                {% if form.telefono.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.telefono.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.domicilio.id_for_label }}" class="form-label fw-bold">
+                                {{ form.domicilio.label }}
+                            </label>
+                            {{ form.domicilio }}
+                            {% if form.domicilio.errors %}
+                                <div class="invalid-feedback d-block">{{ form.domicilio.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card de Información Laboral -->
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                        <h5 class="mb-0"><i class="fas fa-briefcase"></i> Información Laboral</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.iddireccion.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.iddireccion.label }}
+                                </label>
+                                {{ form.iddireccion }}
+                                <small class="form-text text-muted d-block mt-1">{{ form.iddireccion.help_text }}</small>
+                                {% if form.iddireccion.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.iddireccion.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.iddepartamento.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.iddepartamento.label }}
+                                </label>
+                                {{ form.iddepartamento }}
+                                {% if form.iddepartamento.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.iddepartamento.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.idpuesto.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.idpuesto.label }}
+                                </label>
+                                {{ form.idpuesto }}
+                                {% if form.idpuesto.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.idpuesto.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.numero_empleado.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.numero_empleado.label }}
+                                </label>
+                                {{ form.numero_empleado }}
+                                {% if form.numero_empleado.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.numero_empleado.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.fecha_ingreso.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.fecha_ingreso.label }}
+                                </label>
+                                {{ form.fecha_ingreso }}
+                                {% if form.fecha_ingreso.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.fecha_ingreso.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.idtipodecontratacion.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.idtipodecontratacion.label }}
+                                </label>
+                                {{ form.idtipodecontratacion }}
+                                {% if form.idtipodecontratacion.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.idtipodecontratacion.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.salario.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.salario.label }}
+                                </label>
+                                {{ form.salario }}
+                                {% if form.salario.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.salario.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">
+                                    {{ form.activo.label }}
+                                </label>
+                                <div class="form-check">
+                                    {{ form.activo }}
+                                    <label class="form-check-label" for="{{ form.activo.id_for_label }}">
+                                        Empleado activo
+                                    </label>
+                                </div>
+                                {% if form.activo.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.activo.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="d-flex gap-2 mb-4">
+                    <button type="submit" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                    <a href="{% url 'ver_empleado' empleado.id_empleado %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        padding: 0.75rem;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #ab0033;
+        box-shadow: 0 0 0 0.2rem rgba(171, 0, 51, 0.25);
+    }
+
+    .form-label {
+        font-size: 0.95rem;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .btn-primary {
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(171, 0, 51, 0.3);
+    }
+</style>
+
+<!-- Scripts para funcionalidad de nombre dividido y cascada de departamentos -->
+{% load static %}
+<script src="{% static 'anuncios/js/nombre-completo.js' %}"></script>
+<script src="{% static 'anuncios/js/departamentos-cascada.js' %}"></script>
+
+<script>
+function enviarCredenciales(id_empleado) {
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const btn = event.target.closest('button');
+    const btnText = btn.innerHTML;
+    
+    // Mostrar estado de carga
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Enviando...';
+    
+    fetch(`/empleados/${id_empleado}/reenviar-credenciales/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrftoken,
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = btnText;
+        
+        if (data.success) {
+            // Mostrar alerta de éxito
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                <strong>¡Éxito!</strong> ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            btn.closest('.alert').parentNode.insertBefore(alertDiv, btn.closest('.alert'));
+            
+            // Auto-cerrar después de 5 segundos
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        } else {
+            // Mostrar alerta de error
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Error:</strong> ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            btn.closest('.alert').parentNode.insertBefore(alertDiv, btn.closest('.alert'));
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = btnText;
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong>Error:</strong> Hubo un problema al enviar el correo
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        btn.closest('.alert').parentNode.insertBefore(alertDiv, btn.closest('.alert'));
+        console.error('Error:', error);
+    });
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fotografiaInputTemp = document.getElementById('id_fotografia_temp');
+    const fotografiaInputReal = document.getElementById('id_fotografia');
+    const photoPreviewContainer = document.getElementById('photoPreviewContainer');
+    const photoPreviewThumb = document.getElementById('photoPreviewThumb');
+    const btnChangePhoto = document.getElementById('btnChangePhoto');
+    let currentFile = null;
+
+    // Modal para confirmar imagen
+    const confirmModalHTML = `
+        <div class="modal fade" id="photoConfirmModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-image"></i> Confirmar Fotografía</h5>
+                    </div>
+                    <div class="modal-body text-center">
+                        <p class="text-muted mb-3">Verifica que esta sea la fotografía correcta del empleado</p>
+                        <img id="photoConfirmImage" src="" class="img-fluid rounded" style="max-height: 60vh;">
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-secondary" id="btnRejectPhoto">
+                            <i class="fas fa-times"></i> Olvidar imagen
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btnAcceptPhoto">
+                            <i class="fas fa-check"></i> Aceptar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', confirmModalHTML);
+
+    const confirmModal = new bootstrap.Modal(document.getElementById('photoConfirmModal'));
+    const photoConfirmImage = document.getElementById('photoConfirmImage');
+    const btnAcceptPhoto = document.getElementById('btnAcceptPhoto');
+    const btnRejectPhoto = document.getElementById('btnRejectPhoto');
+
+    // Cuando se selecciona una imagen
+    fotografiaInputTemp.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        
+        if (!file) return;
+
+        // Validar tipo
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor selecciona un archivo de imagen válido (JPG, PNG)');
+            this.value = '';
+            return;
+        }
+
+        // Validar tamaño (5MB)
+        if (file.size > 5242880) {
+            alert('El archivo es demasiado grande. Máximo 5MB.');
+            this.value = '';
+            return;
+        }
+
+        // Guardar archivo temporalmente
+        currentFile = file;
+
+        // Mostrar en modal para confirmar
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            photoConfirmImage.src = event.target.result;
+            confirmModal.show();
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Aceptar imagen
+    btnAcceptPhoto.addEventListener('click', function() {
+        if (!currentFile) return;
+
+        // Crear DataTransfer para asignar al input real
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(currentFile);
+        fotografiaInputReal.files = dataTransfer.files;
+        
+        // También asignar al input temporal para mostrar el nombre
+        fotografiaInputTemp.files = dataTransfer.files;
+
+        // Mostrar preview
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            photoPreviewThumb.src = event.target.result;
+            photoPreviewContainer.style.display = 'block';
+        };
+        reader.readAsDataURL(currentFile);
+
+        // Cerrar modal
+        confirmModal.hide();
+    });
+
+    // Rechazar imagen
+    btnRejectPhoto.addEventListener('click', function() {
+        currentFile = null;
+        fotografiaInputTemp.value = '';
+        confirmModal.hide();
+    });
+
+    // Botón para cambiar foto
+    if (btnChangePhoto) {
+        btnChangePhoto.addEventListener('click', function() {
+            fotografiaInputTemp.click();
+        });
+    }
+});
+</script>
+
+{% endblock %}

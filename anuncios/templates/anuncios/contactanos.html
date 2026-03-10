@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="py-4 py-md-5">
+	<div class="container">
+		<div class="row justify-content-center">
+			<div class="col-lg-9 col-xl-8">
+				<div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #ab0033 0%, #7a0025 100%);">
+					<div class="card-body p-4 p-md-5 text-white">
+						<div class="d-flex align-items-center gap-3 mb-2">
+							<i class="bi bi-chat-dots-fill fs-2"></i>
+							<h1 class="h3 mb-0">Estamos para ayudarte</h1>
+						</div>
+						<p class="mb-0" style="opacity:.92;">Comparte tus dudas, comentarios o solicitudes. Nuestro equipo dará seguimiento lo antes posible.</p>
+					</div>
+				</div>
+
+				<div class="card shadow-sm border-0">
+					<div class="card-body p-4 p-md-5">
+						<h2 class="mb-2">Contáctanos</h2>
+						<p class="text-muted mb-4">Envíanos tus dudas, comentarios o solicitudes. Te responderemos a la brevedad.</p>
+
+						{% if uuid_folio %}
+							<div class="modal fade show d-block" id="folio_modal" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+								<div class="modal-dialog modal-dialog-centered">
+									<div class="modal-content">
+										<div class="modal-header bg-success text-white">
+											<h5 class="modal-title"><i class="bi bi-check-circle"></i> ¡Mensaje Enviado!</h5>
+										</div>
+										<div class="modal-body">
+											<p class="mb-3">Tu mensaje ha sido recibido correctamente. Guarda tu folio de seguimiento para consultar el estado:</p>
+											<div class="input-group mb-3">
+												<input type="text" class="form-control font-monospace" id="folio_input" value="{{ uuid_folio }}" readonly>
+												<button class="btn btn-outline-secondary" type="button" id="copy_btn" onclick="copiarFolio()">
+													<i class="bi bi-files"></i> Copiar
+												</button>
+											</div>
+											<p class="small text-muted mb-0">Puedes usar este folio en la sección <strong>"Buscar Seguimiento"</strong> para ver el estado de tu mensaje.</p>
+										</div>
+										<div class="modal-footer">
+											<a href="{% url 'index' %}" class="btn btn-outline-secondary">
+												<i class="bi bi-house"></i> Volver a Inicio
+											</a>
+											<a href="{% url 'buscar_seguimiento' %}" class="btn btn-primary">
+												<i class="bi bi-search"></i> Buscar mi mensaje
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						{% else %}
+							{% if messages %}
+								{% for message in messages %}
+									<div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}" role="alert">{{ message }}</div>
+								{% endfor %}
+							{% endif %}
+						{% endif %}
+
+						<form method="post" novalidate>
+							{% csrf_token %}
+							{{ form.website }}
+
+							{% if form.non_field_errors %}
+								<div class="alert alert-danger" role="alert">{{ form.non_field_errors|striptags }}</div>
+							{% endif %}
+
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label class="form-label" for="id_nombre_completo">{{ form.nombre_completo.label }}</label>
+									{{ form.nombre_completo }}
+									{% if form.nombre_completo.errors %}<div class="text-danger small mt-1">{{ form.nombre_completo.errors|striptags }}</div>{% endif %}
+								</div>
+								<div class="col-md-6">
+									<label class="form-label" for="id_email">{{ form.email.label }}</label>
+									{{ form.email }}
+									{% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors|striptags }}</div>{% endif %}
+								</div>
+								<div class="col-md-6">
+									<label class="form-label" for="id_compania_organizacion">{{ form.compania_organizacion.label }}</label>
+									{{ form.compania_organizacion }}
+									{% if form.compania_organizacion.errors %}<div class="text-danger small mt-1">{{ form.compania_organizacion.errors|striptags }}</div>{% endif %}
+								</div>
+								<div class="col-md-6">
+									<label class="form-label" for="id_telefono">{{ form.telefono.label }}</label>
+									{{ form.telefono }}
+									{% if form.telefono.errors %}<div class="text-danger small mt-1">{{ form.telefono.errors|striptags }}</div>{% endif %}
+								</div>
+								<div class="col-12">
+									<label class="form-label" for="id_asunto">{{ form.asunto.label }}</label>
+									{{ form.asunto }}
+									{% if form.asunto.errors %}<div class="text-danger small mt-1">{{ form.asunto.errors|striptags }}</div>{% endif %}
+								</div>
+								<div class="col-12">
+									<label class="form-label" for="id_mensaje">{{ form.mensaje.label }}</label>
+									{{ form.mensaje }}
+									{% if form.mensaje.errors %}<div class="text-danger small mt-1">{{ form.mensaje.errors|striptags }}</div>{% endif %}
+								</div>
+
+								{% if recaptcha_site_key %}
+									<div class="col-12">
+										<div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+									</div>
+								{% endif %}
+							</div>
+
+							<div class="mt-4 d-grid d-md-flex justify-content-md-end">
+								<button type="submit" class="btn btn-danger px-4">Enviar mensaje</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+{% if recaptcha_site_key %}
+	<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{% endif %}
+<script>
+	function copiarFolio() {
+		const input = document.getElementById('folio_input');
+		input.select();
+		document.execCommand('copy');
+		
+		const btn = document.getElementById('copy_btn');
+		const original_text = btn.innerHTML;
+		btn.innerHTML = '<i class="bi bi-check"></i> ¡Copiado!';
+		setTimeout(() => {
+			btn.innerHTML = original_text;
+		}, 2000);
+	}
+</script>
+{% endblock %}

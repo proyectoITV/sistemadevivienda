@@ -1,0 +1,149 @@
+{% autoescape off %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Confirmación de recepción</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			line-height: 1.6;
+			color: #333;
+			background-color: #f4f4f4;
+			margin: 0;
+			padding: 0;
+		}
+		.container {
+			max-width: 600px;
+			margin: 20px auto;
+			background-color: #fff;
+			border-radius: 8px;
+			overflow: hidden;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+		}
+		.header {
+			background: linear-gradient(135deg, #ab0033 0%, #7a0025 100%);
+			color: white;
+			padding: 30px 20px;
+			text-align: center;
+		}
+		.header h1 {
+			margin: 0;
+			font-size: 24px;
+		}
+		.content {
+			padding: 30px 20px;
+		}
+		.content h2 {
+			color: #ab0033;
+			font-size: 18px;
+			margin-top: 0;
+		}
+		.folio-box {
+			background-color: #f9f9f9;
+			border-left: 4px solid #ab0033;
+			padding: 15px;
+			margin: 20px 0;
+			border-radius: 4px;
+		}
+		.folio-label {
+			font-size: 12px;
+			color: #666;
+			text-transform: uppercase;
+			font-weight: bold;
+			margin-bottom: 5px;
+		}
+		.folio-value {
+			font-size: 18px;
+			font-family: 'Courier New', monospace;
+			color: #ab0033;
+			word-break: break-all;
+			font-weight: bold;
+		}
+		.info-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 15px 0;
+		}
+		.info-table tr {
+			border-bottom: 1px solid #eee;
+		}
+		.info-table td {
+			padding: 10px 0;
+		}
+		.info-table .label {
+			font-weight: bold;
+			color: #666;
+			width: 100px;
+		}
+		.info-table .value {
+			color: #333;
+		}
+		.footer {
+			background-color: #f9f9f9;
+			padding: 20px;
+			text-align: center;
+			font-size: 12px;
+			color: #666;
+			border-top: 1px solid #eee;
+		}
+		.button {
+			display: inline-block;
+			background-color: #ab0033;
+			color: white;
+			padding: 10px 20px;
+			text-decoration: none;
+			border-radius: 4px;
+			margin-top: 15px;
+		}
+		.button:hover {
+			background-color: #7a0025;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>{{ razon_social }}</h1>
+			<p style="margin: 10px 0 0 0; opacity: 0.9;">Confirmación de recepción de tu mensaje</p>
+		</div>
+		
+		<div class="content">
+			<h2>Hola {{ nombre }},</h2>
+			
+			<p>Tu mensaje ha sido recibido correctamente. Nuestro equipo lo revisará y pronto nos pondremos en contacto contigo.</p>
+			
+			<div class="folio-box">
+				<div class="folio-label">Tu folio de seguimiento</div>
+				<div class="folio-value">{{ folio }}</div>
+			</div>
+			
+			<table class="info-table">
+				<tr>
+					<td class="label">Asunto:</td>
+					<td class="value">{{ asunto }}</td>
+				</tr>
+				<tr>
+					<td class="label">Fecha:</td>
+					<td class="value">{% now "d/m/Y H:i" %}</td>
+				</tr>
+			</table>
+			
+			<p style="background-color: #e8f4f8; border-left: 4px solid #0099cc; padding: 15px; border-radius: 4px; margin: 20px 0;">
+				<strong>💡 Tip:</strong> Guarda tu folio de seguimiento para que puedas consultar el estado de tu mensaje en cualquier momento.
+			</p>
+			
+			<p style="text-align: center; margin: 30px 0;">
+				<a href="#" class="button">Consultar estado de mi mensaje</a>
+			</p>
+		</div>
+		
+		<div class="footer">
+			<p>© 2026 {{ razon_social }}. Todos los derechos reservados.</p>
+			<p>Este es un correo automático, por favor no respondas a este mensaje.</p>
+		</div>
+	</div>
+</body>
+</html>
+{% endautoescape %}

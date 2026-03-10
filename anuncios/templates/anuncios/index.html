@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="programacion-section pb-4 pb-md-5">
+	<div class="container">
+		<div class="d-flex flex-wrap align-items-end gap-2 mb-4">
+			<h2 class="programacion-title mb-0">I T A V U | </h2>
+			<p class="programacion-subtitle mb-1">Bienvenido al portal de información oficial</p>
+		</div>
+
+		<div class="row g-4">
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="#" class="tile tile-soft d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-bank tile-icon"></i>
+					<span class="tile-text">Conócenos</span>
+				</a>
+			</div>
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="#" class="tile tile-soft-2 d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-nintendo-switch tile-icon"></i>
+					<span class="tile-text">Directorio</span>
+				</a>
+			</div>
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="{% url 'nuestras_oficinas' %}" class="tile tile-soft-2 d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-building tile-icon"></i>
+					<span class="tile-text">Nuestras oficinas</span>
+				</a>
+			</div>
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="#" class="tile tile-soft-2 d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-gear-fill tile-icon"></i>
+					<span class="tile-text">Marco Normativo</span>
+				</a>
+			</div>
+
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="#" class="tile tile-highlight d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-stars tile-icon text-white"></i>
+					<span class="tile-text text-white">Sala de Prensa</span>
+				</a>
+			</div>
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="#" class="tile tile-soft-2 d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-hand-index-thumb-fill tile-icon"></i>
+					<span class="tile-text">Tramites y Servicios</span>
+				</a>
+			</div>
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="#" class="tile tile-soft-2 d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-file-text-fill tile-icon"></i>
+					<span class="tile-text">Comité de Ética</span>
+				</a>
+			</div>
+			<div class="col-12 col-sm-6 col-lg-3">
+				<a href="{% url 'contactanos' %}" class="tile tile-soft-2 d-flex flex-column justify-content-center align-items-center text-center text-decoration-none">
+					<i class="bi bi-card-checklist tile-icon"></i>
+					<span class="tile-text">Contáctanos</span>
+				</a>
+			</div>
+		</div>
+	</div>
+</section>
+
+<style>
+	.programacion-title {
+		color: #0f2235;
+		font-size: clamp(1.45rem, 2vw, 2rem);
+		font-weight: 700;
+	}
+
+	.programacion-subtitle {
+		color: #0f2235;
+		font-size: 1.05rem;
+		opacity: 0.95;
+	}
+
+	.tile {
+		min-height: 138px;
+		border-radius: 6px;
+		padding: 1.2rem 1rem;
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.tile:hover {
+		transform: translateY(-3px);
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+	}
+
+	.tile-soft {
+		background: #ead7c3;
+	}
+
+	.tile-soft-2 {
+		background: #ece3c3;
+	}
+
+	.tile-highlight {
+		background: #f45f64;
+	}
+
+	.tile-icon {
+		color: #ab0033;
+		font-size: 2rem;
+		line-height: 1;
+		margin-bottom: 0.6rem;
+	}
+
+	.tile-text {
+		color: #ab0033;
+		font-size: 1.05rem;
+		font-weight: 600;
+		line-height: 1.2;
+	}
+</style>
+{% endblock %}

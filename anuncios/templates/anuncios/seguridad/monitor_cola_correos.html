@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Monitor de Cola de Correos - ITAVU{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-12 d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h2><i class="fas fa-envelope"></i> Monitor de Cola de Correos</h2>
+                <p class="text-muted mb-0">Gestión de correos electrónicos con límite diario de 2000 envíos</p>
+            </div>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Regresar al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Total de Correos</h6>
+                    <h3 class="text-primary">{{ total_correos }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Pendientes</h6>
+                    <h3 class="text-warning">{{ correos_pendientes }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Enviados Hoy</h6>
+                    <h3 class="text-success">{{ correos_hoy }} / {{ limite_diario }}</h3>
+                    <div class="progress mt-2">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ porcentaje_hoy }}%"
+                             aria-valuenow="{{ correos_hoy }}" aria-valuemin="0" aria-valuemax="{{ limite_diario }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Errores</h6>
+                    <h3 class="text-danger">{{ correos_error }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <button type="button" class="btn btn-primary" onclick="procesarColaAhora()">
+                <i class="fas fa-play"></i> Procesar Cola Ahora
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla de últimos correos -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Últimos Correos en la Cola</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Email Destino</th>
+                                    <th>Tipo</th>
+                                    <th>Asunto</th>
+                                    <th>Estado</th>
+                                    <th>Intentos</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Fecha Envío</th>
+                                    <th>Detalle</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for correo in ultimos_correos %}
+                                <tr>
+                                    <td>
+                                        <small>{{ correo.email_destino }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ correo.get_tipo_correo_display }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ correo.asunto|truncatewords:5 }}</small>
+                                    </td>
+                                    <td>
+                                        {% if correo.estado == 'pendiente' %}
+                                            <span class="badge bg-warning">Pendiente</span>
+                                        {% elif correo.estado == 'enviado' %}
+                                            <span class="badge bg-success">Enviado</span>
+                                        {% elif correo.estado == 'error' %}
+                                            <span class="badge bg-danger">Error</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ correo.numero_intentos }}/3</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ correo.fecha_creacion|date:"d/m/Y H:i" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if correo.fecha_envio %}
+                                            <small>{{ correo.fecha_envio|date:"d/m/Y H:i" }}</small>
+                                        {% else %}
+                                            <small class="text-muted">-</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if correo.estado == 'error' and correo.mensaje_error %}
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    data-bs-toggle="tooltip" title="{{ correo.mensaje_error }}">
+                                                <i class="fas fa-exclamation-circle"></i>
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        No hay correos en la cola
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Procesamiento -->
+<div class="modal fade" id="modalProcesamiento" tabindex="-1" backdrop="static" keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Procesando Cola de Correos</h5>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Procesando...</span>
+                    </div>
+                    <p class="mt-3">Por favor espera mientras se procesan los correos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function procesarColaAhora() {
+    const modal = new bootstrap.Modal(document.getElementById('modalProcesamiento'));
+    modal.show();
+
+    fetch('{% url "procesar_cola_ahora" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        modal.hide();
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Procesamiento completado!',
+                html: `<p>Correos enviados: <strong>${data.enviados}</strong></p>
+                       <p>Correos con error: <strong>${data.errores}</strong></p>
+                       <p>Correos pendientes: <strong>${data.pendientes}</strong></p>`,
+                confirmButtonText: 'OK',
+                didClose: () => {
+                    location.reload();
+                }
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.message,
+                confirmButtonText: 'OK'
+            });
+        }
+    })
+    .catch(error => {
+        modal.hide();
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al procesar la cola',
+            confirmButtonText: 'OK'
+        });
+    });
+}
+
+// Inicializar tooltips de Bootstrap
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+
+<!-- Estilos personalizados -->
+<style>
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.progress {
+    height: 1.5rem;
+}
+
+.table-responsive {
+    border-radius: 0.5rem;
+}
+</style>
+{% endblock %}

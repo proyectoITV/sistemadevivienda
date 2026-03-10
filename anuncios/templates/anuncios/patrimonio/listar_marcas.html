@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-2"><i class="fas fa-tag" style="color: #ab0033;"></i> Marcas</h1>
+            <p class="text-muted">Catálogo de marcas para patrimonio</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Regresar al Dashboard
+            </a>
+            <a href="{% url 'crear_marca' %}" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;">
+                <i class="fas fa-plus"></i> Nueva Marca
+            </a>
+            {% if user.usuario == 'cannoguzman' %}
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalImportarMarcas">
+                <i class="fas fa-upload"></i> Importar
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <form method="GET" class="d-flex gap-2">
+                <input type="text" name="search" class="form-control" placeholder="Buscar marca..." value="{{ search }}">
+                <button type="submit" class="btn btn-outline-primary"><i class="fas fa-search"></i> Buscar</button>
+                {% if search %}
+                    <a href="{% url 'listar_marcas' %}" class="btn btn-outline-secondary"><i class="fas fa-times"></i> Limpiar</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                    <tr>
+                        <th>Marca</th>
+                        <th>Descripción</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for marca in marcas %}
+                        <tr>
+                            <td><strong>{{ marca.nombre }}</strong></td>
+                            <td>{{ marca.descripcion|default:'Sin descripción' }}</td>
+                            <td class="text-center">
+                                {% if marca.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'editar_marca' marca.idmarca %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="POST" action="{% url 'cambiar_estado_marca' marca.idmarca %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm {% if marca.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}" title="Cambiar estado">
+                                        <i class="fas {% if marca.activo %}fa-ban{% else %}fa-check{% endif %}"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">No hay marcas registradas.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .mapeo-campo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    .mapeo-campo .campo-excel {
+        flex: 1;
+        font-weight: 500;
+    }
+    
+    .mapeo-campo .campo-sistema {
+        flex: 1;
+    }
+</style>
+
+<!-- Modal de Importación de Marcas -->
+{% if user.usuario == 'cannoguzman' %}
+<div class="modal fade" id="modalImportarMarcas" tabindex="-1" aria-labelledby="modalImportarMarcasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalImportarMarcasLabel">
+                    <i class="fas fa-upload"></i> Importar Marcas desde Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formImportarMarcas" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div id="paso1Marcas" class="paso-importacion">
+                        <h6 class="mb-3">Paso 1: Seleccionar archivo Excel</h6>
+                        <div class="mb-3">
+                            <label for="archivoExcelMarcas" class="form-label">Archivo Excel <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" id="archivoExcelMarcas" name="archivo" accept=".xlsx,.xls" required>
+                            <small class="form-text text-muted">Formatos soportados: .xlsx, .xls</small>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="btnAnalizarArchivoMarcas">
+                            <i class="fas fa-search"></i> Analizar Archivo
+                        </button>
+                    </div>
+                    <div id="paso2Marcas" class="paso-importacion" style="display: none;">
+                        <h6 class="mb-3">Paso 2: Mapear Campos</h6>
+                        <p class="text-muted mb-3">Relaciona los campos del archivo Excel con los campos del sistema:</p>
+                        <div id="contenedorMapeoMarcas"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnVolverPaso1Marcas" style="display: none;" onclick="volverPaso1Marcas()">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </button>
+                <button type="button" class="btn btn-success" id="btnImportarMarcas" style="display: none;" onclick="procesarImportacionMarcas()">
+                    <i class="fas fa-check"></i> Importar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const camposSistemaMarcas = [
+        'idmarca',
+        'nombre',
+        'descripcion',
+        'activo',
+        'idestatus'
+    ];
+    const etiquetasCamposMarcas = {
+        'idmarca': 'ID Marca',
+        'nombre': 'Nombre',
+        'descripcion': 'Descripción',
+        'activo': 'Activo (1/0)',
+        'idestatus': 'ID Estatus (0=Vigente, 1=Eliminado)'
+    };
+    let camposExcelMarcas = [];
+    let mapeoSeleccionadoMarcas = {};
+
+    document.getElementById('btnAnalizarArchivoMarcas').addEventListener('click', function() {
+        const archivo = document.getElementById('archivoExcelMarcas').files[0];
+        if (!archivo) {
+            alert('Por favor selecciona un archivo Excel');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('archivo', archivo);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        fetch('{% url "analizar_excel_marcas" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                camposExcelMarcas = data.campos;
+                generarInterfazMapeoMarcas();
+                document.getElementById('paso1Marcas').style.display = 'none';
+                document.getElementById('paso2Marcas').style.display = 'block';
+                document.getElementById('btnVolverPaso1Marcas').style.display = 'block';
+                document.getElementById('btnImportarMarcas').style.display = 'block';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al procesar el archivo');
+        });
+    });
+
+    function generarInterfazMapeoMarcas() {
+        const contenedor = document.getElementById('contenedorMapeoMarcas');
+        contenedor.innerHTML = '';
+        camposExcelMarcas.forEach(campoExcel => {
+            const div = document.createElement('div');
+            div.className = 'mapeo-campo';
+            div.innerHTML = `
+                <div class="campo-excel">
+                    <strong>${campoExcel}</strong>
+                    <small class="text-muted d-block">Campo Excel</small>
+                </div>
+                <div style="width: 20px; text-align: center;">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                <div class="campo-sistema">
+                    <select class="form-select mapeo-select" data-excel="${campoExcel}">
+                        <option value="">-- No mapear --</option>
+                        ${camposSistemaMarcas.map(campo => 
+                            `<option value="${campo}">${etiquetasCamposMarcas[campo]}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+            `;
+            contenedor.appendChild(div);
+            div.querySelector('.mapeo-select').addEventListener('change', function() {
+                mapeoSeleccionadoMarcas[campoExcel] = this.value;
+            });
+        });
+    }
+
+    function volverPaso1Marcas() {
+        document.getElementById('paso1Marcas').style.display = 'block';
+        document.getElementById('paso2Marcas').style.display = 'none';
+        document.getElementById('btnVolverPaso1Marcas').style.display = 'none';
+        document.getElementById('btnImportarMarcas').style.display = 'none';
+        mapeoSeleccionadoMarcas = {};
+    }
+
+    function procesarImportacionMarcas() {
+        const archivo = document.getElementById('archivoExcelMarcas').files[0];
+        const formData = new FormData();
+        formData.append('archivo', archivo);
+        formData.append('mapeo', JSON.stringify(mapeoSeleccionadoMarcas));
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        document.getElementById('btnImportarMarcas').disabled = true;
+        document.getElementById('btnImportarMarcas').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+
+        fetch('{% url "importar_marcas_excel" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Importación completada!\nMarcas importadas: ${data.importados}\nErrores: ${data.errores}`);
+                document.getElementById('btnImportarMarcas').disabled = false;
+                document.getElementById('btnImportarMarcas').innerHTML = '<i class="fas fa-check"></i> Importar';
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+                document.getElementById('btnImportarMarcas').disabled = false;
+                document.getElementById('btnImportarMarcas').innerHTML = '<i class="fas fa-check"></i> Importar';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al importar los datos');
+            document.getElementById('btnImportarMarcas').disabled = false;
+            document.getElementById('btnImportarMarcas').innerHTML = '<i class="fas fa-check"></i> Importar';
+        });
+    }
+</script>
+{% endif %}
+
+{% endblock %}

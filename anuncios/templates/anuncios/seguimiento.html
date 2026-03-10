@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="py-4 py-md-5">
+	<div class="container">
+		<div class="row justify-content-center">
+			<div class="col-lg-9 col-xl-8">
+				<div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #ab0033 0%, #7a0025 100%);">
+					<div class="card-body p-4 p-md-5 text-white">
+						<div class="d-flex align-items-center gap-3 mb-2">
+							<i class="bi bi-search fs-2"></i>
+							<h1 class="h3 mb-0">Buscar Seguimiento</h1>
+						</div>
+						<p class="mb-0" style="opacity:.92;">Ingresa tu folio para ver el estado de tu mensaje.</p>
+					</div>
+				</div>
+
+				<div class="card shadow-sm border-0 mb-4">
+					<div class="card-body p-4 p-md-5">
+						{% if messages %}
+							{% for message in messages %}
+								<div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}" role="alert">{{ message }}</div>
+							{% endfor %}
+						{% endif %}
+
+						<form method="get" class="mb-4">
+							<div class="input-group input-group-lg">
+								<input type="text" class="form-control" name="folio" placeholder="Ej: 550e8400-e29b-41d4-a716-446655440000" value="{{ busqueda }}">
+								<button class="btn btn-danger" type="submit"><i class="bi bi-search"></i> Buscar</button>
+							</div>
+						</form>
+
+						{% if contacto %}
+							<div class="alert alert-info mb-4">
+								<h6 class="mb-3"><i class="bi bi-info-circle"></i> Detalles de tu mensaje:</h6>
+								<div class="row g-3">
+									<div class="col-md-6">
+										<strong>Folio:</strong><br>
+										<code style="word-break: break-all;">{{ contacto.uuid_folio }}</code>
+									</div>
+									<div class="col-md-6">
+										<strong>Estado:</strong><br>
+										{% if contacto.leido %}
+											<span class="badge bg-success"><i class="bi bi-check-circle"></i> Leído</span>
+										{% else %}
+											<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Pendiente</span>
+										{% endif %}
+									</div>
+									<div class="col-md-6">
+										<strong>Fecha de envío:</strong><br>
+										{{ contacto.fecha_hora_insercion|date:"d/m/Y H:i" }}
+									</div>
+									<div class="col-md-6">
+										<strong>Asunto:</strong><br>
+										{{ contacto.asunto }}
+									</div>
+									<div class="col-12">
+										<strong>Nombre:</strong><br>
+										{{ contacto.nombre_completo }}
+									</div>
+									<div class="col-12">
+										<strong>Email registrado:</strong><br>
+										{{ contacto.email }}
+									</div>
+									{% if contacto.compania_organizacion %}
+										<div class="col-12">
+											<strong>Organización:</strong><br>
+											{{ contacto.compania_organizacion }}
+										</div>
+									{% endif %}
+									{% if contacto.leido %}
+										<div class="col-12">
+											<strong>Fecha de lectura:</strong><br>
+											{{ contacto.fecha_lectura|date:"d/m/Y H:i" }}
+										</div>
+									{% endif %}
+									<div class="col-12">
+										<strong>Tu mensaje:</strong><br>
+										<div class="bg-light p-3 rounded mt-2 border-start border-4 border-danger">
+											{{ contacto.mensaje|linebreaks }}
+										</div>
+									</div>
+								</div>
+							</div>
+
+							{% if contacto.leido %}
+								<div class="alert alert-success">
+									<i class="bi bi-check-circle"></i> Tu mensaje ha sido leído por nuestro equipo. Pronto recibirás una respuesta en tu correo.
+								</div>
+							{% else %}
+								<div class="alert alert-warning">
+									<i class="bi bi-exclamation-triangle"></i> Tu mensaje aún está en proceso de revisión. Te contactaremos pronto.
+								</div>
+							{% endif %}
+						{% elif busqueda %}
+							<div class="alert alert-danger">
+								<i class="bi bi-x-circle"></i> <strong>Folio no encontrado.</strong> Verifica que hayas copiado correctamente el folio y vuelve a intentar.
+							</div>
+						{% else %}
+							<div class="alert alert-secondary">
+								<i class="bi bi-info-circle"></i> Ingresa tu folio de seguimiento para ver el estado de tu mensaje.
+							</div>
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="text-center mt-4">
+					<a href="{% url 'contactanos' %}" class="btn btn-outline-danger"><i class="bi bi-chat-left"></i> Volver a Contacto</a>
+					<a href="{% url 'index' %}" class="btn btn-outline-primary"><i class="bi bi-house"></i> Volver a Inicio</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+{% endblock %}

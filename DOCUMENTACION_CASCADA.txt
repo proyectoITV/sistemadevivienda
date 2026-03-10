@@ -1,0 +1,163 @@
+# SISTEMA DE CASCADA: DIRECCIÓN → DEPARTAMENTO
+
+## ✅ Implementación Completada
+
+### 🎯 Objetivo
+Mejorar la selección de departamento permitiendo que el usuario primero seleccione una **Dirección**, y luego se cargan automáticamente solo los **Departamentos** asignados a esa dirección.
+
+### 📋 Cómo Funciona
+
+#### Flujo del Usuario:
+```
+1. Usuario abre formulario de empleado
+2. Selecciona una DIRECCIÓN del dropdown
+3. Se envía solicitud AJAX al servidor
+4. Servidor devuelve departamentos de esa dirección
+5. Se cargan los departamentos en el dropdown
+6. Usuario selecciona el departamento deseado
+```
+
+### 🔧 Componentes Implementados
+
+#### 1. **Backend - Vista AJAX (views.py)**
+```python
+def get_departamentos_por_direccion(request):
+    """Devuelve los departamentos filtrados por dirección en JSON"""
+    iddireccion = request.GET.get('iddireccion')
+    
+    departamentos = PersonalDepartamento.objects.filter(
+        iddireccion_id=iddireccion,
+        activo=True
+    ).values('iddepartamento', 'departamento')
+    
+    return JsonResponse({'departamentos': list(departamentos)})
+```
+
+**Ruta:** `GET /api/departamentos-por-direccion/?iddireccion=<id>`
+
+#### 2. **Frontend - JavaScript (departamentos-cascada.js)**
+- Escucha cambios en el select de dirección
+- Realiza petición AJAX
+- Actualiza dinámicamente las opciones del departamento
+- Preserva valores seleccionados en edición
+
+#### 3. **Formulario (forms.py)**
+- Campo `iddireccion` agregado como campo extra (no está en el modelo)
+- Se usa solo para filtrado
+
+#### 4. **Templates**
+- `crear_empleado.html` - Actualizado con nuevo layout
+- `editar_empleado.html` - Actualizado con nuevo layout
+
+### 📁 Archivos Modificados
+
+```
+Backend:
+✅ anuncios/views.py             - Nueva vista AJAX
+✅ anuncios/urls.py              - Nueva ruta
+✅ anuncios/forms.py             - Campo iddireccion agregado
+
+Frontend:
+✅ anuncios/static/anuncios/js/departamentos-cascada.js [NUEVO]
+✅ templates/anuncios/empleados/crear_empleado.html
+✅ templates/anuncios/empleados/editar_empleado.html
+```
+
+### 🔄 Flujo Técnico
+
+#### En Crear Empleado:
+```
+1. Formulario carga con:
+   - Dirección: Dropdown con todas las direcciones activas
+   - Departamento: Vacio (disabled hasta seleccionar dirección)
+
+2. Usuario selecciona dirección → onChange event → AJAX call
+   GET /api/departamentos-por-direccion/?iddireccion=1
+
+3. Respuesta JSON:
+   {
+     "departamentos": [
+       {"iddepartamento": 5, "departamento": "IT"},
+       {"iddepartamento": 6, "departamento": "RRHH"}
+     ]
+   }
+
+4. JavaScript actualiza el select de departamentos
+```
+
+#### En Editar Empleado:
+```
+1. Formulario carga con:
+   - Dirección: Con la dirección del empleado seleccionada
+   - Departamento: Con el departamento del empleado seleccionado
+
+2. Al cargar, se dispara el evento change automáticamente
+   (para cargar los departamentos de la dirección)
+
+3. Se preserva el departamento seleccionado
+```
+
+### 🛡️ Características de Seguridad
+
+- Solo muestra departamentos **activos**
+- Validación en el servidor
+- Manejo de errores en AJAX
+- Protegido con `@login_required`
+
+### ⚡ Beneficios
+
+1. **Reducción de Errores:** Solo muestra opciones válidas
+2. **Mejor UX:** Interfaz más intuitiva y clara
+3. **Mejor Performance:** Carga dinámica de datos
+4. **Escalabilidad:** Fácil agregar más cascadas
+
+### 🔗 URLs Importantes
+
+- **Crear Empleado:** `/empleados/crear/`
+- **Editar Empleado:** `/empleados/<id>/editar/`
+- **API Departamentos:** `/api/departamentos-por-direccion/?iddireccion=<id>`
+
+### 📊 Ejemplo de Respuesta API
+
+```json
+{
+  "departamentos": [
+    {
+      "iddepartamento": 1,
+      "departamento": "Dirección General"
+    },
+    {
+      "iddepartamento": 2,
+      "departamento": "Recursos Humanos"
+    },
+    {
+      "iddepartamento": 3,
+      "departamento": "Sistemas"
+    }
+  ]
+}
+```
+
+### 🚨 Troubleshooting
+
+**Problema:** Los departamentos no se cargan
+- ✓ Verificar que la dirección está seleccionada
+- ✓ Revisar la consola del navegador (F12)
+- ✓ Verificar que hay departamentos activos para esa dirección
+
+**Problema:** El script no funciona
+- ✓ Verificar que `departamentos-cascada.js` está cargado
+- ✓ Verificar IDs de elementos: `id_iddireccion`, `id_iddepartamento`
+- ✓ Revisar consola para errores de AJAX
+
+### 🔮 Posibles Ampliaciones
+
+- [ ] Agregar cascada para sexo/tipo de documento
+- [ ] Agregar validación de campos requeridos dinámicos
+- [ ] Agregar indicador visual de carga
+- [ ] Agregar búsqueda/filtro en los selects
+
+---
+
+**Estado:** ✅ IMPLEMENTADO Y FUNCIONAL
+**Fecha:** 2026-03-03

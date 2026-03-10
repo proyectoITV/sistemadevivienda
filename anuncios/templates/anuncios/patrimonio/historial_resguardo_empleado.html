@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-2"><i class="fas fa-history" style="color: #ab0033;"></i> Historial de Resguardos</h1>
+            <p class="text-muted mb-0">Empleado: {{ empleado.nombre }} {{ empleado.apellido_paterno }} {{ empleado.apellido_materno }}</p>
+        </div>
+        <a href="{% url 'listar_resguardos' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-user"></i> Información del Empleado</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Nombre:</strong> {{ empleado.nombre }} {{ empleado.apellido_paterno }} {{ empleado.apellido_materno }}</p>
+                    <p><strong>Dirección:</strong> {{ empleado.iddireccion.direccion|default:"N/A" }}</p>
+                    <p><strong>Departamento:</strong> {{ empleado.iddepartamento.departamento|default:"N/A" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Puesto:</strong> {{ empleado.idpuesto.nombre|default:"N/A" }}</p>
+                    <p><strong>Correo:</strong> {{ empleado.correo|default:"N/A" }}</p>
+                    <p><strong>Estado:</strong> {% if empleado.activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Historial de Bienes Resguardados ({{ historial.count }})</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead style="background: #f8f9fa;">
+                    <tr>
+                        <th>No. Inventario</th>
+                        <th>Bien</th>
+                        <th>Fecha Asignación</th>
+                        <th>Oficio</th>
+                        <th>Fecha Devolución</th>
+                        <th>Días</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resguardo in historial %}
+                        <tr>
+                            <td><strong>{{ resguardo.bien.numero_inventario_itavu }}</strong></td>
+                            <td>{{ resguardo.bien.descripcion|truncatewords:10 }}</td>
+                            <td>{{ resguardo.fecha_asignacion|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if resguardo.numero_oficio %}
+                                    <div>{{ resguardo.numero_oficio }}</div>
+                                    {% if resguardo.archivo_oficio %}
+                                        <small>
+                                            <a href="{% url 'descargar_oficio_resguardo' resguardo.idresguardo %}" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-download"></i> PDF
+                                            </a>
+                                        </small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.fecha_devolucion %}
+                                    {{ resguardo.fecha_devolucion|date:"d/m/Y" }}
+                                {% else %}
+                                    <span class="badge bg-success">En uso</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.fecha_devolucion %}
+                                    {{ resguardo.fecha_devolucion|timesince:resguardo.fecha_asignacion }}
+                                {% else %}
+                                    {{ resguardo.fecha_asignacion|timesince }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Devuelto</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resguardo.observaciones_asignacion %}
+                                    <small><strong>Asignación:</strong> {{ resguardo.observaciones_asignacion|truncatewords:10 }}</small><br>
+                                {% endif %}
+                                {% if resguardo.observaciones_devolucion %}
+                                    <small><strong>Devolución:</strong> {{ resguardo.observaciones_devolucion|truncatewords:10 }}</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">Este empleado no tiene historial de resguardos.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

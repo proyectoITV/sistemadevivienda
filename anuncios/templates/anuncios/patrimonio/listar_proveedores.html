@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-2"><i class="fas fa-truck" style="color: #ab0033;"></i> Proveedores</h1>
+            <p class="text-muted">Catálogo de proveedores para patrimonio</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Regresar al Dashboard
+            </a>
+            <a href="{% url 'crear_proveedor' %}" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;">
+                <i class="fas fa-plus"></i> Nuevo Proveedor
+            </a>
+            {% if user.usuario == 'cannoguzman' %}
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalImportarProveedores">
+                <i class="fas fa-upload"></i> Importar
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <form method="GET" class="d-flex gap-2">
+                <input type="text" name="search" class="form-control" placeholder="Buscar proveedor..." value="{{ search }}">
+                <button type="submit" class="btn btn-outline-primary"><i class="fas fa-search"></i> Buscar</button>
+                {% if search %}
+                    <a href="{% url 'listar_proveedores' %}" class="btn btn-outline-secondary"><i class="fas fa-times"></i> Limpiar</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                    <tr>
+                        <th>Proveedor</th>
+                        <th>RFC</th>
+                        <th>Contacto</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for proveedor in proveedores %}
+                        <tr>
+                            <td><strong>{{ proveedor.nombre }}</strong></td>
+                            <td>{{ proveedor.rfc|default:'N/A' }}</td>
+                            <td>{{ proveedor.persona_contacto|default:'N/A' }}</td>
+                            <td class="text-center">
+                                {% if proveedor.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'editar_proveedor' proveedor.idproveedor %}" class="btn btn-sm btn-outline-warning" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="POST" action="{% url 'cambiar_estado_proveedor' proveedor.idproveedor %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm {% if proveedor.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}" title="Cambiar estado">
+                                        <i class="fas {% if proveedor.activo %}fa-ban{% else %}fa-check{% endif %}"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No hay proveedores registrados.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Importar Proveedores -->
+<div class="modal fade" id="modalImportarProveedores" tabindex="-1" aria-labelledby="modalImportarProveedoresLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                <h5 class="modal-title" id="modalImportarProveedoresLabel">
+                    <i class="fas fa-upload"></i> Importar Proveedores desde Excel
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Paso 1: Seleccionar archivo -->
+                <div id="paso1Proveedores">
+                    <h6 class="mb-3">Paso 1: Seleccionar Archivo Excel</h6>
+                    <p class="text-muted mb-3">Selecciona un archivo Excel (.xlsx) con los datos de proveedores a importar.</p>
+                    <div class="mb-3">
+                        <label for="archivoProveedores" class="form-label">Archivo Excel</label>
+                        <input type="file" class="form-control" id="archivoProveedores" accept=".xlsx,.xls">
+                        <div class="form-text">Solo se permiten archivos Excel (.xlsx, .xls)</div>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="analizarArchivoProveedores()">
+                        <i class="fas fa-search"></i> Analizar Archivo
+                    </button>
+                </div>
+
+                <!-- Paso 2: Mapear campos -->
+                <div id="paso2Proveedores" style="display: none;">
+                    <h6 class="mb-3">Paso 2: Mapear Campos</h6>
+                    <p class="text-muted mb-3">Relaciona los campos del archivo Excel con los campos del sistema:</p>
+                    <div id="contenedorMapeoProveedores"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnVolverPaso1Proveedores" style="display: none;" onclick="volverPaso1Proveedores()">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </button>
+                <button type="button" class="btn btn-success" id="btnImportarProveedores" style="display: none;" onclick="procesarImportacionProveedores()">
+                    <i class="fas fa-check"></i> Importar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const camposSistemaProveedores = [
+        'idproveedor',
+        'nombre',
+        'rfc',
+        'telefono',
+        'correo',
+        'domicilio',
+        'persona_contacto',
+        'descripcion',
+        'activo',
+        'idestatus'
+    ];
+    const etiquetasCamposProveedores = {
+        'idproveedor': 'ID Proveedor',
+        'nombre': 'Nombre',
+        'rfc': 'RFC',
+        'telefono': 'Teléfono',
+        'correo': 'Correo',
+        'domicilio': 'Domicilio',
+        'persona_contacto': 'Persona de Contacto',
+        'descripcion': 'Descripción',
+        'activo': 'Activo (1/0)',
+        'idestatus': 'ID Estatus (0=Vigente, 1=Eliminado)'
+    };
+    let camposExcelProveedores = [];
+
+    function analizarArchivoProveedores() {
+        const archivo = document.getElementById('archivoProveedores').files[0];
+        if (!archivo) {
+            alert('Por favor selecciona un archivo Excel.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('archivo', archivo);
+
+        fetch('{% url "analizar_excel_proveedores" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                camposExcelProveedores = data.campos;
+                mostrarMapeoProveedores();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al analizar el archivo.');
+        });
+    }
+
+    function mostrarMapeoProveedores() {
+        document.getElementById('paso1Proveedores').style.display = 'none';
+        document.getElementById('paso2Proveedores').style.display = 'block';
+        document.getElementById('btnVolverPaso1Proveedores').style.display = 'inline-block';
+        document.getElementById('btnImportarProveedores').style.display = 'inline-block';
+
+        let html = '<div class="row">';
+        camposSistemaProveedores.forEach(campo => {
+            html += `
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">${etiquetasCamposProveedores[campo]}</label>
+                    <select class="form-select" id="mapeo_${campo}">
+                        <option value="">-- No mapear --</option>
+                        ${camposExcelProveedores.map(col => `<option value="${col}">${col}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+        });
+        html += '</div>';
+        document.getElementById('contenedorMapeoProveedores').innerHTML = html;
+    }
+
+    function volverPaso1Proveedores() {
+        document.getElementById('paso1Proveedores').style.display = 'block';
+        document.getElementById('paso2Proveedores').style.display = 'none';
+        document.getElementById('btnVolverPaso1Proveedores').style.display = 'none';
+        document.getElementById('btnImportarProveedores').style.display = 'none';
+        document.getElementById('archivoProveedores').value = '';
+        camposExcelProveedores = [];
+    }
+
+    function procesarImportacionProveedores() {
+        const archivo = document.getElementById('archivoProveedores').files[0];
+        if (!archivo) {
+            alert('Por favor selecciona un archivo Excel.');
+            return;
+        }
+
+        // Crear mapeo
+        const mapeo = {};
+        camposSistemaProveedores.forEach(campo => {
+            const select = document.getElementById(`mapeo_${campo}`);
+            if (select.value) {
+                mapeo[select.value] = campo;
+            }
+        });
+
+        // Verificar que al menos se mapee el nombre
+        if (!Object.values(mapeo).includes('nombre')) {
+            alert('Debes mapear al menos el campo "Nombre".');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('archivo', archivo);
+        formData.append('mapeo', JSON.stringify(mapeo));
+
+        // Mostrar loading
+        const btnImportar = document.getElementById('btnImportarProveedores');
+        const btnVolver = document.getElementById('btnVolverPaso1Proveedores');
+        btnImportar.disabled = true;
+        btnVolver.disabled = true;
+        btnImportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+
+        fetch('{% url "importar_proveedores_excel" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Importación completada.\nImportados: ${data.importados}\nErrores: ${data.errores}`);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al procesar la importación.');
+        })
+        .finally(() => {
+            btnImportar.disabled = false;
+            btnVolver.disabled = false;
+            btnImportar.innerHTML = '<i class="fas fa-check"></i> Importar';
+        });
+    }
+</script>
+
+{% endblock %}
