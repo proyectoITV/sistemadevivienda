@@ -210,27 +210,34 @@ class PersonalPuestos(models.Model):
 
 
 class UsuarioManager(BaseUserManager):
-	def create_user(self, usuario, email, password=None):
+	def create_user(self, usuario, email, password=None, **extra_fields):
 		# usuario puede ser None si se crea un empleado sin credenciales de autenticación
 		if not email:
 			raise ValueError('El empleado debe tener un correo electrónico')
 		
 		user = self.model(
 			usuario=usuario,
-			email=self.normalize_email(email)
+			email=self.normalize_email(email),
+			**extra_fields
 		)
 		if password:
 			user.set_password(password)
+		else:
+			user.set_unusable_password()
 		user.save(using=self._db)
 		return user
 	
-	def create_superuser(self, usuario, email, password=None):
-		user = self.create_user(usuario, email, password)
-		user.is_admin = True
-		user.is_staff = True
-		user.is_superuser = True
-		user.save(using=self._db)
-		return user
+	def create_superuser(self, usuario, email, password=None, **extra_fields):
+		extra_fields.setdefault('is_admin', True)
+		extra_fields.setdefault('is_staff', True)
+		extra_fields.setdefault('is_superuser', True)
+
+		if extra_fields.get('is_staff') is not True:
+			raise ValueError('El superusuario debe tener is_staff=True.')
+		if extra_fields.get('is_superuser') is not True:
+			raise ValueError('El superusuario debe tener is_superuser=True.')
+
+		return self.create_user(usuario, email, password, **extra_fields)
 
 
 class PersonalEmpleados(AbstractBaseUser, PermissionsMixin):
