@@ -8,6 +8,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        ('auth', '0012_alter_user_first_name_max_length'),
     ]
 
     operations = [
@@ -20,5 +21,45 @@ class Migration(migrations.Migration):
                 ('fecha_publicacion', models.DateTimeField(auto_now_add=True)),
                 ('activo', models.BooleanField(default=True)),
             ],
+        ),
+        migrations.CreateModel(
+            name='PersonalEmpleados',
+            fields=[
+                ('password', models.CharField(max_length=128, verbose_name='password')),
+                ('last_login', models.DateTimeField(blank=True, null=True, verbose_name='last login')),
+                ('is_superuser', models.BooleanField(default=False, help_text='Designates that this user has all permissions without explicitly assigning them.', verbose_name='superuser status')),
+                ('id_empleado', models.AutoField(primary_key=True, serialize=False)),
+                ('usuario', models.CharField(help_text='Nombre de usuario para login', max_length=100, unique=True)),
+                ('email', models.EmailField(max_length=254, unique=True)),
+                ('nombre_completo', models.CharField(max_length=200)),
+                ('curp', models.CharField(blank=True, max_length=18, unique=True)),
+                ('rfc', models.CharField(blank=True, max_length=13, unique=True)),
+                ('fecha_nacimiento', models.DateField(blank=True, null=True)),
+                ('sexo', models.CharField(blank=True, choices=[('M', 'Masculino'), ('F', 'Femenino')], max_length=1)),
+                ('telefono', models.CharField(blank=True, max_length=20)),
+                ('domicilio', models.TextField(blank=True)),
+                ('puesto', models.CharField(blank=True, max_length=200)),
+                ('numero_empleado', models.CharField(blank=True, max_length=20, unique=True)),
+                ('fecha_ingreso', models.DateField(blank=True, null=True)),
+                ('tipo_contrato', models.CharField(blank=True, choices=[('Definitivo', 'Definitivo'), ('Temporal', 'Temporal'), ('Honorarios', 'Honorarios')], max_length=50)),
+                ('salario', models.DecimalField(blank=True, decimal_places=2, max_digits=12, null=True)),
+                ('activo', models.BooleanField(default=True)),
+                ('recordar_dispositivo', models.BooleanField(default=False, help_text='Permite recordar este dispositivo')),
+                ('token_dispositivo', models.CharField(blank=True, max_length=255, null=True, unique=True)),
+                ('is_active', models.BooleanField(default=True)),
+                ('is_admin', models.BooleanField(default=False)),
+                ('is_staff', models.BooleanField(default=False)),
+                ('fecha_creacion', models.DateTimeField(auto_now_add=True)),
+                ('fecha_modificacion', models.DateTimeField(auto_now=True)),
+                ('fecha_ultimo_login', models.DateTimeField(blank=True, null=True)),
+                ('groups', models.ManyToManyField(blank=True, related_name='personal_empleados_groups', to='auth.group')),
+                ('user_permissions', models.ManyToManyField(blank=True, related_name='personal_empleados_permissions', to='auth.permission')),
+            ],
+            options={
+                'verbose_name': 'Empleado',
+                'verbose_name_plural': 'Empleados',
+                'db_table': 'personal_empleados',
+                'ordering': ['nombre_completo'],
+            },
         ),
     ]
