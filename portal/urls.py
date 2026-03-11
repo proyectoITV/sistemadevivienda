@@ -96,4 +96,11 @@ urlpatterns = [
     # AJAX
     path('api/departamentos-por-direccion/', views.get_departamentos_por_direccion, name='get_departamentos_por_direccion'),
     path('api/estadisticas-cola/', views.api_estadisticas_cola, name='api_estadisticas_cola'),
+
+    # Tickets de Servicio
+    path('tickets/', views.listar_tickets, name='listar_tickets'),
+    path('tickets/nuevo/', views.crear_ticket, name='crear_ticket'),
+    path('tickets/<int:id_ticket>/', views.ver_ticket, name='ver_ticket'),
+    path('tickets/archivos/<int:id_archivo>/descargar/', views.descargar_archivo_ticket, name='descargar_archivo_ticket'),
+    path('tickets/archivos/<int:id_archivo>/eliminar/', views.eliminar_archivo_ticket, name='eliminar_archivo_ticket'),
 ]

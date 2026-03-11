@@ -120,7 +120,7 @@ def nuestras_oficinas(request):
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser
-from .models import PersonalEmpleados, RecuperacionContrasena
+from .models import PersonalEmpleados, RecuperacionContrasena, PersonalDepartamento
 from .email_utils import enviar_correo_recuperacion
 
 
@@ -2440,5 +2440,308 @@ def importar_proveedores_excel(request):
 
         return JsonResponse({'success': True, 'importados': importados, 'errores': errores})
 
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+# ================================================================
+#  MÓDULO: TICKET DE SERVICIO
+# ================================================================
+
+from .models import TicketServicio, TicketServicioArchivo, TicketServicioComentario
+import mimetypes
+import os
+
+
+def _usuario_puede_ver_ticket(user, ticket):
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'id_empleado', None) == ticket.emisor_id:
+        return True
+    if ticket.departamento_destino_id and getattr(user, 'iddepartamento_id', None) == ticket.departamento_destino_id:
+        return True
+    # Compatibilidad con tickets antiguos dirigidos a un receptor específico
+    if ticket.receptor_id and getattr(user, 'id_empleado', None) == ticket.receptor_id:
+        return True
+    return _usuario_es_admin_sistema(user)
+
+
+def _usuario_en_departamento_destino(user, ticket):
+    return bool(
+        ticket.departamento_destino_id and
+        getattr(user, 'iddepartamento_id', None) == ticket.departamento_destino_id
+    )
+
+
+@login_required
+def listar_tickets(request):
+    """Lista tickets enviados por el usuario o recibidos por su departamento."""
+    tab = request.GET.get('tab', 'todos')
+    estado = request.GET.get('estado', '')
+    prioridad = request.GET.get('prioridad', '')
+    busqueda = request.GET.get('q', '').strip()
+
+    q_recibidos = Q(pk__in=[])
+    if request.user.iddepartamento_id:
+        q_recibidos = Q(departamento_destino_id=request.user.iddepartamento_id)
+
+    # Compatibilidad con registros legacy que aún usan receptor directo
+    q_recibidos = q_recibidos | Q(receptor=request.user)
+
+    qs_todos = TicketServicio.objects.select_related(
+        'emisor', 'receptor', 'departamento_destino', 'atendido_por'
+    ).filter(
+        Q(emisor=request.user) | q_recibidos
+    )
+
+    if tab == 'enviados':
+        qs = qs_todos.filter(emisor=request.user)
+    elif tab == 'recibidos':
+        qs = qs_todos.filter(q_recibidos)
+    else:
+        qs = qs_todos
+
+    if estado:
+        qs = qs.filter(estado=estado)
+    if prioridad:
+        qs = qs.filter(prioridad=prioridad)
+    if busqueda:
+        qs = qs.filter(
+            Q(asunto__icontains=busqueda) |
+            Q(descripcion__icontains=busqueda) |
+            Q(emisor__nombre_completo__icontains=busqueda) |
+            Q(receptor__nombre_completo__icontains=busqueda) |
+            Q(departamento_destino__departamento__icontains=busqueda)
+        )
+
+    # Contadores para las pestañas
+    conteo_todos      = qs_todos.count()
+    conteo_enviados   = qs_todos.filter(emisor=request.user).count()
+    conteo_recibidos  = qs_todos.filter(q_recibidos).count()
+    conteo_pendientes = qs_todos.filter(
+        q_recibidos, estado__in=['abierto', 'en_proceso', 'en_espera']
+    ).count()
+
+    return render(request, 'desarrollo/web/tickets/listar_tickets.html', {
+        'tickets': qs.order_by('-fecha_creacion'),
+        'tab': tab,
+        'estado': estado,
+        'prioridad': prioridad,
+        'busqueda': busqueda,
+        'conteo_todos': conteo_todos,
+        'conteo_enviados': conteo_enviados,
+        'conteo_recibidos': conteo_recibidos,
+        'conteo_pendientes': conteo_pendientes,
+        'estados': TicketServicio.ESTADO_CHOICES,
+        'prioridades': TicketServicio.PRIORIDAD_CHOICES,
+    })
+
+
+@login_required
+def crear_ticket(request):
+    """Crear un nuevo ticket dirigido a un departamento con archivos adjuntos."""
+    departamentos = PersonalDepartamento.objects.filter(activo=True).order_by('departamento')
+
+    if request.method == 'POST':
+        asunto          = request.POST.get('asunto', '').strip()
+        descripcion     = request.POST.get('descripcion', '').strip()
+        categoria       = request.POST.get('categoria', 'solicitud')
+        prioridad       = request.POST.get('prioridad', 'normal')
+        departamento_id = request.POST.get('departamento_destino')
+        fecha_venc      = request.POST.get('fecha_vencimiento') or None
+        archivos        = request.FILES.getlist('archivos')
+
+        errores = []
+        if not asunto:
+            errores.append('El asunto es obligatorio.')
+        if not descripcion:
+            errores.append('La descripción es obligatoria.')
+        if not departamento_id:
+            errores.append('Debes seleccionar un departamento destino.')
+
+        if not errores:
+            try:
+                departamento = PersonalDepartamento.objects.get(iddepartamento=departamento_id, activo=True)
+
+                ticket = TicketServicio.objects.create(
+                    asunto=asunto,
+                    descripcion=descripcion,
+                    categoria=categoria,
+                    prioridad=prioridad,
+                    emisor=request.user,
+                    departamento_destino=departamento,
+                    fecha_vencimiento=fecha_venc,
+                )
+
+                for f in archivos:
+                    mime_type, _ = mimetypes.guess_type(f.name)
+                    TicketServicioArchivo.objects.create(
+                        ticket=ticket,
+                        archivo=f,
+                        nombre_original=f.name,
+                        tamanio=f.size,
+                        tipo_mime=mime_type or '',
+                        subido_por=request.user,
+                    )
+
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje=f'Ticket creado y enviado al departamento {departamento.departamento}.',
+                    cambio_estado='abierto',
+                )
+
+                messages.success(request, f'Ticket #{ticket.id_ticket} creado exitosamente.')
+                return redirect('ver_ticket', id_ticket=ticket.id_ticket)
+
+            except PersonalDepartamento.DoesNotExist:
+                errores.append('El departamento seleccionado no existe o está inactivo.')
+            except Exception as e:
+                errores.append(f'Error al crear el ticket: {str(e)}')
+
+        for err in errores:
+            messages.error(request, err)
+
+    return render(request, 'desarrollo/web/tickets/crear_ticket.html', {
+        'departamentos': departamentos,
+        'categorias': TicketServicio.CATEGORIA_CHOICES,
+        'prioridades': TicketServicio.PRIORIDAD_CHOICES,
+        'today': timezone.localdate(),
+    })
+
+
+@login_required
+def ver_ticket(request, id_ticket):
+    """Detalle completo del ticket con actividad y archivos."""
+    ticket = get_object_or_404(
+        TicketServicio.objects.select_related('emisor', 'receptor', 'departamento_destino', 'atendido_por'),
+        id_ticket=id_ticket
+    )
+
+    if not _usuario_puede_ver_ticket(request.user, ticket):
+        messages.error(request, 'No tienes acceso a este ticket.')
+        return redirect('listar_tickets')
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+
+        if accion == 'comentar':
+            mensaje  = request.POST.get('mensaje', '').strip()
+            archivos = request.FILES.getlist('archivos')
+            if mensaje:
+                if _usuario_en_departamento_destino(request.user, ticket) and not ticket.atendido_por_id:
+                    ticket.atendido_por = request.user
+                    if ticket.estado == 'abierto':
+                        ticket.estado = 'en_proceso'
+                    ticket.save(update_fields=['atendido_por', 'estado', 'fecha_actualizacion'])
+
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje=mensaje,
+                )
+                for f in archivos:
+                    mime_type, _ = mimetypes.guess_type(f.name)
+                    TicketServicioArchivo.objects.create(
+                        ticket=ticket,
+                        archivo=f,
+                        nombre_original=f.name,
+                        tamanio=f.size,
+                        tipo_mime=mime_type or '',
+                        subido_por=request.user,
+                    )
+                messages.success(request, 'Comentario agregado.')
+            else:
+                messages.error(request, 'El comentario no puede estar vacío.')
+
+        elif accion == 'tomar_ticket':
+            if not _usuario_en_departamento_destino(request.user, ticket):
+                messages.error(request, 'Solo personal del departamento destino puede tomar el ticket.')
+            else:
+                ticket.atendido_por = request.user
+                if ticket.estado == 'abierto':
+                    ticket.estado = 'en_proceso'
+                ticket.save()
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje='Ticket tomado para atención.',
+                )
+                messages.success(request, 'Ticket asignado a tu atención.')
+
+        elif accion == 'cambiar_estado':
+            nuevo_estado    = request.POST.get('nuevo_estado')
+            estados_validos = [s[0] for s in TicketServicio.ESTADO_CHOICES]
+            if nuevo_estado in estados_validos:
+                estado_anterior = ticket.get_estado_display()
+                ticket.estado   = nuevo_estado
+                if nuevo_estado == 'resuelto':
+                    ticket.fecha_resolucion = timezone.now()
+                ticket.save()
+                nota = request.POST.get('nota_cambio', '').strip()
+                msg  = nota if nota else f'Estado cambiado a: {ticket.get_estado_display()}'
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje=msg,
+                    cambio_estado=estado_anterior,
+                )
+                messages.success(request, f'Estado actualizado a: {ticket.get_estado_display()}')
+            else:
+                messages.error(request, 'Estado no válido.')
+
+        return redirect('ver_ticket', id_ticket=id_ticket)
+
+    comentarios = ticket.comentarios.select_related('autor').order_by('fecha')
+    archivos    = ticket.archivos.select_related('subido_por').order_by('fecha_subida')
+
+    return render(request, 'desarrollo/web/tickets/ver_ticket.html', {
+        'ticket': ticket,
+        'comentarios': comentarios,
+        'archivos': archivos,
+        'estados': TicketServicio.ESTADO_CHOICES,
+        'es_emisor': request.user.id_empleado == ticket.emisor.id_empleado,
+        'es_receptor': _usuario_en_departamento_destino(request.user, ticket),
+        'puede_tomar_ticket': _usuario_en_departamento_destino(request.user, ticket),
+    })
+
+
+@login_required
+def descargar_archivo_ticket(request, id_archivo):
+    """Descarga un archivo adjunto de un ticket."""
+    archivo = get_object_or_404(TicketServicioArchivo, id_archivo=id_archivo)
+    ticket  = archivo.ticket
+
+    if not _usuario_puede_ver_ticket(request.user, ticket):
+        messages.error(request, 'No tienes permiso para descargar este archivo.')
+        return redirect('listar_tickets')
+
+    try:
+        response = FileResponse(
+            archivo.archivo.open('rb'),
+            as_attachment=True,
+            filename=archivo.nombre_original,
+        )
+        return response
+    except Exception:
+        messages.error(request, 'No se pudo descargar el archivo.')
+        return redirect('ver_ticket', id_ticket=ticket.id_ticket)
+
+
+@login_required
+def eliminar_archivo_ticket(request, id_archivo):
+    """Elimina un archivo adjunto (solo el que lo subió)."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    archivo = get_object_or_404(TicketServicioArchivo, id_archivo=id_archivo)
+
+    if archivo.subido_por and archivo.subido_por.id_empleado != request.user.id_empleado:
+        return JsonResponse({'success': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        if archivo.archivo and os.path.isfile(archivo.archivo.path):
+            os.remove(archivo.archivo.path)
+        archivo.delete()
+        return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})

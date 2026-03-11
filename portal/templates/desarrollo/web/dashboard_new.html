@@ -121,6 +121,12 @@
                         <span class="label">Fondo Económico de Reserva</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'listar_tickets' %}" title="Ticket de Servicio">
+                        <i class="fas fa-ticket-alt icon"></i>
+                        <span class="label">Ticket de Servicio</span>
+                    </a>
+                </li>
                 {% if user.is_authenticated and user.usuario_sistema.rol == 'admin' %}
                 <li class="nav-item">
                     <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#seguridad" title="Seguridad del Sistema">

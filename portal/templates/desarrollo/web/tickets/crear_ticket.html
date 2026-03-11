@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<style>
+    :root { --color1: #ab0033; --color2: #bc955c; }
+    body { background: #f0f2f5; }
+
+    .page-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #ab0033 100%);
+        color: white; padding: 2rem 2.5rem;
+        border-radius: 0 0 20px 20px; margin-bottom: 2rem;
+    }
+    .page-header h2 { font-weight: 700; margin: 0; }
+    .page-header p  { margin: 0; opacity: .8; font-size: .95rem; }
+
+    .form-card {
+        background: white; border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,.08);
+        padding: 2rem;
+    }
+    .section-title {
+        font-size: .75rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .08em; color: #999; margin-bottom: 1rem;
+        padding-bottom: .5rem; border-bottom: 1px solid #f0f0f0;
+    }
+    .form-label { font-weight: 600; font-size: .88rem; color: #495057; }
+    .form-control, .form-select {
+        border-radius: 10px; border-color: #dee2e6;
+        padding: .55rem .9rem; font-size: .9rem;
+        transition: border-color .2s, box-shadow .2s;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: var(--color1); box-shadow: 0 0 0 3px rgba(171,0,51,.12);
+    }
+
+    /* Priority selector */
+    .priority-selector { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .priority-option { display: none; }
+    .priority-label {
+        padding: .4rem 1rem; border-radius: 50px; border: 2px solid #dee2e6;
+        cursor: pointer; font-weight: 600; font-size: .82rem;
+        transition: all .2s; white-space: nowrap;
+    }
+    .priority-option:checked + .priority-label { border-color: transparent; color: white; }
+    .priority-baja:checked   + .priority-label { background: #6c757d; }
+    .priority-normal:checked + .priority-label { background: #0dcaf0; color: #212529; }
+    .priority-alta:checked   + .priority-label { background: #ffc107; color: #212529; }
+    .priority-urgente:checked + .priority-label { background: #dc3545; }
+
+    /* File drop zone */
+    .drop-zone {
+        border: 2px dashed #dee2e6; border-radius: 14px;
+        padding: 2.5rem 1.5rem; text-align: center; cursor: pointer;
+        background: #fafafa; transition: all .25s; position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+        border-color: var(--color1); background: rgba(171,0,51,.04);
+    }
+    .drop-zone input[type=file] {
+        position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-zone i { font-size: 2.5rem; color: #adb5bd; display: block; margin-bottom: .8rem; }
+    .drop-zone p  { margin: 0; color: #6c757d; font-size: .88rem; }
+    .drop-zone strong { color: var(--color1); }
+
+    .file-list { margin-top: 1rem; }
+    .file-item {
+        display: flex; align-items: center; gap: .8rem;
+        background: white; border: 1px solid #e9ecef; border-radius: 10px;
+        padding: .6rem 1rem; margin-bottom: .5rem;
+        animation: slideIn .2s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+    .file-item .file-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .file-item .file-name { flex: 1; font-size: .85rem; font-weight: 600; color: #2c3e50; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-item .file-size { font-size: .75rem; color: #aaa; flex-shrink: 0; }
+    .file-item .btn-remove { border: none; background: none; color: #dc3545; cursor: pointer; padding: 0; font-size: 1rem; flex-shrink: 0; }
+
+    .btn-submit {
+        background: linear-gradient(135deg, var(--color1), #e0003d);
+        color: white; border: none; border-radius: 12px;
+        padding: .75rem 2.5rem; font-weight: 700; font-size: 1rem;
+        transition: all .3s; box-shadow: 0 4px 14px rgba(171,0,51,.35);
+    }
+    .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(171,0,51,.45); color: white; }
+
+    .char-counter { font-size: .75rem; color: #aaa; text-align: right; }
+
+    .select2-container--bootstrap-5 .select2-selection {
+        border-radius: 10px !important;
+        min-height: 40px;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+        line-height: 28px;
+        font-size: .9rem;
+    }
+</style>
+
+<div class="page-header">
+    <div class="d-flex align-items-center gap-3">
+        <a href="{% url 'listar_tickets' %}" class="btn btn-sm btn-outline-light">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <h2><i class="fas fa-plus-circle me-2"></i>Nuevo Ticket de Servicio</h2>
+            <p>Envía un ticket a un departamento para agilizar un pendiente</p>
+        </div>
+    </div>
+</div>
+
+<div class="container" style="max-width: 860px;">
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags }} alert-dismissible fade show rounded-3 mb-3">
+        {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="ticketForm">
+        {% csrf_token %}
+
+        <div class="form-card mb-3">
+            <p class="section-title"><i class="fas fa-info-circle me-1"></i> Información del Ticket</p>
+            <div class="row g-3">
+                <!-- Departamento destino -->
+                <div class="col-12">
+                    <label class="form-label">Departamento destino <span class="text-danger">*</span></label>
+                    <select name="departamento_destino" class="form-select select2-departamento" required id="departamentoSelect">
+                        <option value="">— Selecciona el departamento que atenderá —</option>
+                        {% for dep in departamentos %}
+                        <option value="{{ dep.iddepartamento }}">
+                            {{ dep.departamento }}
+                            {% if dep.iddireccion %} – {{ dep.iddireccion.direccion }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Cualquier empleado activo de ese departamento podrá atender el ticket.</small>
+                </div>
+
+                <!-- Asunto -->
+                <div class="col-12">
+                    <label class="form-label">Asunto <span class="text-danger">*</span></label>
+                    <input type="text" name="asunto" class="form-control" required
+                           maxlength="255" placeholder="Ej: Solicitud de firma de documento urgente"
+                           id="asuntoInput">
+                    <div class="char-counter"><span id="asuntoCount">0</span>/255</div>
+                </div>
+
+                <!-- Descripción -->
+                <div class="col-12">
+                    <label class="form-label">Descripción <span class="text-danger">*</span></label>
+                    <textarea name="descripcion" class="form-control" rows="5" required
+                              placeholder="Describe detalladamente el pendiente o solicitud…"
+                              id="descripcionInput"></textarea>
+                    <div class="char-counter"><span id="descCount">0</span> caracteres</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-card mb-3">
+            <p class="section-title"><i class="fas fa-sliders-h me-1"></i> Clasificación</p>
+            <div class="row g-3">
+                <!-- Categoría -->
+                <div class="col-md-6">
+                    <label class="form-label">Categoría</label>
+                    <select name="categoria" class="form-select">
+                        {% for val, lbl in categorias %}
+                        <option value="{{ val }}" {% if val == 'solicitud' %}selected{% endif %}>{{ lbl }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Fecha de vencimiento -->
+                <div class="col-md-6">
+                    <label class="form-label">Fecha Límite <span class="text-muted">(opcional)</span></label>
+                    <input type="date" name="fecha_vencimiento" class="form-control"
+                           min="{{ today|date:'Y-m-d' }}">
+                </div>
+
+                <!-- Prioridad -->
+                <div class="col-12">
+                    <label class="form-label d-block">Prioridad</label>
+                    <div class="priority-selector">
+                        <input type="radio" name="prioridad" id="p_baja" value="baja" class="priority-option priority-baja">
+                        <label for="p_baja" class="priority-label">
+                            <i class="fas fa-arrow-down me-1"></i>Baja
+                        </label>
+                        <input type="radio" name="prioridad" id="p_normal" value="normal" class="priority-option priority-normal" checked>
+                        <label for="p_normal" class="priority-label">
+                            <i class="fas fa-minus me-1"></i>Normal
+                        </label>
+                        <input type="radio" name="prioridad" id="p_alta" value="alta" class="priority-option priority-alta">
+                        <label for="p_alta" class="priority-label">
+                            <i class="fas fa-arrow-up me-1"></i>Alta
+                        </label>
+                        <input type="radio" name="prioridad" id="p_urgente" value="urgente" class="priority-option priority-urgente">
+                        <label for="p_urgente" class="priority-label">
+                            <i class="fas fa-fire me-1"></i>Urgente
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-card mb-4">
+            <p class="section-title"><i class="fas fa-paperclip me-1"></i> Archivos Adjuntos</p>
+
+            <div class="drop-zone" id="dropZone">
+                <input type="file" name="archivos" id="fileInput" multiple>
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p><strong>Arrastra archivos aquí</strong> o haz clic para seleccionar</p>
+                <p class="mt-1" style="font-size:.78rem; color:#bbb;">
+                    PDF, Word, Excel, imágenes, ZIP · Sin límite de archivos
+                </p>
+            </div>
+
+            <div class="file-list" id="fileList"></div>
+        </div>
+
+        <div class="d-flex gap-3 justify-content-end mb-5">
+            <a href="{% url 'listar_tickets' %}" class="btn btn-outline-secondary btn-lg rounded-3">
+                Cancelar
+            </a>
+            <button type="submit" class="btn-submit" id="submitBtn">
+                <i class="fas fa-paper-plane me-2"></i>Enviar Ticket
+            </button>
+        </div>
+    </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+// Select2 para departamento destino
+$(document).ready(function() {
+    const $dep = $('.select2-departamento');
+    if ($dep.length) {
+        $dep.select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: '— Selecciona el departamento que atenderá —',
+            allowClear: true,
+            language: {
+                noResults: function() { return 'Sin resultados'; },
+                searching: function() { return 'Buscando…'; }
+            }
+        });
+    }
+});
+
+// Contador de caracteres
+const asuntoInput    = document.getElementById('asuntoInput');
+const descripcionInput = document.getElementById('descripcionInput');
+asuntoInput.addEventListener('input', () => {
+    document.getElementById('asuntoCount').textContent = asuntoInput.value.length;
+});
+descripcionInput.addEventListener('input', () => {
+    document.getElementById('descCount').textContent = descripcionInput.value.length;
+});
+
+// File upload con drag & drop
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileList  = document.getElementById('fileList');
+let filesArray  = [];
+
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function getIcon(name, mime) {
+    if (mime && mime.startsWith('image/'))   return '<i class="fas fa-file-image text-warning file-icon"></i>';
+    if (mime && mime.includes('pdf'))        return '<i class="fas fa-file-pdf text-danger file-icon"></i>';
+    if (name.match(/\.(xlsx?|ods)$/i))       return '<i class="fas fa-file-excel text-success file-icon"></i>';
+    if (name.match(/\.(docx?|odt)$/i))       return '<i class="fas fa-file-word text-primary file-icon"></i>';
+    if (name.match(/\.(zip|rar|7z)$/i))      return '<i class="fas fa-file-archive text-secondary file-icon"></i>';
+    return '<i class="fas fa-file text-muted file-icon"></i>';
+}
+
+function renderFiles() {
+    fileList.innerHTML = '';
+    filesArray.forEach((f, idx) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `
+            ${getIcon(f.name, f.type)}
+            <span class="file-name" title="${f.name}">${f.name}</span>
+            <span class="file-size">${formatBytes(f.size)}</span>
+            <button type="button" class="btn-remove" data-idx="${idx}" title="Quitar archivo">
+                <i class="fas fa-times-circle"></i>
+            </button>`;
+        fileList.appendChild(item);
+    });
+
+    // Actualizar input con los archivos seleccionados usando DataTransfer
+    const dt = new DataTransfer();
+    filesArray.forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+}
+
+fileInput.addEventListener('change', () => {
+    Array.from(fileInput.files).forEach(f => filesArray.push(f));
+    renderFiles();
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    Array.from(e.dataTransfer.files).forEach(f => filesArray.push(f));
+    renderFiles();
+});
+
+fileList.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-remove');
+    if (btn) {
+        filesArray.splice(parseInt(btn.dataset.idx), 1);
+        renderFiles();
+    }
+});
+
+// Submit
+document.getElementById('ticketForm').addEventListener('submit', function() {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enviando…';
+});
+</script>
+{% endblock %}

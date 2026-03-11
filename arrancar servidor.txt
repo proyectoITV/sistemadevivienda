@@ -6,6 +6,11 @@ demo
 Demo123456
 demo@itavu.mx
 
+#Estos script haran que se inserten los registros en las siguientes tablas
+python .\cargar_estados.py
+python .\cargar_municipios.py
+python .\cargar_delegaciones.py
+
 C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe manage.py migrate anuncios 0018
 C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe verificar_cola_correos.py
 http://localhost:8000/seguridad/cola-correos/

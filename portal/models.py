@@ -807,3 +807,197 @@ class PatrimonioEntregaDepartamentoDetalle(models.Model):
 
 	def __str__(self):
 		return f"Entrega #{self.entrega.identrega} - {self.bien.numero_inventario_itavu}"
+
+
+# ============================================================
+#  MÓDULO: TICKET DE SERVICIO
+# ============================================================
+
+class TicketServicio(models.Model):
+	"""Ticket de servicio inter-departamental para agilizar pendientes"""
+
+	PRIORIDAD_CHOICES = [
+		('baja',    'Baja'),
+		('normal',  'Normal'),
+		('alta',    'Alta'),
+		('urgente', 'Urgente'),
+	]
+
+	ESTADO_CHOICES = [
+		('abierto',     'Abierto'),
+		('en_proceso',  'En Proceso'),
+		('en_espera',   'En Espera'),
+		('resuelto',    'Resuelto'),
+		('cerrado',     'Cerrado'),
+	]
+
+	CATEGORIA_CHOICES = [
+		('solicitud',    'Solicitud'),
+		('informacion',  'Información'),
+		('soporte',      'Soporte Técnico'),
+		('tramite',      'Trámite'),
+		('otro',         'Otro'),
+	]
+
+	id_ticket       = models.AutoField(primary_key=True)
+	folio           = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+	asunto          = models.CharField(max_length=255, help_text='Título breve del ticket')
+	descripcion     = models.TextField(help_text='Descripción detallada del ticket')
+	categoria       = models.CharField(max_length=30, choices=CATEGORIA_CHOICES, default='solicitud')
+	prioridad       = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='normal')
+	estado          = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='abierto')
+
+	emisor          = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.PROTECT,
+		related_name='tickets_enviados', help_text='Quien crea el ticket'
+	)
+	departamento_destino = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.PROTECT,
+		related_name='tickets_recibidos_departamento',
+		help_text='Departamento destino del ticket',
+		null=True,
+		blank=True,
+	)
+	receptor        = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.PROTECT,
+		related_name='tickets_recibidos', help_text='A quien va dirigido el ticket',
+		null=True,
+		blank=True,
+	)
+	atendido_por    = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		related_name='tickets_atendidos',
+		help_text='Empleado del departamento que toma el ticket',
+		null=True,
+		blank=True,
+	)
+
+	fecha_creacion      = models.DateTimeField(auto_now_add=True)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+	fecha_vencimiento   = models.DateField(null=True, blank=True, help_text='Fecha límite esperada')
+	fecha_resolucion    = models.DateTimeField(null=True, blank=True)
+
+	observaciones = models.TextField(blank=True)
+
+	class Meta:
+		db_table    = 'tickets_servicio'
+		verbose_name = 'Ticket de Servicio'
+		verbose_name_plural = 'Tickets de Servicio'
+		ordering = ['-fecha_creacion']
+		indexes = [
+			models.Index(fields=['estado', 'prioridad']),
+			models.Index(fields=['emisor', 'departamento_destino']),
+		]
+
+	def __str__(self):
+		return f"#{self.id_ticket} – {self.asunto}"
+
+	@property
+	def folio_corto(self):
+		return str(self.folio).upper()[:8]
+
+	@property
+	def color_prioridad(self):
+		return {
+			'baja':    'secondary',
+			'normal':  'info',
+			'alta':    'warning',
+			'urgente': 'danger',
+		}.get(self.prioridad, 'secondary')
+
+	@property
+	def color_estado(self):
+		return {
+			'abierto':    'primary',
+			'en_proceso': 'warning',
+			'en_espera':  'secondary',
+			'resuelto':   'success',
+			'cerrado':    'dark',
+		}.get(self.estado, 'secondary')
+
+	@property
+	def icono_prioridad(self):
+		return {
+			'baja':    'fa-arrow-down',
+			'normal':  'fa-minus',
+			'alta':    'fa-arrow-up',
+			'urgente': 'fa-fire',
+		}.get(self.prioridad, 'fa-minus')
+
+
+class TicketServicioArchivo(models.Model):
+	"""Archivos adjuntos de un ticket"""
+
+	id_archivo    = models.AutoField(primary_key=True)
+	ticket        = models.ForeignKey(
+		TicketServicio, on_delete=models.CASCADE, related_name='archivos'
+	)
+	archivo       = models.FileField(upload_to='tickets/adjuntos/%Y/%m/')
+	nombre_original = models.CharField(max_length=255)
+	tamanio       = models.PositiveIntegerField(default=0, help_text='Tamaño en bytes')
+	tipo_mime     = models.CharField(max_length=100, blank=True)
+	subido_por    = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='archivos_tickets'
+	)
+	fecha_subida  = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_servicio_archivo'
+		verbose_name = 'Archivo de Ticket'
+		verbose_name_plural = 'Archivos de Tickets'
+		ordering = ['fecha_subida']
+
+	def __str__(self):
+		return self.nombre_original
+
+	@property
+	def tamanio_legible(self):
+		size = self.tamanio
+		for unit in ['B', 'KB', 'MB', 'GB']:
+			if size < 1024:
+				return f"{size:.1f} {unit}"
+			size /= 1024
+		return f"{size:.1f} TB"
+
+	@property
+	def es_imagen(self):
+		return self.tipo_mime.startswith('image/') if self.tipo_mime else False
+
+	@property
+	def icono(self):
+		mime = self.tipo_mime or ''
+		if 'pdf' in mime:             return 'fa-file-pdf text-danger'
+		if 'word' in mime or 'doc' in self.nombre_original.lower(): return 'fa-file-word text-primary'
+		if 'excel' in mime or 'xls' in self.nombre_original.lower(): return 'fa-file-excel text-success'
+		if mime.startswith('image/'): return 'fa-file-image text-warning'
+		if 'zip' in mime or 'rar' in mime: return 'fa-file-archive text-secondary'
+		return 'fa-file text-muted'
+
+
+class TicketServicioComentario(models.Model):
+	"""Comentarios y actualizaciones del ticket"""
+
+	id_comentario = models.AutoField(primary_key=True)
+	ticket        = models.ForeignKey(
+		TicketServicio, on_delete=models.CASCADE, related_name='comentarios'
+	)
+	autor         = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='comentarios_tickets'
+	)
+	mensaje       = models.TextField()
+	es_nota_interna = models.BooleanField(default=False, help_text='Solo visible para el emisor del ticket')
+	cambio_estado   = models.CharField(max_length=15, blank=True, help_text='Estado anterior si hubo cambio')
+	fecha           = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_servicio_comentario'
+		verbose_name = 'Comentario de Ticket'
+		verbose_name_plural = 'Comentarios de Tickets'
+		ordering = ['fecha']
+
+	def __str__(self):
+		return f"Ticket #{self.ticket.id_ticket} – {self.autor}"
