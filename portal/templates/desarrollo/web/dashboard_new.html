@@ -108,6 +108,13 @@
                     </div>
                 </li>
                 
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#" title="Transparencia">
+                        <i class="fas fa-search-dollar icon"></i>
+                        <span class="label">Transparencia</span>
+                    </a>
+                </li>
                 {% if user.is_authenticated and user.usuario_sistema.rol == 'admin' %}
                 <li class="nav-item">
                     <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#seguridad" title="Seguridad del Sistema">
