@@ -4,7 +4,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import PersonalEmpleados, PersonalDepartamento
+from portal.models import PersonalEmpleados, PersonalDepartamento
 
 # Obtener un departamento aleatorio
 depts = PersonalDepartamento.objects.all()

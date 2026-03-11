@@ -5,7 +5,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import PersonalDepartamento, PersonalDireccion
+from portal.models import PersonalDepartamento, PersonalDireccion
 
 # Datos de departamentos a cargar
 DEPARTAMENTOS = [

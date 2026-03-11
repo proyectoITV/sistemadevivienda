@@ -13,7 +13,7 @@ import json
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import PersonalDireccion
+from portal.models import PersonalDireccion
 
 client = Client()
 

@@ -4,7 +4,7 @@ Script para cargar los tipos de contratación en la base de datos
 Ejecutar: python manage.py shell < cargar_tipos_contratacion.py
 """
 
-from anuncios.models import PersonalTipoDeContratacion
+from portal.models import PersonalTipoDeContratacion
 
 # Datos a insertar
 tipos_contratacion = [

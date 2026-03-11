@@ -31,7 +31,7 @@
 ## 📁 ARCHIVOS MODIFICADOS
 
 ```
-anuncios/
+portal/
 ├── models.py                  [✓ Nuevo modelo + cambios]
 ├── forms.py                   [✓ Actualizado]
 ├── admin.py                   [✓ Actualizado]

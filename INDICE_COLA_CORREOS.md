@@ -34,7 +34,7 @@ Si es tu primer contacto con el sistema, sigue este orden:
 **¿Qué necesitas?**
 1. Arquitectura completa: **DOCUMENTACION_COLA_CORREOS.md**
 2. Diagramas técnicos: **DIAGRAMA_COLA_CORREOS.md**
-3. Código: **Ver archivos en anuncios/**
+3. Código: **Ver archivos en portal/**
    - `models.py` - Modelo ColaCorreos
    - `email_utils.py` - Funciones de queue
    - `views.py` - Vistas del monitor
@@ -85,7 +85,7 @@ Si es tu primer contacto con el sistema, sigue este orden:
 ```
 Desarrollos web/sistemadevivienda/
 │
-├── 📁 anuncios/
+├── 📁 portal/
 │   ├── models.py                          [ColaCorreos agregado]
 │   ├── email_utils.py                     [3 nuevas funciones]
 │   ├── views.py                           [3 nuevas vistas]
@@ -399,3 +399,4 @@ Troubleshooting items:      10+
 **Status:** ✅ DOCUMENTACIÓN COMPLETA
 
 ¡Usa este índice como tu guía principal para navegar el sistema!
+

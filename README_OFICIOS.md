@@ -95,10 +95,10 @@ Descarga PDF si existe
 ## 📁 ARCHIVOS MODIFICADOS
 
 ### Backend (Python)
-- ✅ `anuncios/models.py` - 3 campos nuevos
-- ✅ `anuncios/forms.py` - Validaciones, widgets
-- ✅ `anuncios/views.py` - Vista de descarga
-- ✅ `anuncios/urls.py` - Ruta nueva
+- ✅ `portal/models.py` - 3 campos nuevos
+- ✅ `portal/forms.py` - Validaciones, widgets
+- ✅ `portal/views.py` - Vista de descarga
+- ✅ `portal/urls.py` - Ruta nueva
 
 ### Frontend (HTML)
 - ✅ `listar_resguardos.html` - Columna oficio
@@ -466,3 +466,4 @@ Sistema de Vivienda ITAVU
 06 de Marzo de 2026
 Versión: 1.0
 ✅ **ESTADO: OPERACIONAL**
+

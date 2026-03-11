@@ -54,7 +54,7 @@
 ## ✅ Verificaciones de JavaScript
 
 ### nombre-completo.js
-- [x] Archivo existe en: `anuncios/static/anuncios/js/nombre-completo.js`
+- [x] Archivo existe en: `portal/static/desarrollo/js/nombre-completo.js`
 - [x] Detecta elementos con IDs correctos (id_apellido_paterno, id_apellido_materno, id_nombre)
 - [x] Función generarNombreCompleto() implementada
 - [x] Listeners para 'change' y 'keyup' en todos los campos
@@ -207,4 +207,5 @@ El sistema está listo para desplegar en producción.
 **Fecha de Implementación**: 2024
 **Versión de Django**: 6.0.2
 **Versión de Python**: 3.x
+
 

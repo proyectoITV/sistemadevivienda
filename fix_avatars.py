@@ -3,7 +3,7 @@
 import re
 
 # Read the file
-with open('anuncios/templates/anuncios/empleados/listar_empleados.html', 'r', encoding='utf-8') as f:
+with open('portal/templates/desarrollo/empleados/listar_empleados.html', 'r', encoding='utf-8') as f:
     content = f.read()
 
 # Replace 40px with 50px in img avatar (object-fit style)
@@ -25,7 +25,7 @@ replacement = '<td class="text-center" style="vertical-align: middle; padding: 0
 content = re.sub(pattern, replacement, content, count=1)
 
 # Write back
-with open('anuncios/templates/anuncios/empleados/listar_empleados.html', 'w', encoding='utf-8') as f:
+with open('portal/templates/desarrollo/empleados/listar_empleados.html', 'w', encoding='utf-8') as f:
     f.write(content)
 
 print('✓ Avatar styling updated successfully')

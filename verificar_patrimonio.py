@@ -11,7 +11,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
 from django.urls import reverse, resolve
-from anuncios.models import (
+from portal.models import (
     CatalogosMarcas,
     PatrimonioClasificacionSerap,
     PatrimonioClasificacionContraloria,

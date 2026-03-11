@@ -3,8 +3,8 @@ Script para probar la funcionalidad de campos de oficio en resguardos internos.
 Ejecutar: python manage.py shell < test_campos_oficio.py
 """
 
-from anuncios.models import PatrimonioResguardo, PatrimonioBienesDelInstituto, PersonalEmpleados
-from anuncios.forms import PatrimonioResguardoAsignacionForm
+from portal.models import PatrimonioResguardo, PatrimonioBienesDelInstituto, PersonalEmpleados
+from portal.forms import PatrimonioResguardoAsignacionForm
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.models import User
 import os

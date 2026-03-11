@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from anuncios.email_utils import procesar_cola_correos
+from portal.email_utils import procesar_cola_correos
 
 
 class Command(BaseCommand):

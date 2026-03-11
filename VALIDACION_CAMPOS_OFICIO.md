@@ -19,7 +19,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] Modelo compilable
 
-**Archivo:** `anuncios/models.py`
+**Archivo:** `portal/models.py`
 **Línea aproximada:** ~607
 
 ---
@@ -42,7 +42,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] Validaciones funcionan correctamente
 
-**Archivo:** `anuncios/forms.py`
+**Archivo:** `portal/forms.py`
 
 ---
 
@@ -62,7 +62,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] Manejo de excepciones
 
-**Archivo:** `anuncios/views.py`
+**Archivo:** `portal/views.py`
 **Línea aproximada:** ~1714
 
 ---
@@ -75,7 +75,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] URL generada correctamente
 
-**Archivo:** `anuncios/urls.py`
+**Archivo:** `portal/urls.py`
 
 ---
 
@@ -93,7 +93,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] Bootstrap classes correctas
 
-**Archivo:** `anuncios/templates/anuncios/patrimonio/listar_resguardos.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/listar_resguardos.html`
 
 ---
 
@@ -108,7 +108,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] Estilos consistentes
 
-**Archivo:** `anuncios/templates/anuncios/patrimonio/historial_resguardo_bien.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/historial_resguardo_bien.html`
 
 ---
 
@@ -123,7 +123,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] Estilos consistentes
 
-**Archivo:** `anuncios/templates/anuncios/patrimonio/historial_resguardo_empleado.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/historial_resguardo_empleado.html`
 
 ---
 
@@ -146,7 +146,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Sin errores de sintaxis
 - [x] Estilos Bootstrap
 
-**Archivo:** `anuncios/templates/anuncios/patrimonio/form_resguardo_asignacion.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/form_resguardo_asignacion.html`
 
 ---
 
@@ -162,7 +162,7 @@ Estado: ✅ **COMPLETADO Y FUNCIONAL**
 - [x] Aplicada correctamente
 - [x] Estado: OK
 
-**Archivo:** `anuncios/migrations/0024_agregar_campos_oficio_resguardo.py`
+**Archivo:** `portal/migrations/0024_agregar_campos_oficio_resguardo.py`
 
 **Comando ejecutado:**
 ```bash
@@ -445,3 +445,4 @@ La implementación de campos de oficio en el sistema de resguardos internos est�
 **Fecha de Validación:** 06 de Marzo de 2026
 **Versión:** 1.0
 **Siguiente Revisión:** 30 días después de deploy
+

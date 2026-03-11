@@ -6,7 +6,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import PersonalDireccion, PersonalDepartamento
+from portal.models import PersonalDireccion, PersonalDepartamento
 
 print('\n╔════════════════════════════════════════════════════════════════╗')
 print('║     VERIFICACIÓN FINAL: SISTEMA DE CASCADA                     ║')
@@ -24,7 +24,7 @@ print('✓ API Endpoint:           /api/departamentos-por-direccion/')
 print('✓ Método:                 GET con parámetro iddireccion')
 print('✓ Retorna:                JSON con lista de departamentos\n')
 
-print('✓ Script JavaScript:      static/anuncios/js/departamentos-cascada.js')
+print('✓ Script JavaScript:      static/desarrollo/js/departamentos-cascada.js')
 print('✓ Eventos:                onChange, DOMContentLoaded')
 print('✓ Compatibilidad:         Todos los navegadores modernos\n')
 

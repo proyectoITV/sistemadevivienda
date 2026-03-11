@@ -136,21 +136,21 @@
 ┌─ ARCHIVOS CREADOS/MODIFICADOS ─────────────────────────────────────────────────┐
 │                                                                                 │
 │  NUEVOS (6 ARCHIVOS)                                                           │
-│  ├─ anuncios/migrations/0018_colacorreos.py                                   │
-│  ├─ anuncios/management/__init__.py                                           │
-│  ├─ anuncios/management/commands/__init__.py                                  │
-│  ├─ anuncios/management/commands/procesar_cola_correos.py                    │
-│  ├─ anuncios/templates/anuncios/seguridad/monitor_cola_correos.html          │
+│  ├─ portal/migrations/0018_colacorreos.py                                   │
+│  ├─ portal/management/__init__.py                                           │
+│  ├─ portal/management/commands/__init__.py                                  │
+│  ├─ portal/management/commands/procesar_cola_correos.py                    │
+│  ├─ portal/templates/desarrollo/seguridad/monitor_cola_correos.html          │
 │  └─ verificar_cola_correos.py                                                │
 │                                                                                │
 │  MODIFICADOS (8 ARCHIVOS)                                                     │
-│  ├─ anuncios/models.py (agregado modelo ColaCorreos)                         │
-│  ├─ anuncios/email_utils.py (3 nuevas funciones)                             │
-│  ├─ anuncios/views.py (3 nuevas vistas)                                      │
-│  ├─ anuncios/urls.py (3 nuevas URLs)                                         │
-│  ├─ anuncios/admin.py (ColaCorreosAdmin)                                     │
-│  ├─ anuncios/templates/anuncios/dashboard_new.html (link agregado)           │
-│  ├─ anuncios/templates/anuncios/dashboard.html (link agregado)               │
+│  ├─ portal/models.py (agregado modelo ColaCorreos)                         │
+│  ├─ portal/email_utils.py (3 nuevas funciones)                             │
+│  ├─ portal/views.py (3 nuevas vistas)                                      │
+│  ├─ portal/urls.py (3 nuevas URLs)                                         │
+│  ├─ portal/admin.py (ColaCorreosAdmin)                                     │
+│  ├─ portal/templates/desarrollo/dashboard_new.html (link agregado)           │
+│  ├─ portal/templates/desarrollo/dashboard.html (link agregado)               │
 │  └─ Sin breaking changes ✅                                                   │
 │                                                                                │
 │  DOCUMENTACIÓN (5 ARCHIVOS)                                                   │
@@ -309,3 +309,4 @@
 ║  ¡Sistema implementado exitosamente! 🎉                                        ║
 ║                                                                                ║
 ╚════════════════════════════════════════════════════════════════════════════════╝
+

@@ -10,7 +10,7 @@
 
 ## 🏗️ Arquitectura Implementada
 
-### 1. Modelo de Datos (anuncios/models.py)
+### 1. Modelo de Datos (portal/models.py)
 
 ```
 ColaCorreos
@@ -32,7 +32,7 @@ ColaCorreos
   - (email_destino) para búsquedas
 ```
 
-### 2. Funciones de Utilidad (anuncios/email_utils.py)
+### 2. Funciones de Utilidad (portal/email_utils.py)
 
 #### `guardar_correo_en_cola()`
 - Persiste correo en BD sin intentar envío
@@ -51,7 +51,7 @@ ColaCorreos
 - Marca error después de 3 fallos
 - Retorna estadísticas de procesamiento
 
-### 3. Vistas Web (anuncios/views.py)
+### 3. Vistas Web (portal/views.py)
 
 #### `monitor_cola_correos`
 - URL: `/seguridad/cola-correos/`
@@ -70,7 +70,7 @@ ColaCorreos
 - API JSON para programas externos
 - Retorna estadísticas por tipo
 
-### 4. Template Web (anuncios/templates/anuncios/seguridad/monitor_cola_correos.html)
+### 4. Template Web (portal/templates/desarrollo/seguridad/monitor_cola_correos.html)
 
 - ✓ Diseño responsive con Bootstrap 5
 - ✓ Estadísticas en tarjetas
@@ -80,7 +80,7 @@ ColaCorreos
 - ✓ Modal de procesamiento
 - ✓ Alertas con SweetAlert2
 
-### 5. Admin Django (anuncios/admin.py)
+### 5. Admin Django (portal/admin.py)
 
 ```
 ColaCorreosAdmin
@@ -91,7 +91,7 @@ ColaCorreosAdmin
 └── Fieldsets organizados: Destinatario, Contenido, Estado, Auditoría
 ```
 
-### 6. Management Command (anuncios/management/commands/procesar_cola_correos.py)
+### 6. Management Command (portal/management/commands/procesar_cola_correos.py)
 
 ```
 Usage: python manage.py procesar_cola_correos [--limite 2000]
@@ -106,7 +106,7 @@ Output:
   - Estadísticas detalladas
 ```
 
-### 7. URLs (anuncios/urls.py)
+### 7. URLs (portal/urls.py)
 
 ```
 /seguridad/cola-correos/                    → monitor_cola_correos
@@ -114,7 +114,7 @@ Output:
 /api/estadisticas-cola/                     → api_estadisticas_cola
 ```
 
-### 8. Dashboard Links (anuncios/templates/anuncios/dashboard_new.html)
+### 8. Dashboard Links (portal/templates/desarrollo/dashboard_new.html)
 
 - Agregado link "Monitor de Correos" en menú Seguridad
 - Visible solo para admins
@@ -183,21 +183,21 @@ Fase 4: Retornar Estadísticas
 ### ✨ NUEVOS
 
 ```
-✓ anuncios/migrations/0018_colacorreos.py
+✓ portal/migrations/0018_colacorreos.py
   - Migration para crear tabla cola_correos
 
-✓ anuncios/management/__init__.py
+✓ portal/management/__init__.py
   - Package marker
 
-✓ anuncios/management/commands/__init__.py
+✓ portal/management/commands/__init__.py
   - Package marker
 
-✓ anuncios/management/commands/procesar_cola_correos.py
+✓ portal/management/commands/procesar_cola_correos.py
   - Management command (30 líneas)
   - Argparse para --limite parameter
   - Llamadas procesar_cola_correos() de email_utils
 
-✓ anuncios/templates/anuncios/seguridad/monitor_cola_correos.html
+✓ portal/templates/desarrollo/seguridad/monitor_cola_correos.html
   - Template web completo (250+ líneas)
   - Responsive design con Bootstrap 5
   - AJAX + SweetAlert2
@@ -223,11 +223,11 @@ Fase 4: Retornar Estadísticas
 ### 🔄 MODIFICADOS
 
 ```
-✓ anuncios/models.py
+✓ portal/models.py
   - Agregado modelo ColaCorreos (51 líneas)
   - PersonalEmpleados.usuario: campo nullable
 
-✓ anuncios/email_utils.py
+✓ portal/email_utils.py
   - Importados: ColaCorreos, timezone, Q
   - Agregada: guardar_correo_en_cola() (20 líneas)
   - Agregada: enviar_correo_directo() (25 líneas)
@@ -235,27 +235,27 @@ Fase 4: Retornar Estadísticas
   - Modificada: enviar_correo_bienvenida_credenciales()
   - Modificada: enviar_credenciales_existentes()
 
-✓ anuncios/views.py
+✓ portal/views.py
   - Importados: datetime, JsonResponse, login_required
   - Agregada: monitor_cola_correos() (40 líneas)
   - Agregada: procesar_cola_ahora() (25 líneas)
   - Agregada: api_estadisticas_cola() (40 líneas)
 
-✓ anuncios/urls.py
+✓ portal/urls.py
   - Agregada URL: /seguridad/cola-correos/
   - Agregada URL: /seguridad/cola-correos/procesar/
   - Agregada URL: /api/estadisticas-cola/
 
-✓ anuncios/admin.py
+✓ portal/admin.py
   - Importado: ColaCorreos
   - Agregado: ColaCorreosAdmin (45 líneas)
   - Fieldsets organizados
   - Filtros, búsqueda, readonly fields
 
-✓ anuncios/templates/anuncios/dashboard_new.html
+✓ portal/templates/desarrollo/dashboard_new.html
   - Agregado link: Monitor de Correos en menú Seguridad
 
-✓ anuncios/templates/anuncios/dashboard.html
+✓ portal/templates/desarrollo/dashboard.html
   - Agregado link: Monitor de Correos en menú Configuración
 ```
 
@@ -344,9 +344,9 @@ Elegir una opción:
 - `DOCUMENTACION_COLA_CORREOS.md` - Documentación técnica completa
 - `SETUP_COLA_CORREOS.md` - Guía rápida de setup
 - `verificar_cola_correos.py` - Script de verificación
-- `anuncios/models.py` - Definición de modelo
-- `anuncios/email_utils.py` - Implementación de funciones
-- `anuncios/management/commands/procesar_cola_correos.py` - Management command
+- `portal/models.py` - Definición de modelo
+- `portal/email_utils.py` - Implementación de funciones
+- `portal/management/commands/procesar_cola_correos.py` - Management command
 
 ---
 
@@ -376,3 +376,4 @@ Próximo paso: python manage.py migrate anuncios 0018
 **Implementado:** 2024  
 **Versión:** 1.0  
 **Responsable del Sistema:** Admin del ITAVU
+

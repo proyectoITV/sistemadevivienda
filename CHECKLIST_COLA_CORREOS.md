@@ -2,7 +2,7 @@
 
 ## FASE 1: CÓDIGO BASE ✅
 
-### Modelos (anuncios/models.py)
+### Modelos (portal/models.py)
 - [x] Modelo `ColaCorreos` creado con 11 campos
 - [x] TIPOS_CORREO_CHOICES definidos (bienvenida, recuperacion, credenciales, contacto, otro)
 - [x] ESTADO_CHOICES definidos (pendiente, enviado, error)
@@ -13,7 +13,7 @@
   - [x] (estado, fecha_creacion) para queries rápidas
   - [x] (email_destino) para búsquedas
 
-### Funciones de Email (anuncios/email_utils.py)
+### Funciones de Email (portal/email_utils.py)
 - [x] `guardar_correo_en_cola()` - Guarda correo en cola
 - [x] `enviar_correo_directo()` - Intenta envío con fallback
 - [x] `procesar_cola_correos()` - Procesa cola respetando límite
@@ -24,7 +24,7 @@
   - [x] Marca error después de 3 intentos
   - [x] Retorna estadísticas
 
-### Migraciones (anuncios/migrations/0018_colacorreos.py)
+### Migraciones (portal/migrations/0018_colacorreos.py)
 - [x] Migración para tabla `cola_correos` creada
 - [x] Índices incluidos en migración
 - [x] Compatibilidad con PostgreSQL
@@ -33,7 +33,7 @@
 
 ## FASE 2: VISTAS Y URLS ✅
 
-### Vistas (anuncios/views.py)
+### Vistas (portal/views.py)
 - [x] `monitor_cola_correos()` - Ver estado de cola
   - [x] Estadísticas generales
   - [x] Correos de hoy vs límite
@@ -48,7 +48,7 @@
   - [x] Por tipo de correo
   - [x] Porcentaje diario
 
-### URLs (anuncios/urls.py)
+### URLs (portal/urls.py)
 - [x] `/seguridad/cola-correos/` → monitor_cola_correos
 - [x] `/seguridad/cola-correos/procesar/` → procesar_cola_ahora
 - [x] `/api/estadisticas-cola/` → api_estadisticas_cola
@@ -57,7 +57,7 @@
 
 ## FASE 3: TEMPLATES ✅
 
-### Monitor Web (anuncios/templates/anuncios/seguridad/monitor_cola_correos.html)
+### Monitor Web (portal/templates/desarrollo/seguridad/monitor_cola_correos.html)
 - [x] Diseño responsive Bootstrap 5
 - [x] Tarjetas de estadísticas
 - [x] Gráfica de progreso diario
@@ -79,7 +79,7 @@
 
 ## FASE 4: ADMIN DJANGO ✅
 
-### Admin Interface (anuncios/admin.py)
+### Admin Interface (portal/admin.py)
 - [x] `ColaCorreosAdmin` registrado
 - [x] List display: email, tipo, estado, intentos, fecha
 - [x] Filtros: estado, tipo_correo, fecha, intentos
@@ -358,3 +358,4 @@ R: Sí, click en "Procesar Cola Ahora" en /seguridad/cola-correos/
 
 **P: ¿Es seguro el sistema?**
 R: Sí - Solo admins ven monitor, campos readonly, CSRF protegido
+

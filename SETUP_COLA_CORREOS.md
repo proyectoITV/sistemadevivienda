@@ -50,7 +50,7 @@ python verificar_cola_correos.py
 
 ```bash
 python manage.py shell
->>> from anuncios.models import ColaCorreos
+>>> from portal.models import ColaCorreos
 >>> ColaCorreos.objects.filter(estado='pendiente').count()
 ```
 
@@ -126,12 +126,13 @@ while True:
 **Documentación completa:** `DOCUMENTACION_COLA_CORREOS.md`
 
 **Archivos relacionados:**
-- `anuncios/models.py` - Modelo ColaCorreos
-- `anuncios/email_utils.py` - Funciones de queue
-- `anuncios/management/commands/procesar_cola_correos.py` - Management command
-- `anuncios/views.py` - Vistas del monitor
-- `anuncios/templates/anuncios/seguridad/monitor_cola_correos.html` - Template
+- `portal/models.py` - Modelo ColaCorreos
+- `portal/email_utils.py` - Funciones de queue
+- `portal/management/commands/procesar_cola_correos.py` - Management command
+- `portal/views.py` - Vistas del monitor
+- `portal/templates/desarrollo/seguridad/monitor_cola_correos.html` - Template
 
 ---
 
 ¿Necesitas ayuda con algún paso? Contacta al administrador del sistema.
+

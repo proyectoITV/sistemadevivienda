@@ -22,7 +22,7 @@ def index(request):
 		return redirect('dashboard')
 
 	anuncios = Anuncio.objects.filter(activo=True).order_by('-fecha_publicacion')
-	return render(request, 'anuncios/index.html', {'anuncios': anuncios})
+	return render(request, 'desarrollo/web/index.html', {'anuncios': anuncios})
 
 
 def _verify_recaptcha(token, remote_ip):
@@ -91,7 +91,7 @@ def contactanos(request):
 		request.session['contact_form_started_at'] = time.time()
 		uuid_folio = request.session.pop('uuid_folio', None)
 
-	return render(request, 'anuncios/contactanos.html', {
+	return render(request, 'desarrollo/web/contactanos.html', {
 		'form': form, 
 		'recaptcha_site_key': recaptcha_site_key,
 		'uuid_folio': uuid_folio
@@ -108,12 +108,12 @@ def buscar_seguimiento(request):
 		except SeguridadContactanos.DoesNotExist:
 			messages.error(request, 'Folio no encontrado. Verifica e intenta nuevamente.')
 
-	return render(request, 'anuncios/seguimiento.html', {'contacto': contacto, 'busqueda': busqueda})
+	return render(request, 'desarrollo/web/seguimiento.html', {'contacto': contacto, 'busqueda': busqueda})
 
 
 def nuestras_oficinas(request):
 	delegaciones = CatalogosDelegaciones.objects.filter(activo=True).order_by('nombre')
-	return render(request, 'anuncios/nuestras_oficinas.html', {'delegaciones': delegaciones})
+	return render(request, 'desarrollo/web/nuestras_oficinas.html', {'delegaciones': delegaciones})
 
 # ============== AUTENTICACIÓN ==============
 
@@ -158,7 +158,7 @@ def login_view(request):
 		
 		if not usuario or not password:
 			messages.error(request, 'Por favor ingresa usuario y contraseña.')
-			return render(request, 'anuncios/login.html')
+			return render(request, 'desarrollo/web/login.html')
 		
 		# Intentar autenticar con usuario o email
 		user = None
@@ -195,7 +195,7 @@ def login_view(request):
 		else:
 			messages.error(request, 'Usuario, email o contraseña incorrectos.')
 	
-	return render(request, 'anuncios/login.html')
+	return render(request, 'desarrollo/web/login.html')
 
 
 def logout_view(request):
@@ -217,7 +217,7 @@ def intro(request):
 	context = {
 		'duracion_intro': duracion,
 	}
-	return render(request, 'anuncios/intro.html', context)
+	return render(request, 'desarrollo/web/intro.html', context)
 
 
 @login_required(login_url='login')
@@ -226,7 +226,7 @@ def dashboard(request):
 	# Si no hay sesión activa, redirigir al index
 	if not request.user.is_authenticated:
 		return redirect('index')
-	return render(request, 'anuncios/dashboard.html')
+	return render(request, 'desarrollo/web/dashboard.html')
 
 
 def recuperar_contrasena(request):
@@ -236,7 +236,7 @@ def recuperar_contrasena(request):
 		
 		if not usuario_o_email:
 			messages.error(request, 'Por favor ingresa tu usuario o correo.')
-			return render(request, 'anuncios/recuperar_contrasena.html')
+			return render(request, 'desarrollo/web/recuperar_contrasena.html')
 		
 		# Buscar el usuario por usuario o email
 		try:
@@ -266,7 +266,7 @@ def recuperar_contrasena(request):
 			)
 			return redirect('login')
 	
-	return render(request, 'anuncios/recuperar_contrasena.html')
+	return render(request, 'desarrollo/web/recuperar_contrasena.html')
 
 
 def restablecer_contrasena(request, token):
@@ -284,15 +284,15 @@ def restablecer_contrasena(request, token):
 			
 			if not nueva_password or not confirmar_password:
 				messages.error(request, 'Por favor completa todos los campos.')
-				return render(request, 'anuncios/restablecer_contrasena.html', {'token': token})
+				return render(request, 'desarrollo/web/restablecer_contrasena.html', {'token': token})
 			
 			if nueva_password != confirmar_password:
 				messages.error(request, 'Las contraseñas no coinciden.')
-				return render(request, 'anuncios/restablecer_contrasena.html', {'token': token})
+				return render(request, 'desarrollo/web/restablecer_contrasena.html', {'token': token})
 			
 			if len(nueva_password) < 8:
 				messages.error(request, 'La contraseña debe tener al menos 8 caracteres.')
-				return render(request, 'anuncios/restablecer_contrasena.html', {'token': token})
+				return render(request, 'desarrollo/web/restablecer_contrasena.html', {'token': token})
 			
 			# Actualizar contraseña
 			usuario = recuperacion.usuario
@@ -307,7 +307,7 @@ def restablecer_contrasena(request, token):
 			messages.success(request, 'Contraseña actualizada correctamente. Por favor inicia sesión.')
 			return redirect('login')
 		
-		return render(request, 'anuncios/restablecer_contrasena.html', {'token': token})
+		return render(request, 'desarrollo/web/restablecer_contrasena.html', {'token': token})
 		
 	except RecuperacionContrasena.DoesNotExist:
 		messages.error(request, 'Enlace inválido. Solicita uno nuevo.')
@@ -362,7 +362,7 @@ def crear_empleado(request):
 	else:
 		form = PersonalEmpleadosForm()
 	
-	return render(request, 'anuncios/empleados/crear_empleado.html', {'form': form})
+	return render(request, 'desarrollo/empleados/crear_empleado.html', {'form': form})
 
 
 @login_required(login_url='login')
@@ -380,7 +380,7 @@ def listar_empleados(request):
 			Q(numero_empleado__icontains=search)
 		)
 	
-	return render(request, 'anuncios/empleados/listar_empleados.html', {'empleados': empleados, 'search': search})
+	return render(request, 'desarrollo/empleados/listar_empleados.html', {'empleados': empleados, 'search': search})
 
 
 @login_required(login_url='login')
@@ -421,14 +421,14 @@ def editar_empleado(request, id_empleado):
 	else:
 		form = PersonalEmpleadosForm(instance=empleado)
 	
-	return render(request, 'anuncios/empleados/editar_empleado.html', {'form': form, 'empleado': empleado})
+	return render(request, 'desarrollo/empleados/editar_empleado.html', {'form': form, 'empleado': empleado})
 
 
 @login_required(login_url='login')
 def ver_empleado(request, id_empleado):
 	"""Vista para ver detalles de un empleado"""
 	empleado = get_object_or_404(PersonalEmpleados, id_empleado=id_empleado)
-	return render(request, 'anuncios/empleados/ver_empleado.html', {'empleado': empleado})
+	return render(request, 'desarrollo/empleados/ver_empleado.html', {'empleado': empleado})
 
 
 @login_required(login_url='login')
@@ -442,7 +442,7 @@ def eliminar_empleado(request, id_empleado):
 		messages.success(request, f'Empleado {empleado.nombre_completo} desactivado.')
 		return redirect('listar_empleados')
 	
-	return render(request, 'anuncios/empleados/confirmar_eliminar.html', {'empleado': empleado})
+	return render(request, 'desarrollo/empleados/confirmar_eliminar.html', {'empleado': empleado})
 
 
 @login_required(login_url='login')
@@ -490,7 +490,7 @@ def listar_direcciones(request):
 			Q(descripcion__icontains=search)
 		)
 
-	return render(request, 'anuncios/recursos_humanos/listar_direcciones.html', {
+	return render(request, 'desarrollo/recursos_humanos/listar_direcciones.html', {
 		'direcciones': direcciones,
 		'search': search,
 	})
@@ -511,7 +511,7 @@ def crear_direccion(request):
 	else:
 		form = PersonalDireccionForm()
 
-	return render(request, 'anuncios/recursos_humanos/form_direccion.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_direccion.html', {
 		'form': form,
 		'titulo': 'Nueva Dirección',
 		'accion': 'Crear'
@@ -535,7 +535,7 @@ def editar_direccion(request, iddireccion):
 	else:
 		form = PersonalDireccionForm(instance=direccion)
 
-	return render(request, 'anuncios/recursos_humanos/form_direccion.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_direccion.html', {
 		'form': form,
 		'direccion': direccion,
 		'titulo': 'Editar Dirección',
@@ -573,7 +573,7 @@ def listar_departamentos(request):
 			Q(iddireccion__direccion__icontains=search)
 		)
 
-	return render(request, 'anuncios/recursos_humanos/listar_departamentos.html', {
+	return render(request, 'desarrollo/recursos_humanos/listar_departamentos.html', {
 		'departamentos': departamentos,
 		'search': search,
 	})
@@ -594,7 +594,7 @@ def crear_departamento(request):
 	else:
 		form = PersonalDepartamentoForm()
 
-	return render(request, 'anuncios/recursos_humanos/form_departamento.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_departamento.html', {
 		'form': form,
 		'titulo': 'Nuevo Departamento',
 		'accion': 'Crear'
@@ -618,7 +618,7 @@ def editar_departamento(request, iddepartamento):
 	else:
 		form = PersonalDepartamentoForm(instance=departamento)
 
-	return render(request, 'anuncios/recursos_humanos/form_departamento.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_departamento.html', {
 		'form': form,
 		'departamento': departamento,
 		'titulo': 'Editar Departamento',
@@ -655,7 +655,7 @@ def listar_puestos(request):
 			Q(descripcion__icontains=search)
 		)
 
-	return render(request, 'anuncios/recursos_humanos/listar_puestos.html', {
+	return render(request, 'desarrollo/recursos_humanos/listar_puestos.html', {
 		'puestos': puestos,
 		'search': search,
 	})
@@ -676,7 +676,7 @@ def crear_puesto(request):
 	else:
 		form = PersonalPuestosForm()
 
-	return render(request, 'anuncios/recursos_humanos/form_puesto.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_puesto.html', {
 		'form': form,
 		'titulo': 'Nuevo Puesto',
 		'accion': 'Crear'
@@ -700,7 +700,7 @@ def editar_puesto(request, idpuesto):
 	else:
 		form = PersonalPuestosForm(instance=puesto)
 
-	return render(request, 'anuncios/recursos_humanos/form_puesto.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_puesto.html', {
 		'form': form,
 		'puesto': puesto,
 		'titulo': 'Editar Puesto',
@@ -737,7 +737,7 @@ def listar_tipos_contratacion(request):
 			Q(descripcion__icontains=search)
 		)
 
-	return render(request, 'anuncios/recursos_humanos/listar_tipos_contratacion.html', {
+	return render(request, 'desarrollo/recursos_humanos/listar_tipos_contratacion.html', {
 		'tipos': tipos,
 		'search': search,
 	})
@@ -758,7 +758,7 @@ def crear_tipo_contratacion(request):
 	else:
 		form = PersonalTipoDeContratacionForm()
 
-	return render(request, 'anuncios/recursos_humanos/form_tipo_contratacion.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_tipo_contratacion.html', {
 		'form': form,
 		'titulo': 'Nuevo Tipo de Contratación',
 		'accion': 'Crear'
@@ -782,7 +782,7 @@ def editar_tipo_contratacion(request, idtipodecontratacion):
 	else:
 		form = PersonalTipoDeContratacionForm(instance=tipo)
 
-	return render(request, 'anuncios/recursos_humanos/form_tipo_contratacion.html', {
+	return render(request, 'desarrollo/recursos_humanos/form_tipo_contratacion.html', {
 		'form': form,
 		'tipo': tipo,
 		'titulo': 'Editar Tipo de Contratación',
@@ -898,7 +898,7 @@ def listar_usuarios_sistema(request):
 		'total_candidatos': candidatos.count(),
 	}
 	
-	return render(request, 'anuncios/seguridad/listar_usuarios.html', context)
+	return render(request, 'desarrollo/seguridad/listar_usuarios.html', context)
 
 
 @login_required(login_url='login')
@@ -970,7 +970,7 @@ def crear_usuario_sistema(request):
 		'modo': 'crear',
 	}
 	
-	return render(request, 'anuncios/seguridad/formulario_usuario.html', context)
+	return render(request, 'desarrollo/seguridad/formulario_usuario.html', context)
 
 
 @login_required(login_url='login')
@@ -1003,7 +1003,7 @@ def editar_usuario_sistema(request, id_usuario):
 		'usuario': usuario,
 	}
 	
-	return render(request, 'anuncios/seguridad/formulario_usuario.html', context)
+	return render(request, 'desarrollo/seguridad/formulario_usuario.html', context)
 
 
 @login_required(login_url='login')
@@ -1043,7 +1043,7 @@ def configuracion_sistema(request):
 		'usuarios_inactivos': usuarios_inactivos,
 	}
 	
-	return render(request, 'anuncios/seguridad/configuracion.html', context)
+	return render(request, 'desarrollo/seguridad/configuracion.html', context)
 
 
 @login_required(login_url='login')
@@ -1175,7 +1175,7 @@ def monitor_cola_correos(request):
 		'ultimos_correos': ultimos_correos,
 	}
 	
-	return render(request, 'anuncios/seguridad/monitor_cola_correos.html', context)
+	return render(request, 'desarrollo/seguridad/monitor_cola_correos.html', context)
 
 
 @login_required(login_url='login')
@@ -1284,7 +1284,7 @@ def listar_bienes(request):
 		'busqueda': busqueda,
 		'estado_filtro': estado_filtro,
 	}
-	return render(request, 'anuncios/patrimonio/listar_bienes.html', context)
+	return render(request, 'desarrollo/patrimonio/listar_bienes.html', context)
 
 
 @login_required(login_url='login')
@@ -1305,7 +1305,7 @@ def crear_bien(request):
 		form = PatrimonioBienesDelInstitutoForm()
 	
 	context = {'form': form, 'titulo': 'Crear Bien del Instituto'}
-	return render(request, 'anuncios/patrimonio/form_bien.html', context)
+	return render(request, 'desarrollo/patrimonio/form_bien.html', context)
 
 
 @login_required(login_url='login')
@@ -1328,7 +1328,7 @@ def editar_bien(request, idbien):
 		form = PatrimonioBienesDelInstitutoForm(instance=bien)
 	
 	context = {'form': form, 'bien': bien, 'titulo': 'Editar Bien del Instituto'}
-	return render(request, 'anuncios/patrimonio/form_bien.html', context)
+	return render(request, 'desarrollo/patrimonio/form_bien.html', context)
 
 
 @login_required(login_url='login')
@@ -1359,7 +1359,7 @@ def listar_marcas(request):
 	if search:
 		marcas = marcas.filter(Q(nombre__icontains=search) | Q(descripcion__icontains=search))
 	
-	return render(request, 'anuncios/patrimonio/listar_marcas.html', {'marcas': marcas, 'search': search})
+	return render(request, 'desarrollo/patrimonio/listar_marcas.html', {'marcas': marcas, 'search': search})
 
 
 @login_required(login_url='login')
@@ -1375,7 +1375,7 @@ def crear_marca(request):
 	else:
 		form = CatalogosMarcasForm()
 	
-	return render(request, 'anuncios/patrimonio/form_marca.html', {'form': form, 'titulo': 'Nueva Marca', 'accion': 'Crear'})
+	return render(request, 'desarrollo/patrimonio/form_marca.html', {'form': form, 'titulo': 'Nueva Marca', 'accion': 'Crear'})
 
 
 @login_required(login_url='login')
@@ -1394,7 +1394,7 @@ def editar_marca(request, idmarca):
 	else:
 		form = CatalogosMarcasForm(instance=marca)
 	
-	return render(request, 'anuncios/patrimonio/form_marca.html', {'form': form, 'marca': marca, 'titulo': 'Editar Marca', 'accion': 'Guardar cambios'})
+	return render(request, 'desarrollo/patrimonio/form_marca.html', {'form': form, 'marca': marca, 'titulo': 'Editar Marca', 'accion': 'Guardar cambios'})
 
 
 @login_required(login_url='login')
@@ -1424,7 +1424,7 @@ def listar_proveedores(request):
 	if search:
 		proveedores = proveedores.filter(Q(nombre__icontains=search) | Q(rfc__icontains=search) | Q(descripcion__icontains=search))
 	
-	return render(request, 'anuncios/patrimonio/listar_proveedores.html', {'proveedores': proveedores, 'search': search})
+	return render(request, 'desarrollo/patrimonio/listar_proveedores.html', {'proveedores': proveedores, 'search': search})
 
 
 @login_required(login_url='login')
@@ -1440,7 +1440,7 @@ def crear_proveedor(request):
 	else:
 		form = PatrimonioProveedorForm()
 	
-	return render(request, 'anuncios/patrimonio/form_proveedor.html', {'form': form, 'titulo': 'Nuevo Proveedor', 'accion': 'Crear'})
+	return render(request, 'desarrollo/patrimonio/form_proveedor.html', {'form': form, 'titulo': 'Nuevo Proveedor', 'accion': 'Crear'})
 
 
 @login_required(login_url='login')
@@ -1459,7 +1459,7 @@ def editar_proveedor(request, idproveedor):
 	else:
 		form = PatrimonioProveedorForm(instance=proveedor)
 	
-	return render(request, 'anuncios/patrimonio/form_proveedor.html', {'form': form, 'proveedor': proveedor, 'titulo': 'Editar Proveedor', 'accion': 'Guardar cambios'})
+	return render(request, 'desarrollo/patrimonio/form_proveedor.html', {'form': form, 'proveedor': proveedor, 'titulo': 'Editar Proveedor', 'accion': 'Guardar cambios'})
 
 
 @login_required(login_url='login')
@@ -1489,7 +1489,7 @@ def listar_clasificaciones_serap(request):
 	if search:
 		clasificaciones = clasificaciones.filter(Q(nombre__icontains=search) | Q(descripcion__icontains=search))
 	
-	return render(request, 'anuncios/patrimonio/listar_clasificaciones_serap.html', {'clasificaciones': clasificaciones, 'search': search})
+	return render(request, 'desarrollo/patrimonio/listar_clasificaciones_serap.html', {'clasificaciones': clasificaciones, 'search': search})
 
 
 @login_required(login_url='login')
@@ -1505,7 +1505,7 @@ def crear_clasificacion_serap(request):
 	else:
 		form = PatrimonioClasificacionSerapForm()
 	
-	return render(request, 'anuncios/patrimonio/form_clasificacion_serap.html', {'form': form, 'titulo': 'Nueva Clasificación SERAP', 'accion': 'Crear'})
+	return render(request, 'desarrollo/patrimonio/form_clasificacion_serap.html', {'form': form, 'titulo': 'Nueva Clasificación SERAP', 'accion': 'Crear'})
 
 
 @login_required(login_url='login')
@@ -1524,7 +1524,7 @@ def editar_clasificacion_serap(request, idclasificacion_serap):
 	else:
 		form = PatrimonioClasificacionSerapForm(instance=clasificacion)
 	
-	return render(request, 'anuncios/patrimonio/form_clasificacion_serap.html', {'form': form, 'clasificacion': clasificacion, 'titulo': 'Editar Clasificación SERAP', 'accion': 'Guardar cambios'})
+	return render(request, 'desarrollo/patrimonio/form_clasificacion_serap.html', {'form': form, 'clasificacion': clasificacion, 'titulo': 'Editar Clasificación SERAP', 'accion': 'Guardar cambios'})
 
 
 @login_required(login_url='login')
@@ -1554,7 +1554,7 @@ def listar_clasificaciones_contraloria(request):
 	if search:
 		clasificaciones = clasificaciones.filter(Q(nombre__icontains=search) | Q(descripcion__icontains=search))
 	
-	return render(request, 'anuncios/patrimonio/listar_clasificaciones_contraloria.html', {'clasificaciones': clasificaciones, 'search': search})
+	return render(request, 'desarrollo/patrimonio/listar_clasificaciones_contraloria.html', {'clasificaciones': clasificaciones, 'search': search})
 
 
 @login_required(login_url='login')
@@ -1570,7 +1570,7 @@ def crear_clasificacion_contraloria(request):
 	else:
 		form = PatrimonioClasificacionContraloriaForm()
 	
-	return render(request, 'anuncios/patrimonio/form_clasificacion_contraloria.html', {'form': form, 'titulo': 'Nueva Clasificación de Contraloría', 'accion': 'Crear'})
+	return render(request, 'desarrollo/patrimonio/form_clasificacion_contraloria.html', {'form': form, 'titulo': 'Nueva Clasificación de Contraloría', 'accion': 'Crear'})
 
 
 @login_required(login_url='login')
@@ -1589,7 +1589,7 @@ def editar_clasificacion_contraloria(request, idclasificacion_contraloria):
 	else:
 		form = PatrimonioClasificacionContraloriaForm(instance=clasificacion)
 	
-	return render(request, 'anuncios/patrimonio/form_clasificacion_contraloria.html', {'form': form, 'clasificacion': clasificacion, 'titulo': 'Editar Clasificación de Contraloría', 'accion': 'Guardar cambios'})
+	return render(request, 'desarrollo/patrimonio/form_clasificacion_contraloria.html', {'form': form, 'clasificacion': clasificacion, 'titulo': 'Editar Clasificación de Contraloría', 'accion': 'Guardar cambios'})
 
 
 @login_required(login_url='login')
@@ -1639,7 +1639,7 @@ def listar_resguardos(request):
 		'search': search,
 		'filtro_estado': filtro_estado,
 	}
-	return render(request, 'anuncios/patrimonio/listar_resguardos.html', context)
+	return render(request, 'desarrollo/patrimonio/listar_resguardos.html', context)
 
 
 @login_required
@@ -1699,7 +1699,7 @@ def asignar_resguardo(request):
 		'titulo': 'Asignar o Transferir Resguardo',
 		'accion': 'Asignar',
 	}
-	return render(request, 'anuncios/patrimonio/form_resguardo_asignacion.html', context)
+	return render(request, 'desarrollo/patrimonio/form_resguardo_asignacion.html', context)
 
 
 @login_required
@@ -1728,7 +1728,7 @@ def devolver_resguardo(request, idresguardo):
 		'titulo': 'Registrar Devolución',
 		'accion': 'Registrar Devolución',
 	}
-	return render(request, 'anuncios/patrimonio/form_resguardo_devolucion.html', context)
+	return render(request, 'desarrollo/patrimonio/form_resguardo_devolucion.html', context)
 
 
 @login_required
@@ -1799,7 +1799,7 @@ def historial_resguardo_bien(request, idbien):
 		'bien': bien,
 		'historial': historial,
 	}
-	return render(request, 'anuncios/patrimonio/historial_resguardo_bien.html', context)
+	return render(request, 'desarrollo/patrimonio/historial_resguardo_bien.html', context)
 
 
 @login_required
@@ -1814,7 +1814,7 @@ def historial_resguardo_empleado(request, idempleado):
 		'empleado': empleado,
 		'historial': historial,
 	}
-	return render(request, 'anuncios/patrimonio/historial_resguardo_empleado.html', context)
+	return render(request, 'desarrollo/patrimonio/historial_resguardo_empleado.html', context)
 
 
 @login_required
@@ -1842,7 +1842,7 @@ def listar_entregas_departamento(request):
 		'entregas': entregas,
 		'search': search,
 	}
-	return render(request, 'anuncios/patrimonio/listar_entregas_departamento.html', context)
+	return render(request, 'desarrollo/patrimonio/listar_entregas_departamento.html', context)
 
 
 @login_required
@@ -1924,7 +1924,7 @@ def crear_entrega_departamento(request):
 		'titulo': 'Entrega-Recepción de Departamento',
 		'accion': 'Registrar Entrega-Recepción',
 	}
-	return render(request, 'anuncios/patrimonio/form_entrega_departamento.html', context)
+	return render(request, 'desarrollo/patrimonio/form_entrega_departamento.html', context)
 
 
 @login_required
@@ -1945,7 +1945,7 @@ def detalle_entrega_departamento(request, identrega):
 		'entrega': entrega,
 		'detalles': entrega.detalles.all(),
 	}
-	return render(request, 'anuncios/patrimonio/detalle_entrega_departamento.html', context)
+	return render(request, 'desarrollo/patrimonio/detalle_entrega_departamento.html', context)
 
 
 # ============== IMPORTACIÓN DE BIENES DESDE EXCEL ==============

@@ -4,7 +4,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import PersonalDepartamento, PersonalDireccion
+from portal.models import PersonalDepartamento, PersonalDireccion
 
 print("\n" + "="*80)
 print("RESUMEN DE CARGA - TABLA PERSONAL_DEPARTAMENTO")

@@ -150,7 +150,7 @@ powershell -ExecutionPolicy Bypass -File procesar_cola.ps1
 # Instalar
 pip install celery redis
 
-# Crear anuncios/tasks.py:
+# Crear portal/tasks.py:
 from celery import shared_task
 from .email_utils import procesar_cola_correos
 
@@ -180,7 +180,7 @@ Si quieres ser notificado cuando la cola crece:
 O ejecutar este comando periódicamente:
 ```bash
 python manage.py shell << EOF
-from anuncios.models import ColaCorreos
+from portal.models import ColaCorreos
 pendientes = ColaCorreos.objects.filter(estado='pendiente').count()
 if pendientes > 100:
     print(f"⚠️ ALERTA: {pendientes} correos pendientes en cola")
@@ -208,7 +208,7 @@ EOF
 ### "Migration 0018 not found"
 ```bash
 # Verificar que existe
-ls anuncios/migrations/0018_*.py
+ls portal/migrations/0018_*.py
 
 # Si no existe, actualizar repo
 git pull origin main
@@ -227,7 +227,7 @@ python manage.py migrate anuncios --plan
 ```bash
 # Verificar que usuario es admin
 python manage.py shell
->>> from anuncios.models import UsuariosDelSistema
+>>> from portal.models import UsuariosDelSistema
 >>> u = UsuariosDelSistema.objects.filter(rol='admin').first()
 >>> print(u)
 ```
@@ -236,7 +236,7 @@ python manage.py shell
 ```bash
 # 1. Ver si hay pendientes
 python manage.py shell
->>> from anuncios.models import ColaCorreos
+>>> from portal.models import ColaCorreos
 >>> ColaCorreos.objects.filter(estado='pendiente').count()
 
 # 2. Procesar manualmente
@@ -265,7 +265,7 @@ python manage.py procesar_cola_correos --limite 10
 **Ver estado actual:**
 ```bash
 python manage.py shell
->>> from anuncios.models import ColaCorreos
+>>> from portal.models import ColaCorreos
 >>> from django.utils import timezone
 >>> 
 >>> # Correos de hoy
@@ -290,7 +290,7 @@ python manage.py procesar_cola_correos --limite 10
 **Limpiar cola de correos antiguos (mes a mes):**
 ```bash
 python manage.py shell
->>> from anuncios.models import ColaCorreos
+>>> from portal.models import ColaCorreos
 >>> from datetime import timedelta
 >>> from django.utils import timezone
 >>> 
@@ -337,3 +337,4 @@ Discutir con equipo:
 **¡El sistema está listo para ser desplegado!**
 
 Próxima acción: `python manage.py migrate anuncios 0018`
+

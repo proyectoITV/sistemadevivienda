@@ -159,18 +159,18 @@ El campo "nombre_completo" se genera automáticamente y no es visible para el us
 
 ### Modificados
 ```
-anuncios/models.py                    ✏️ Agregados 3 campos + método save()
-anuncios/forms.py                     ✏️ Actualizados campos de formulario
-anuncios/admin.py                     ✏️ Actualizado fieldsets
-anuncios/templates/empleados/crear_empleado.html    ✏️ Estructura de nombre actualizada
-anuncios/templates/empleados/editar_empleado.html   ✏️ Estructura de nombre actualizada
+portal/models.py                    ✏️ Agregados 3 campos + método save()
+portal/forms.py                     ✏️ Actualizados campos de formulario
+portal/admin.py                     ✏️ Actualizado fieldsets
+portal/templates/desarrollo/empleados/crear_empleado.html    ✏️ Estructura de nombre actualizada
+portal/templates/desarrollo/empleados/editar_empleado.html   ✏️ Estructura de nombre actualizada
 ```
 
 ### Creados
 ```
-anuncios/migrations/0014_personalempleados_nombre_dividido.py    🆕 Migración
-anuncios/migrations/0015_alter_personalpuestos_options_and_more.py 🆕 Migración
-anuncios/static/anuncios/js/nombre-completo.js                   🆕 JavaScript
+portal/migrations/0014_personalempleados_nombre_dividido.py    🆕 Migración
+portal/migrations/0015_alter_personalpuestos_options_and_more.py 🆕 Migración
+portal/static/desarrollo/js/nombre-completo.js                   🆕 JavaScript
 IMPLEMENTACION_NOMBRE_DIVIDIDO.md                                🆕 Documentación
 GUIA_VISUAL_NOMBRE_DIVIDIDO.md                                  🆕 Documentación
 CHECKLIST_NOMBRE_DIVIDIDO.md                                    🆕 Documentación
@@ -316,4 +316,5 @@ El proyecto está **listo para desplegar** en el ambiente de producción.
 **Fecha**: 2024
 **Versión**: Django 6.0.2
 **Estado**: ✅ COMPLETADO Y PROBADO
+
 

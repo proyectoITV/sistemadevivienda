@@ -54,7 +54,7 @@ class ColaCorreos(models.Model):
 Guarda un correo en la cola sin intentar enviarlo.
 
 ```python
-from anuncios.email_utils import guardar_correo_en_cola
+from portal.email_utils import guardar_correo_en_cola
 
 correo = guardar_correo_en_cola(
     tipo_correo='bienvenida',
@@ -70,7 +70,7 @@ correo = guardar_correo_en_cola(
 Intenta enviar un correo vía SMTP. Si falla, lo guarda en la cola automáticamente.
 
 ```python
-from anuncios.email_utils import enviar_correo_directo
+from portal.email_utils import enviar_correo_directo
 
 success = enviar_correo_directo(
     email_destino='usuario@example.com',
@@ -84,7 +84,7 @@ success = enviar_correo_directo(
 Procesa los correos pendientes en la cola, respetando el límite diario.
 
 ```python
-from anuncios.email_utils import procesar_cola_correos
+from portal.email_utils import procesar_cola_correos
 
 resultado = procesar_cola_correos(limite_diario=2000)
 print(f"Enviados: {resultado['enviados']}")
@@ -269,7 +269,7 @@ schtasks /create /tn "ITAVU_Cola_Correos" /tr "python C:\ruta\manage.py procesar
 pip install celery redis
 ```
 
-**anuncios/tasks.py:**
+**portal/tasks.py:**
 ```python
 from celery import shared_task
 from .email_utils import procesar_cola_correos
@@ -286,7 +286,7 @@ from celery.schedules import crontab
 
 app.conf.beat_schedule = {
     'procesar_cola_correos': {
-        'task': 'anuncios.tasks.procesar_cola_correos_task',
+        'task': 'portal.tasks.procesar_cola_correos_task',
         'schedule': crontab(minute='*/5'),  # Cada 5 minutos
     },
 }
@@ -304,7 +304,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from django.apps import AppConfig
 
 def procesar_cola_job():
-    from anuncios.email_utils import procesar_cola_correos
+    from portal.email_utils import procesar_cola_correos
     procesar_cola_correos(limite_diario=2000)
 
 class CoreConfig(AppConfig):
@@ -337,7 +337,7 @@ Pruebas realizadas:
 
 ```bash
 python manage.py shell
->>> from anuncios.models import ColaCorreos
+>>> from portal.models import ColaCorreos
 >>> ColaCorreos.objects.filter(estado='error').values('email_destino', 'mensaje_error')
 ```
 
@@ -363,11 +363,11 @@ python manage.py shell
 
 ```bash
 # Asegúrate de que migración existe
-ls anuncios/migrations/0018_*.py
+ls portal/migrations/0018_*.py
 
 # Si no existe, verifica git
 git status
-git add anuncios/migrations/0018_*.py
+git add portal/migrations/0018_*.py
 ```
 
 ### ❌ Problema: "Table cola_correos doesn't exist"
@@ -385,7 +385,7 @@ python manage.py migrate anuncios --plan
 ```bash
 # 1. Ver si hay correos pendientes
 python manage.py shell
->>> from anuncios.models import ColaCorreos
+>>> from portal.models import ColaCorreos
 >>> ColaCorreos.objects.filter(estado='pendiente').count()
 
 # 2. Procesar manualmente
@@ -432,7 +432,7 @@ DATABASES = {
 # Limpiar correos antiguos cada mes
 from django.utils import timezone
 from datetime import timedelta
-from anuncios.models import ColaCorreos
+from portal.models import ColaCorreos
 
 tres_meses_atras = timezone.now() - timedelta(days=90)
 ColaCorreos.objects.filter(
@@ -464,3 +464,4 @@ Para problemas o preguntas sobre el sistema de cola de correos:
 **Última actualización:** 2024  
 **Versión:** 1.0  
 **Status:** Producción ✓
+

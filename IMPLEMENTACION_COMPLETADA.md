@@ -135,23 +135,23 @@ El **Sistema de Cola de Correos** ha sido **completamente implementado y documen
 
 ### NUEVOS (6 archivos)
 ```
-✓ anuncios/migrations/0018_colacorreos.py
-✓ anuncios/management/__init__.py
-✓ anuncios/management/commands/__init__.py
-✓ anuncios/management/commands/procesar_cola_correos.py
-✓ anuncios/templates/anuncios/seguridad/monitor_cola_correos.html
+✓ portal/migrations/0018_colacorreos.py
+✓ portal/management/__init__.py
+✓ portal/management/commands/__init__.py
+✓ portal/management/commands/procesar_cola_correos.py
+✓ portal/templates/desarrollo/seguridad/monitor_cola_correos.html
 ✓ verificar_cola_correos.py
 ```
 
 ### MODIFICADOS (8 archivos)
 ```
-✓ anuncios/models.py (agregado ColaCorreos)
-✓ anuncios/email_utils.py (3 nuevas funciones)
-✓ anuncios/views.py (3 nuevas vistas)
-✓ anuncios/urls.py (3 nuevas URLs)
-✓ anuncios/admin.py (ColaCorreosAdmin)
-✓ anuncios/templates/anuncios/dashboard_new.html
-✓ anuncios/templates/anuncios/dashboard.html
+✓ portal/models.py (agregado ColaCorreos)
+✓ portal/email_utils.py (3 nuevas funciones)
+✓ portal/views.py (3 nuevas vistas)
+✓ portal/urls.py (3 nuevas URLs)
+✓ portal/admin.py (ColaCorreosAdmin)
+✓ portal/templates/desarrollo/dashboard_new.html
+✓ portal/templates/desarrollo/dashboard.html
 ✓ Ninguno con breaking changes
 ```
 
@@ -322,7 +322,7 @@ python verificar_cola_correos.py
 
 # Ver estado
 python manage.py shell
->>> from anuncios.models import ColaCorreos
+>>> from portal.models import ColaCorreos
 >>> ColaCorreos.objects.filter(estado='pendiente').count()
 ```
 
@@ -371,3 +371,4 @@ El requisito del usuario ha sido satisfecho:
 **Status:** ✅ PRODUCCIÓN LISTA
 
 ¡Listo para desplegar! 🚀
+

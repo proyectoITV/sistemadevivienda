@@ -10,7 +10,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 django.setup()
 
-from anuncios.models import ColaCorreos
+from portal.models import ColaCorreos
 from django.core.management import call_command
 
 print("=" * 80)

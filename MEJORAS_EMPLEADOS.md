@@ -7,7 +7,7 @@ Se ha mejorado el sistema de captura y edición de empleados implementando un nu
 ## Cambios Realizados
 
 ### 1. Nuevo Modelo: PersonalTipoDeContratacion
-**Archivo:** `anuncios/models.py`
+**Archivo:** `portal/models.py`
 
 Se creó el modelo `PersonalTipoDeContratacion` con los siguientes campos:
 - `idtipodecontratacion`: ID primario (AutoField)
@@ -26,7 +26,7 @@ Se cargaron 3 tipos de contratación en la base de datos:
 3. **Operativo** - Contratación operativa para funciones operacionales
 
 ### 3. Actualización del Modelo PersonalEmpleados
-**Archivo:** `anuncios/models.py`
+**Archivo:** `portal/models.py`
 
 - **Cambio anterior:** `tipo_contrato = CharField con choices hardcodeados`
 - **Cambio actual:** `idtipodecontratacion = ForeignKey(PersonalTipoDeContratacion)`
@@ -37,7 +37,7 @@ Esto permite:
 - Mayor flexibilidad y escalabilidad
 
 ### 4. Actualización del Formulario
-**Archivo:** `anuncios/forms.py`
+**Archivo:** `portal/forms.py`
 
 - Se importó el modelo `PersonalTipoDeContratacion`
 - Se cambió el campo `tipo_contrato` por `idtipodecontratacion`
@@ -45,7 +45,7 @@ Esto permite:
 - El select ahora obtiene dinámicamente los valores de la BD
 
 ### 5. Actualización del Admin Django
-**Archivo:** `anuncios/admin.py`
+**Archivo:** `portal/admin.py`
 
 - Se agregó importación de `PersonalTipoDeContratacion`
 - Se creó nueva clase `PersonalTipoDeContratacionAdmin` para administrar los tipos
@@ -77,8 +77,9 @@ Se crearon dos migraciones:
 3. Funciona en formularios de creación y edición
 
 ## Archivos Modificados
-- `anuncios/models.py` - Nuevo modelo y cambios
-- `anuncios/forms.py` - Actualización de formulario
-- `anuncios/admin.py` - Configuración de admin
-- `anuncios/migrations/0010_*.py` - Nueva migración
-- `anuncios/migrations/0011_*.py` - Migración de campo
+- `portal/models.py` - Nuevo modelo y cambios
+- `portal/forms.py` - Actualización de formulario
+- `portal/admin.py` - Configuración de admin
+- `portal/migrations/0010_*.py` - Nueva migración
+- `portal/migrations/0011_*.py` - Migración de campo
+

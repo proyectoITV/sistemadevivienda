@@ -6,7 +6,7 @@ Agregar campos para gestionar información de oficios (documentos gubernamentale
 ## 📋 Cambios Realizados
 
 ### 1. **Modelo - `PatrimonioResguardo`** 
-**Archivo:** `anuncios/models.py`
+**Archivo:** `portal/models.py`
 
 Tres nuevos campos agregados:
 ```python
@@ -23,7 +23,7 @@ archivo_oficio = models.FileField(upload_to='patrimonio/oficios/', null=True, bl
 ---
 
 ### 2. **Formulario - `PatrimonioResguardoAsignacionForm`**
-**Archivo:** `anuncios/forms.py`
+**Archivo:** `portal/forms.py`
 
 **Campos agregados:**
 - `numero_oficio`: TextInput con placeholder "Ej: OF-2026-001"
@@ -49,7 +49,7 @@ def clean_archivo_oficio(self):
 ---
 
 ### 3. **Vistas - Nueva Vista para Descargar Oficio**
-**Archivo:** `anuncios/views.py`
+**Archivo:** `portal/views.py`
 
 **Nueva Vista:** `descargar_oficio_resguardo()`
 - **URL:** `/patrimonio/resguardos/<idresguardo>/descargar-oficio/`
@@ -70,7 +70,7 @@ def clean_archivo_oficio(self):
 ---
 
 ### 4. **URLs - Ruta de Descarga**
-**Archivo:** `anuncios/urls.py`
+**Archivo:** `portal/urls.py`
 
 Ruta agregada:
 ```python
@@ -84,7 +84,7 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
 ### 5. **Plantillas - Interfaz de Usuario**
 
 #### a) **Lista de Resguardos**
-**Archivo:** `anuncios/templates/anuncios/patrimonio/listar_resguardos.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/listar_resguardos.html`
 
 **Cambios:**
 - Nueva columna "Oficio" en la tabla
@@ -108,21 +108,21 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
   ```
 
 #### b) **Historial de Resguardos (Por Bien)**
-**Archivo:** `anuncios/templates/anuncios/patrimonio/historial_resguardo_bien.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/historial_resguardo_bien.html`
 
 **Cambios:**
 - Nueva columna "Oficio" entre "Fecha Asignación" y "Fecha Devolución"
 - Misma funcionalidad de visualización y descarga
 
 #### c) **Historial de Resguardos (Por Empleado)**
-**Archivo:** `anuncios/templates/anuncios/patrimonio/historial_resguardo_empleado.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/historial_resguardo_empleado.html`
 
 **Cambios:**
 - Nueva columna "Oficio" en la tabla
 - Descarga de PDF directa
 
 #### d) **Formulario de Asignación**
-**Archivo:** `anuncios/templates/anuncios/patrimonio/form_resguardo_asignacion.html`
+**Archivo:** `portal/templates/desarrollo/patrimonio/form_resguardo_asignacion.html`
 
 **Cambios:**
 - Enctype cambiado a `multipart/form-data`
@@ -136,7 +136,7 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
 ---
 
 ### 6. **Migración**
-**Archivo:** `anuncios/migrations/0024_agregar_campos_oficio_resguardo.py`
+**Archivo:** `portal/migrations/0024_agregar_campos_oficio_resguardo.py`
 
 Migración automática que:
 - Agrega campo `numero_oficio` (CharField, max_length=100)
@@ -269,3 +269,4 @@ if settings.DEBUG:
 **Fecha de Implementación:** 06 de Marzo de 2026
 **Desarrollador:** Sistema de Vivienda ITAVU
 **Estado:** ✅ Operacional
+

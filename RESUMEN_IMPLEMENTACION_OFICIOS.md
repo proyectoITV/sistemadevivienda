@@ -14,12 +14,12 @@ archivo_oficio: FileField(upload_to='patrimonio/oficios/', null=True, blank=True
 
 ## 📂 Archivos Modificados
 
-### 1. **Modelos** - `anuncios/models.py`
+### 1. **Modelos** - `portal/models.py`
 - **Cambio:** Agregados 3 campos a `PatrimonioResguardo`
 - **Línea:** ~607
 - **Estado:** ✅ Modificado
 
-### 2. **Formularios** - `anuncios/forms.py`
+### 2. **Formularios** - `portal/forms.py`
 - **Cambio:** Actualizado `PatrimonioResguardoAsignacionForm`
 - **Adiciones:**
   - Campos: `numero_oficio`, `fecha_oficio`, `archivo_oficio`
@@ -27,7 +27,7 @@ archivo_oficio: FileField(upload_to='patrimonio/oficios/', null=True, blank=True
   - Validación PDF y tamaño (máx 10 MB)
 - **Estado:** ✅ Modificado
 
-### 3. **Vistas** - `anuncios/views.py`
+### 3. **Vistas** - `portal/views.py`
 - **Nueva Vista:** `descargar_oficio_resguardo(idresguardo)`
 - **Funcionalidad:**
   - Valida autenticación (`@login_required`)
@@ -36,7 +36,7 @@ archivo_oficio: FileField(upload_to='patrimonio/oficios/', null=True, blank=True
 - **Línea:** ~1714
 - **Estado:** ✅ Agregada
 
-### 4. **URLs** - `anuncios/urls.py`
+### 4. **URLs** - `portal/urls.py`
 - **Nueva Ruta:** `/patrimonio/resguardos/<idresguardo>/descargar-oficio/`
 - **Nombre:** `descargar_oficio_resguardo`
 - **Estado:** ✅ Configurada
@@ -65,7 +65,7 @@ archivo_oficio: FileField(upload_to='patrimonio/oficios/', null=True, blank=True
 - **Estado:** ✅ Actualizada
 
 ### 6. **Migración** - Base de Datos
-- **Archivo:** `anuncios/migrations/0024_agregar_campos_oficio_resguardo.py`
+- **Archivo:** `portal/migrations/0024_agregar_campos_oficio_resguardo.py`
 - **Campos:**
   - `numero_oficio` (CharField)
   - `fecha_oficio` (DateField)
@@ -189,7 +189,7 @@ media/
 - ✅ Validación de archivos PDF implementada
 - ✅ Validación de tamaño máximo (10 MB) implementada
 - ✅ Vista `descargar_oficio_resguardo()` creada
-- ✅ URL configurada en `anuncios/urls.py`
+- ✅ URL configurada en `portal/urls.py`
 - ✅ Plantilla `listar_resguardos.html` actualizada
 - ✅ Plantilla `historial_resguardo_bien.html` actualizada
 - ✅ Plantilla `historial_resguardo_empleado.html` actualizada
@@ -333,3 +333,4 @@ El sistema está listo para uso en producción. Se recomienda realizar pruebas e
 
 **Implementado por:** Sistema de Vivienda ITAVU
 **Última actualización:** 06/03/2026 - 12:15 PM
+

@@ -7,7 +7,7 @@ from datetime import date
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import (
+from portal.models import (
     PatrimonioBienesDelInstituto, CatalogosMarcas, PatrimonioProveedor,
     PatrimonioClasificacionSerap, PatrimonioClasificacionContraloria
 )

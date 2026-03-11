@@ -6,7 +6,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import CatalogosMarcas, PatrimonioProveedor, PatrimonioClasificacionSerap, PatrimonioClasificacionContraloria
+from portal.models import CatalogosMarcas, PatrimonioProveedor, PatrimonioClasificacionSerap, PatrimonioClasificacionContraloria
 
 # Cargar marcas
 print("=== CARGANDO MARCAS ===")

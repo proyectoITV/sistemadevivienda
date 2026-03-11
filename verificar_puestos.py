@@ -6,8 +6,8 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.forms import PersonalEmpleadosForm
-from anuncios.models import PersonalPuestos, PersonalTipoDeContratacion
+from portal.forms import PersonalEmpleadosForm
+from portal.models import PersonalPuestos, PersonalTipoDeContratacion
 
 form = PersonalEmpleadosForm()
 

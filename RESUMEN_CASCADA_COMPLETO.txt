@@ -18,7 +18,7 @@ Implementar un sistema de filtrado en cascada donde:
 
 ### Backend (Python/Django)
 
-#### 1. Nueva Vista AJAX - `anuncios/views.py`
+#### 1. Nueva Vista AJAX - `portal/views.py`
 ```python
 @login_required(login_url='login')
 def get_departamentos_por_direccion(request):
@@ -30,19 +30,19 @@ def get_departamentos_por_direccion(request):
 - Devuelve JSON con: `iddepartamento`, `departamento`
 - Manejo de errores
 
-#### 2. Nueva Ruta - `anuncios/urls.py`
+#### 2. Nueva Ruta - `portal/urls.py`
 ```
 GET /api/departamentos-por-direccion/?iddireccion=<id>
 ```
 
-#### 3. Actualización del Formulario - `anuncios/forms.py`
+#### 3. Actualización del Formulario - `portal/forms.py`
 - Agregado campo `iddireccion` para pre-seleccionar dirección
 - Método `__init__` que detecta si estamos editando
 - Pre-carga la dirección automáticamente en edición
 
 ### Frontend (JavaScript/HTML)
 
-#### 1. Nuevo Script - `static/anuncios/js/departamentos-cascada.js`
+#### 1. Nuevo Script - `static/desarrollo/js/departamentos-cascada.js`
 **Características:**
 - Escucha cambios en select de dirección
 - Realiza petición AJAX
@@ -126,14 +126,14 @@ GET /api/departamentos-por-direccion/?iddireccion=1
 
 ```
 CREADOS:
-✅ anuncios/static/anuncios/js/departamentos-cascada.js
+✅ portal/static/desarrollo/js/departamentos-cascada.js
 
 MODIFICADOS:
-✅ anuncios/views.py                    - Agregada vista AJAX
-✅ anuncios/urls.py                     - Agregada ruta AJAX
-✅ anuncios/forms.py                    - Agregado campo + __init__
-✅ templates/anuncios/empleados/crear_empleado.html
-✅ templates/anuncios/empleados/editar_empleado.html
+✅ portal/views.py                    - Agregada vista AJAX
+✅ portal/urls.py                     - Agregada ruta AJAX
+✅ portal/forms.py                    - Agregado campo + __init__
+✅ portal/templates/desarrollo/empleados/crear_empleado.html
+✅ portal/templates/desarrollo/empleados/editar_empleado.html
 ```
 
 ---
@@ -250,3 +250,4 @@ DIRECCIÓN: DIRECCIÓN JURÍDICA
 **Fecha:** 2026-03-03
 
 **Licencia:** Interna - Sistema de Vivienda
+

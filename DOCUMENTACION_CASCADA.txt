@@ -53,14 +53,14 @@ def get_departamentos_por_direccion(request):
 
 ```
 Backend:
-✅ anuncios/views.py             - Nueva vista AJAX
-✅ anuncios/urls.py              - Nueva ruta
-✅ anuncios/forms.py             - Campo iddireccion agregado
+✅ portal/views.py             - Nueva vista AJAX
+✅ portal/urls.py              - Nueva ruta
+✅ portal/forms.py             - Campo iddireccion agregado
 
 Frontend:
-✅ anuncios/static/anuncios/js/departamentos-cascada.js [NUEVO]
-✅ templates/anuncios/empleados/crear_empleado.html
-✅ templates/anuncios/empleados/editar_empleado.html
+✅ portal/static/desarrollo/js/departamentos-cascada.js [NUEVO]
+✅ portal/templates/desarrollo/empleados/crear_empleado.html
+✅ portal/templates/desarrollo/empleados/editar_empleado.html
 ```
 
 ### 🔄 Flujo Técnico
@@ -161,3 +161,4 @@ Frontend:
 
 **Estado:** ✅ IMPLEMENTADO Y FUNCIONAL
 **Fecha:** 2026-03-03
+

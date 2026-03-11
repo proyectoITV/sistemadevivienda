@@ -63,22 +63,22 @@ El campo `nombre_completo` se genera automáticamente en el backend y no es visi
 
 ### Modificados (5)
 ```
-✏️ anuncios/models.py
-✏️ anuncios/forms.py
-✏️ anuncios/admin.py
-✏️ anuncios/templates/empleados/crear_empleado.html
-✏️ anuncios/templates/empleados/editar_empleado.html
+✏️ portal/models.py
+✏️ portal/forms.py
+✏️ portal/admin.py
+✏️ portal/templates/desarrollo/empleados/crear_empleado.html
+✏️ portal/templates/desarrollo/empleados/editar_empleado.html
 ```
 
 ### Creados - Código (1)
 ```
-🆕 anuncios/static/anuncios/js/nombre-completo.js
+🆕 portal/static/desarrollo/js/nombre-completo.js
 ```
 
 ### Creados - Base de Datos (2)
 ```
-🆕 anuncios/migrations/0014_personalempleados_nombre_dividido.py
-🆕 anuncios/migrations/0015_alter_personalpuestos_options_and_more.py
+🆕 portal/migrations/0014_personalempleados_nombre_dividido.py
+🆕 portal/migrations/0015_alter_personalpuestos_options_and_more.py
 ```
 
 ### Creados - Documentación (8)
@@ -297,7 +297,7 @@ python manage.py runserver
    ```
 
 3. **JavaScript no funciona**
-   - Verifica que archivo existe: `anuncios/static/anuncios/js/nombre-completo.js`
+   - Verifica que archivo existe: `portal/static/desarrollo/js/nombre-completo.js`
    - Verifica consola del navegador (F12)
    - Revisa que esté incluido en template
 
@@ -352,4 +352,5 @@ de un sistema de gestión de empleados mejorado.
 ---
 
 **¡Gracias por usar el Sistema de Vivienda!**
+
 

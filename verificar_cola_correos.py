@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 django.setup()
 
 from django.utils import timezone
-from anuncios.models import ColaCorreos, PersonalEmpleados
-from anuncios.email_utils import (
+from portal.models import ColaCorreos, PersonalEmpleados
+from portal.email_utils import (
     guardar_correo_en_cola,
     procesar_cola_correos,
     enviar_correo_directo

@@ -59,9 +59,9 @@
 ## 📁 ARCHIVOS MODIFICADOS
 
 ### Backend (Python/Django):
-- ✅ `anuncios/models.py` - Nuevo modelo PersonalPuestos + actualización PersonalEmpleados
-- ✅ `anuncios/forms.py` - Campo idpuesto + actualización labels
-- ✅ `anuncios/admin.py` - Admin para PersonalPuestos + actualización PersonalEmpleados
+- ✅ `portal/models.py` - Nuevo modelo PersonalPuestos + actualización PersonalEmpleados
+- ✅ `portal/forms.py` - Campo idpuesto + actualización labels
+- ✅ `portal/admin.py` - Admin para PersonalPuestos + actualización PersonalEmpleados
 
 ### Migraciones:
 - ✅ `0012_personalpuestos.py` - Crear tabla de puestos
@@ -133,3 +133,4 @@ Tipo de Contrato: Select dinámico ← PersonalTipoDeContratacion (3 opciones)
 **Estado Final:** ✅ 100% IMPLEMENTADO Y FUNCIONAL
 
 Fecha: 2026-03-03
+

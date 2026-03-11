@@ -56,49 +56,49 @@ Estado: ✅ FUNCIONAL
 
 ### Cambios en Código
 ```
-✅ anuncios/models.py
+✅ portal/models.py
    - 3 nuevos campos agregados
    - Método save() personalizado
    - REQUIRED_FIELDS actualizado
 
-✅ anuncios/forms.py
+✅ portal/forms.py
    - 3 nuevos campos en PersonalEmpleadosForm
    - Widgets bootstrap aplicados
    - Validaciones configuradas
 
-✅ anuncios/admin.py
+✅ portal/admin.py
    - Fieldsets actualizados
    - Campos visibles en admin
 
-✅ anuncios/templates/empleados/crear_empleado.html
+✅ portal/templates/desarrollo/empleados/crear_empleado.html
    - Sección de Identificación rediseñada
    - 3 campos de entrada claros
    - Vista previa en alert box
    - JavaScript incluido
 
-✅ anuncios/templates/empleados/editar_empleado.html
+✅ portal/templates/desarrollo/empleados/editar_empleado.html
    - Sección de Identificación rediseñada
    - Estructura idéntica a crear_empleado
    - Vista previa en alert box
    - JavaScript incluido
 
-✅ anuncios/static/anuncios/js/nombre-completo.js (NUEVO)
+✅ portal/static/desarrollo/js/nombre-completo.js (NUEVO)
    - Detecta cambios en campos de nombre
    - Actualiza preview automáticamente
    - Genera nombre_completo en tiempo real
 
-✅ anuncios/static/anuncios/js/departamentos-cascada.js
+✅ portal/static/desarrollo/js/departamentos-cascada.js
    - Continúa funcionando (sin cambios)
    - Carga departamentos por dirección
 ```
 
 ### Migraciones de BD
 ```
-✅ anuncios/migrations/0014_personalempleados_nombre_dividido.py
+✅ portal/migrations/0014_personalempleados_nombre_dividido.py
    - Agrega: apellido_paterno, apellido_materno, nombre
    - Modifica: nombre_completo (editable=False)
    
-✅ anuncios/migrations/0015_alter_personalpuestos_options_and_more.py
+✅ portal/migrations/0015_alter_personalpuestos_options_and_more.py
    - Actualiza meta options de modelos
    
 Estado de aplicación: ✅ MIGRATED (migrate OK)
@@ -427,4 +427,5 @@ Si encuentras problemas:
 **Fecha**: 2024
 **Versión**: Django 6.0.2
 **Implementación**: División del Nombre Completo
+
 

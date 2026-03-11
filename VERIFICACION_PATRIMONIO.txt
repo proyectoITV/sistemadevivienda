@@ -251,12 +251,12 @@ En caso de problemas:
 
 ```
 raíz/
-├── anuncios/
+├── portal/
 │   ├── models.py (✓ actualizado)
 │   ├── views.py (✓ actualizado)
 │   ├── forms.py (✓ actualizado)
 │   ├── urls.py (✓ actualizado)
-│   ├── templates/anuncios/
+│   ├── portal/templates/desarrollo/
 │   │   ├── dashboard_new.html (✓ actualizado)
 │   │   ├── dashboard.html (✓ actualizado)
 │   │   └── patrimonio/ (✓ nuevo)
@@ -298,3 +298,4 @@ El módulo de **Patrimonio** ha sido completamente implementado con:
 **Estado**: ✅ COMPLETADO
 **Fecha**: Marzo 4, 2026
 **Implementado por**: Sistema ITAVU
+

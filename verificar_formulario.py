@@ -6,7 +6,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.forms import PersonalEmpleadosForm
+from portal.forms import PersonalEmpleadosForm
 
 form = PersonalEmpleadosForm()
 print('\n=== CAMPOS DEL FORMULARIO ===\n')

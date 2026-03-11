@@ -84,10 +84,10 @@ Agregados al modelo `PatrimonioResguardo`:
 
 | Archivo | Cambios | Estado |
 |---------|---------|--------|
-| `anuncios/models.py` | +3 campos | ✅ |
-| `anuncios/forms.py` | +3 campos, validaciones | ✅ |
-| `anuncios/views.py` | +1 vista descarga | ✅ |
-| `anuncios/urls.py` | +1 ruta | ✅ |
+| `portal/models.py` | +3 campos | ✅ |
+| `portal/forms.py` | +3 campos, validaciones | ✅ |
+| `portal/views.py` | +1 vista descarga | ✅ |
+| `portal/urls.py` | +1 ruta | ✅ |
 | `listar_resguardos.html` | +columna Oficio | ✅ |
 | `historial_bien.html` | +columna Oficio | ✅ |
 | `historial_empleado.html` | +columna Oficio | ✅ |
@@ -382,3 +382,4 @@ El sistema está completamente funcional y operativo.
 Sistema de Vivienda ITAVU
 06 de Marzo de 2026
 ✅ V1.0
+

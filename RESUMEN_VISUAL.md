@@ -131,22 +131,22 @@ Documentación               Ninguna     Completa    ✅
 
 ### Código Modificado (5 archivos)
 ```
-anuncios/models.py
-anuncios/forms.py
-anuncios/admin.py
-anuncios/templates/empleados/crear_empleado.html
-anuncios/templates/empleados/editar_empleado.html
+portal/models.py
+portal/forms.py
+portal/admin.py
+portal/templates/desarrollo/empleados/crear_empleado.html
+portal/templates/desarrollo/empleados/editar_empleado.html
 ```
 
 ### Código Nuevo (1 archivo)
 ```
-anuncios/static/anuncios/js/nombre-completo.js
+portal/static/desarrollo/js/nombre-completo.js
 ```
 
 ### Base de Datos (2 migraciones)
 ```
-anuncios/migrations/0014_personalempleados_nombre_dividido.py
-anuncios/migrations/0015_alter_personalpuestos_options_and_more.py
+portal/migrations/0014_personalempleados_nombre_dividido.py
+portal/migrations/0015_alter_personalpuestos_options_and_more.py
 ```
 
 ### Documentación (7 archivos)
@@ -323,4 +323,5 @@ Si necesitas ayuda:
 **Versión**: 1.0 FINAL
 
 # 🎉 ¡IMPLEMENTACIÓN EXITOSA! 🎉
+
 

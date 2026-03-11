@@ -4,7 +4,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import CatalogosDelegaciones, CatalogosMunicipios
+from portal.models import CatalogosDelegaciones, CatalogosMunicipios
 
 # Datos de delegaciones (nombre y municipio relacionado)
 delegaciones_data = [
@@ -36,7 +36,7 @@ delegaciones_data = [
 
 tamaulipas = None
 try:
-	from anuncios.models import CatalogosEntidadesFederativas
+	from portal.models import CatalogosEntidadesFederativas
 	tamaulipas = CatalogosEntidadesFederativas.objects.get(nombre='Tamaulipas')
 except:
 	print("⚠ Tamaulipas no encontrado")

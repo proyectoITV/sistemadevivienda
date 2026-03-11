@@ -47,7 +47,7 @@ Mientras escribes filtra automáticamente las opciones disponibles.
 
 ## 📁 Archivos Modificados
 
-### 1. `anuncios/forms.py` - PatrimonioBienesDelInstitutoForm
+### 1. `portal/forms.py` - PatrimonioBienesDelInstitutoForm
 **Cambio:** Agregadas clases Select2 y placeholders a los widgets
 
 ```python
@@ -57,7 +57,7 @@ Mientras escribes filtra automáticamente las opciones disponibles.
 'clasificacion_contraloria': forms.Select(attrs={'class': 'form-select select2-contraloria', 'data-placeholder': 'Buscar clasificación Contraloría...'}),
 ```
 
-### 2. `anuncios/templates/anuncios/patrimonio/form_bien.html`
+### 2. `portal/templates/desarrollo/patrimonio/form_bien.html`
 **Cambio:** Agregado Select2 CSS, jQuery, JS e inicialización
 
 ```html
@@ -177,3 +177,4 @@ Mientras escribes filtra automáticamente las opciones disponibles.
 
 **Implementado:** 06/03/2026
 **Estado:** ✅ Operacional
+

@@ -12,7 +12,7 @@ El campo "nombre_completo" se genera automáticamente a partir de estos tres cam
 
 ## Cambios Realizados
 
-### 1. **Modelo (anuncios/models.py)**
+### 1. **Modelo (portal/models.py)**
 Se agregaron tres nuevos campos al modelo `PersonalEmpleados`:
 
 ```python
@@ -33,7 +33,7 @@ def save(self, *args, **kwargs):
     super().save(*args, **kwargs)
 ```
 
-### 2. **Migraciones (anuncios/migrations/)**
+### 2. **Migraciones (portal/migrations/)**
 
 **Migración 0014**: `0014_personalempleados_nombre_dividido.py`
 - Agrega los tres nuevos campos
@@ -42,7 +42,7 @@ def save(self, *args, **kwargs):
 **Migración 0015**: `0015_alter_personalpuestos_options_and_more.py`
 - Actualiza las opciones de Meta en los modelos
 
-### 3. **Formulario (anuncios/forms.py)**
+### 3. **Formulario (portal/forms.py)**
 Actualizado `PersonalEmpleadosForm` con:
 - Los tres nuevos campos en la lista `fields`
 - Widgets Bootstrap para cada campo
@@ -110,7 +110,7 @@ Ya mostraba el `nombre_completo` correctamente, sin cambios necesarios.
 
 ### 5. **JavaScript**
 
-#### anuncios/static/anuncios/js/nombre-completo.js
+#### portal/static/desarrollo/js/nombre-completo.js
 Nuevo archivo que:
 - Detecta cambios en los campos `apellido_paterno`, `apellido_materno` y `nombre`
 - Genera el nombre completo en tiempo real
@@ -123,13 +123,13 @@ Características:
 - Funciona tanto en creación como en edición
 - Compatible con todos los navegadores modernos
 
-#### anuncios/static/anuncios/js/departamentos-cascada.js
+#### portal/static/desarrollo/js/departamentos-cascada.js
 Script existente que continúa funcionando:
 - Carga departamentos según la dirección seleccionada
 - Preserva valores al editar
 - Consulta via AJAX el endpoint `/api/departamentos-por-direccion/`
 
-### 6. **Admin (anuncios/admin.py)**
+### 6. **Admin (portal/admin.py)**
 Actualizado `PersonalEmpleadosAdmin` para mostrar los nuevos campos en el panel de administración.
 
 ---
@@ -182,13 +182,13 @@ Actualizado `PersonalEmpleadosAdmin` para mostrar los nuevos campos en el panel 
 
 | Archivo | Cambios |
 |---------|---------|
-| `anuncios/models.py` | Agregados 3 campos + método save() modificado |
-| `anuncios/forms.py` | Actualizados campos del formulario |
-| `anuncios/migrations/0014_*.py` | NUEVA migración para agregar campos |
-| `anuncios/migrations/0015_*.py` | NUEVA migración para opciones de Meta |
-| `anuncios/templates/empleados/crear_empleado.html` | Sección de Identificación actualizada |
-| `anuncios/templates/empleados/editar_empleado.html` | Sección de Identificación actualizada |
-| `anuncios/static/anuncios/js/nombre-completo.js` | NUEVO archivo JavaScript |
+| `portal/models.py` | Agregados 3 campos + método save() modificado |
+| `portal/forms.py` | Actualizados campos del formulario |
+| `portal/migrations/0014_*.py` | NUEVA migración para agregar campos |
+| `portal/migrations/0015_*.py` | NUEVA migración para opciones de Meta |
+| `portal/templates/desarrollo/empleados/crear_empleado.html` | Sección de Identificación actualizada |
+| `portal/templates/desarrollo/empleados/editar_empleado.html` | Sección de Identificación actualizada |
+| `portal/static/desarrollo/js/nombre-completo.js` | NUEVO archivo JavaScript |
 
 ---
 
@@ -243,4 +243,5 @@ Actualizado `PersonalEmpleadosAdmin` para mostrar los nuevos campos en el panel 
 - Agregar generador automático de RFC
 - Permitir búsqueda por componentes del nombre
 - Agregar historial de cambios de nombre (auditoría)
+
 

@@ -261,12 +261,12 @@ Verifica:
 ## 📂 Estructura de Archivos
 
 ```
-anuncios/
+portal/
 ├── models.py (ACTUALIZADO - nuevos modelos)
 ├── forms.py (ACTUALIZADO - PatrimonioBienesDelInstitutoForm)
 ├── views.py (ACTUALIZADO - 4 nuevas vistas)
 ├── urls.py (ACTUALIZADO - 4 nuevas rutas)
-├── templates/anuncios/
+├── portal/templates/desarrollo/
 │   ├── dashboard_new.html (ACTUALIZADO - menú)
 │   ├── dashboard.html (ACTUALIZADO - menú)
 │   └── patrimonio/ (NUEVO)
@@ -389,3 +389,4 @@ Para reportar problemas o solicitar mejoras:
 **Versión**: 1.0
 **Estado**: ✓ Completado
 **Fecha**: Marzo 4, 2026
+

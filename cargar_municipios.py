@@ -4,7 +4,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import CatalogosEntidadesFederativas, CatalogosMunicipios
+from portal.models import CatalogosEntidadesFederativas, CatalogosMunicipios
 
 # Municipios de Tamaulipas
 municipios = [

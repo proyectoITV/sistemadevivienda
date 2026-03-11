@@ -4,7 +4,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from anuncios.models import CatalogosEntidadesFederativas
+from portal.models import CatalogosEntidadesFederativas
 
 # Datos de los 32 estados de México
 estados = [

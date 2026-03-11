@@ -232,7 +232,7 @@ def enviar_correo_contacto(contacto):
 		}
 		
 		# Renderizar HTML del correo
-		html_message = render_to_string('anuncios/email_confirmacion.html', context)
+		html_message = render_to_string('desarrollo/web/email_confirmacion.html', context)
 		
 		# Crear mensaje
 		message = MIMEMultipart('alternative')
@@ -314,7 +314,7 @@ def enviar_correo_recuperacion(usuario, recuperacion):
 		}
 		
 		# Renderizar HTML del correo
-		html_message = render_to_string('anuncios/email_recuperacion.html', context)
+		html_message = render_to_string('desarrollo/web/email_recuperacion.html', context)
 		
 		# Crear mensaje
 		message = MIMEMultipart('alternative')
@@ -392,7 +392,7 @@ def enviar_correo_bienvenida_credenciales(empleado, password_texto_plano):
 	}
 	
 	# Renderizar HTML del correo
-	html_message = render_to_string('anuncios/email_bienvenida_credenciales.html', context)
+	html_message = render_to_string('desarrollo/web/email_bienvenida_credenciales.html', context)
 	
 	# Crear mensaje de texto
 	text_content = f"""
@@ -480,7 +480,7 @@ def enviar_credenciales_existentes(empleado):
 	}
 	
 	# Renderizar HTML del correo
-	html_message = render_to_string('anuncios/email_bienvenida_credenciales.html', context)
+	html_message = render_to_string('desarrollo/web/email_bienvenida_credenciales.html', context)
 	
 	# Crear mensaje de texto
 	text_content = f"""

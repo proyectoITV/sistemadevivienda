@@ -22,7 +22,7 @@ class SessionTimeoutMiddleware:
 		if request.user.is_authenticated:
 			# Obtener el tiempo de sesión configurado
 			try:
-				from anuncios.models import ConfiguracionSistema
+				from portal.models import ConfiguracionSistema
 				config = ConfiguracionSistema.objects.first()
 				tiempo_sesion_minutos = config.tiempo_sesion_minutos if config else 15
 			except:

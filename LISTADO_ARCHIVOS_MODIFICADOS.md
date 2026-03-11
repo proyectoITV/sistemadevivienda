@@ -2,7 +2,7 @@
 
 ## 🔄 Archivos Modificados
 
-### 1. **anuncios/models.py**
+### 1. **portal/models.py**
 **Cambio:** Agregados 3 campos a modelo `PatrimonioResguardo`
 
 ```python
@@ -21,7 +21,7 @@ archivo_oficio = models.FileField(upload_to='patrimonio/oficios/', null=True, bl
 
 ---
 
-### 2. **anuncios/forms.py**
+### 2. **portal/forms.py**
 **Cambio:** Actualizado formulario `PatrimonioResguardoAsignacionForm`
 
 ```python
@@ -68,7 +68,7 @@ def clean_archivo_oficio(self):
 
 ---
 
-### 3. **anuncios/views.py**
+### 3. **portal/views.py**
 **Cambio:** 
 1. Agregado import `FileResponse` a línea ~12
 2. Nueva vista `descargar_oficio_resguardo()` en línea ~1714
@@ -116,7 +116,7 @@ def descargar_oficio_resguardo(request, idresguardo):
 
 ---
 
-### 4. **anuncios/urls.py**
+### 4. **portal/urls.py**
 **Cambio:** Agregada URL para descargar oficio
 
 ```python
@@ -135,7 +135,7 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
 
 ---
 
-### 5. **anuncios/templates/anuncios/patrimonio/listar_resguardos.html**
+### 5. **portal/templates/desarrollo/patrimonio/listar_resguardos.html**
 **Cambio:** Agregada columna "Oficio" en tabla
 
 ```html
@@ -181,7 +181,7 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
 
 ---
 
-### 6. **anuncios/templates/anuncios/patrimonio/historial_resguardo_bien.html**
+### 6. **portal/templates/desarrollo/patrimonio/historial_resguardo_bien.html**
 **Cambio:** Agregada columna "Oficio" en tabla de historial
 
 ```html
@@ -228,7 +228,7 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
 
 ---
 
-### 7. **anuncios/templates/anuncios/patrimonio/historial_resguardo_empleado.html**
+### 7. **portal/templates/desarrollo/patrimonio/historial_resguardo_empleado.html**
 **Cambio:** Agregada columna "Oficio" en tabla de historial
 
 ```html
@@ -276,7 +276,7 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
 
 ---
 
-### 8. **anuncios/templates/anuncios/patrimonio/form_resguardo_asignacion.html**
+### 8. **portal/templates/desarrollo/patrimonio/form_resguardo_asignacion.html**
 **Cambio:** Actualizado para incluir campos de oficio
 
 ```html
@@ -321,7 +321,7 @@ path('patrimonio/resguardos/<int:idresguardo>/descargar-oficio/',
 
 ## ✨ Archivos Creados (Nuevos)
 
-### 1. **anuncios/migrations/0024_agregar_campos_oficio_resguardo.py**
+### 1. **portal/migrations/0024_agregar_campos_oficio_resguardo.py**
 **Tipo:** Migración de Base de Datos
 
 ```python
@@ -504,9 +504,9 @@ Estado: ✅ Aplicada correctamente
 python manage.py migrate anuncios 0023
 
 # Revertir cambios de código manualmente o desde git
-git checkout HEAD -- anuncios/models.py
-git checkout HEAD -- anuncios/forms.py
-git checkout HEAD -- anuncios/views.py
+git checkout HEAD -- portal/models.py
+git checkout HEAD -- portal/forms.py
+git checkout HEAD -- portal/views.py
 ```
 
 ---
@@ -552,3 +552,4 @@ Documentación: ✅ Completa
 **Resumen de archivos completado**
 Fecha: 06/03/2026
 Versión: 1.0
+

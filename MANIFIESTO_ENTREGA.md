@@ -12,28 +12,28 @@
 ### 📁 Código Fuente Modificado (5 archivos)
 
 ```
-✏️  anuncios/models.py
+✏️  portal/models.py
     └─ Agregados 3 campos: apellido_paterno, apellido_materno, nombre
     └─ Método save() personalizado para generar nombre_completo
     └─ REQUIRED_FIELDS actualizado
     └─ Meta.ordering usa nombre_completo
 
-✏️  anuncios/forms.py
+✏️  portal/forms.py
     └─ PersonalEmpleadosForm con 3 nuevos campos
     └─ Widgets Bootstrap para cada campo
     └─ Validaciones apropiadas
 
-✏️  anuncios/admin.py
+✏️  portal/admin.py
     └─ PersonalEmpleadosAdmin fieldsets actualizados
     └─ Nuevos campos visibles en admin
 
-✏️  anuncios/templates/empleados/crear_empleado.html
+✏️  portal/templates/desarrollo/empleados/crear_empleado.html
     └─ Sección de Identificación rediseñada
     └─ 3 campos de entrada para nombre
     └─ Vista previa de nombre_completo
     └─ Scripts JavaScript incluidos
 
-✏️  anuncios/templates/empleados/editar_empleado.html
+✏️  portal/templates/desarrollo/empleados/editar_empleado.html
     └─ Sección de Identificación rediseñada
     └─ 3 campos de entrada pre-cargados
     └─ Vista previa de nombre_completo
@@ -43,7 +43,7 @@
 ### 📁 Código Nuevo (1 archivo)
 
 ```
-🆕  anuncios/static/anuncios/js/nombre-completo.js (2.4 KB)
+🆕  portal/static/desarrollo/js/nombre-completo.js (2.4 KB)
     └─ Detecta cambios en campos de nombre
     └─ Actualiza preview en tiempo real
     └─ Genera nombre_completo dinámicamente
@@ -54,14 +54,14 @@
 ### 📁 Migraciones de Base de Datos (2 archivos)
 
 ```
-🆕  anuncios/migrations/0014_personalempleados_nombre_dividido.py
+🆕  portal/migrations/0014_personalempleados_nombre_dividido.py
     └─ AddField apellido_paterno
     └─ AddField apellido_materno (blank=True)
     └─ AddField nombre
     └─ AlterField nombre_completo (editable=False)
     └─ Estado: ✅ APLICADA
 
-🆕  anuncios/migrations/0015_alter_personalpuestos_options_and_more.py
+🆕  portal/migrations/0015_alter_personalpuestos_options_and_more.py
     └─ Actualiza meta options
     └─ Estado: ✅ APLICADA
 ```
@@ -267,16 +267,16 @@ Ir a /empleados/crear/
 
 ## 📋 Archivos Incluidos en Entrega
 
-### Carpeta: `anuncios/`
+### Carpeta: `portal/`
 ```
-anuncios/
+portal/
 ├── models.py ✏️
 ├── forms.py ✏️
 ├── admin.py ✏️
 ├── templates/empleados/
 │   ├── crear_empleado.html ✏️
 │   └── editar_empleado.html ✏️
-├── static/anuncios/js/
+├── static/desarrollo/js/
 │   └── nombre-completo.js 🆕
 └── migrations/
     ├── 0014_personalempleados_nombre_dividido.py 🆕
@@ -393,4 +393,5 @@ del sistema mejorado.
 **Fecha**: 2024-03-03  
 
 **¡Implementación exitosa!** 🎉
+
 
