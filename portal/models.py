@@ -807,3 +807,138 @@ class PatrimonioEntregaDepartamentoDetalle(models.Model):
 
 	def __str__(self):
 		return f"Entrega #{self.entrega.identrega} - {self.bien.numero_inventario_itavu}"
+
+
+# ==================== MODELOS DE FONDO ECONÓMICO DE RESERVA (FER) ====================
+
+class CatalogosSexo(models.Model):
+	"""Catálogo de sexos para información personal"""
+	idsexo = models.AutoField(primary_key=True)
+	sexo = models.CharField(max_length=50, unique=True, help_text='Descripción del sexo')
+	activo = models.BooleanField(default=True, help_text='¿El catálogo está activo?')
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+	
+	class Meta:
+		db_table = 'catalogos_sexo'
+		verbose_name = 'Sexo'
+		verbose_name_plural = 'Sexos'
+		ordering = ['idsexo']
+	
+	def __str__(self):
+		return self.sexo
+
+
+class FerFondos(models.Model):
+	"""Fondos disponibles por ejercicio fiscal para el Fondo Económico de Reserva"""
+	idfondo = models.AutoField(primary_key=True)
+	fondo = models.BigIntegerField(help_text='Cantidad del fondo disponible')
+	ejercicio = models.IntegerField(unique=True, help_text='Año fiscal')
+	fechainicio = models.DateField(help_text='Fecha de inicio del fondo')
+	fechafin = models.DateField(help_text='Fecha de fin del fondo')
+	sustento = models.TextField(help_text='Sustento o referencia legal del fondo')
+	activo = models.BooleanField(default=True, help_text='¿El fondo está activo?')
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+	
+	class Meta:
+		db_table = 'fer_fondos'
+		verbose_name = 'Fondo FER'
+		verbose_name_plural = 'Fondos FER'
+		ordering = ['-ejercicio']
+	
+	def __str__(self):
+		return f"Fondo {self.ejercicio}: ${self.fondo:,}"
+
+
+class FerCatSubsidio(models.Model):
+	"""Catálogo de conceptos de subsidio para FER"""
+	fer_idcon = models.AutoField(primary_key=True)
+	fer_descripcion = models.CharField(max_length=255, help_text='Descripción del concepto de subsidio')
+	activo = models.BooleanField(default=True, help_text='¿El concepto está activo?')
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+	
+	class Meta:
+		db_table = 'fer_cat_subsidio'
+		verbose_name = 'Concepto de Subsidio FER'
+		verbose_name_plural = 'Conceptos de Subsidio FER'
+		ordering = ['fer_idcon']
+	
+	def __str__(self):
+		return self.fer_descripcion
+
+
+class FerInformacion(models.Model):
+	"""Información y registro de beneficiarios del Fondo Económico de Reserva"""
+	nfer_id = models.AutoField(primary_key=True)
+	ejercicio = models.IntegerField(help_text='Año fiscal del registro')
+	numcertificado = models.IntegerField(null=True, blank=True, help_text='Número de certificado')
+	contrato = models.CharField(max_length=255, help_text='Número de contrato')
+	nombre = models.CharField(max_length=255, help_text='Nombre del beneficiario')
+	curp = models.CharField(max_length=18, help_text='CURP del beneficiario')
+	descripcion = models.TextField(help_text='Descripción del concepto')
+	cantidad = models.DecimalField(max_digits=15, decimal_places=2, help_text='Cantidad del subsidio')
+	nfer_concepto = models.ForeignKey(
+		FerCatSubsidio,
+		on_delete=models.PROTECT,
+		related_name='informaciones',
+		help_text='Concepto de subsidio'
+	)
+	nacimiento = models.DateField(help_text='Fecha de nacimiento')
+	domicilio = models.TextField(help_text='Domicilio del beneficiario')
+	telefono = models.CharField(max_length=20, help_text='Teléfono del beneficiario')
+	celular = models.CharField(max_length=20, help_text='Celular del beneficiario')
+	autorizo = models.CharField(max_length=255, help_text='Persona que autorizó el subsidio')
+	idmunicipio = models.ForeignKey(
+		CatalogosMunicipios,
+		on_delete=models.PROTECT,
+		related_name='fer_informaciones',
+		help_text='Municipio del beneficiario'
+	)
+	sexo = models.ForeignKey(
+		CatalogosSexo,
+		on_delete=models.PROTECT,
+		related_name='fer_informaciones',
+		help_text='Sexo del beneficiario'
+	)
+	autorizo_fecha = models.DateField(help_text='Fecha cuando se autorizó')
+	autorizo_hora = models.TimeField(help_text='Hora cuando se autorizó')
+	estado = models.IntegerField(
+		default=0,
+		choices=[(0, 'Activo'), (1, 'Inactivo')],
+		help_text='Estado del registro (0=Activo, 1=Inactivo)'
+	)
+	parrafo_opcional = models.TextField(blank=True, help_text='Párrafo adicional opcional')
+	idempmodifica = models.CharField(
+		max_length=255,
+		null=True,
+		blank=True,
+		help_text='ID del empleado que modificó'
+	)
+	fechaultimamod = models.DateField(null=True, blank=True, help_text='Fecha última modificación')
+	archivo_sustento = models.FileField(
+		upload_to='fer/sustentos/',
+		null=True,
+		blank=True,
+		help_text='Archivo que sustenta la captura'
+	)
+	
+	# Auditoría
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion_sistema = models.DateTimeField(auto_now=True)
+	
+	class Meta:
+		db_table = 'fer_informacion'
+		verbose_name = 'Información FER'
+		verbose_name_plural = 'Información FER'
+		ordering = ['-ejercicio', '-numcertificado']
+		unique_together = [['nfer_id', 'ejercicio']]
+		indexes = [
+			models.Index(fields=['ejercicio', 'estado']),
+			models.Index(fields=['curp']),
+			models.Index(fields=['estado']),
+		]
+	
+	def __str__(self):
+		return f"{self.nombre} - ${self.cantidad:,} ({self.ejercicio})"

@@ -19,6 +19,11 @@ from .models import (
 	PatrimonioProveedor,
 	PatrimonioResguardo,
 	PatrimonioEntregaDepartamento,
+	FerInformacion,
+	FerFondos,
+	FerCatSubsidio,
+	CatalogosSexo,
+	CatalogosMunicipios,
 )
 
 
@@ -718,3 +723,100 @@ class PatrimonioEntregaDepartamentoForm(forms.ModelForm):
 			raise ValidationError('El empleado que entrega no tiene bienes activos para transferir.')
 
 		return cleaned_data
+
+
+# ==================== FORMULARIOS DE FER ====================
+
+class FerInformacionForm(forms.ModelForm):
+	"""Formulario para crear/editar información del FER"""
+	class Meta:
+		model = FerInformacion
+		fields = [
+			'ejercicio', 'numcertificado', 'contrato', 'nombre', 'curp',
+			'descripcion', 'cantidad', 'nfer_concepto', 'nacimiento',
+			'domicilio', 'telefono', 'celular', 'autorizo', 'idmunicipio',
+			'sexo', 'autorizo_fecha', 'autorizo_hora', 'parrafo_opcional',
+			'archivo_sustento'
+		]
+		widgets = {
+			'ejercicio': forms.NumberInput(attrs={'class': 'form-control', 'type': 'number', 'placeholder': 'Año fiscal'}),
+			'numcertificado': forms.NumberInput(attrs={'class': 'form-control', 'type': 'number', 'placeholder': 'Número de certificado'}),
+			'contrato': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de contrato'}),
+			'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre completo del beneficiario'}),
+			'curp': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'CURP del beneficiario'}),
+			'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción del concepto'}),
+			'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Cantidad en pesos'}),
+			'nfer_concepto': forms.Select(attrs={'class': 'form-control form-select'}),
+			'nacimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+			'domicilio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Domicilio del beneficiario'}),
+			'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono de contacto'}),
+			'celular': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Celular de contacto'}),
+			'autorizo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Persona que autorizó'}),
+			'idmunicipio': forms.Select(attrs={'class': 'form-control form-select'}),
+			'sexo': forms.Select(attrs={'class': 'form-control form-select'}),
+			'autorizo_fecha': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+			'autorizo_hora': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+			'parrafo_opcional': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Párrafo adicional (opcional)'}),
+			'archivo_sustento': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.doc,.docx,.jpg,.jpeg,.png'}),
+		}
+		labels = {
+			'ejercicio': 'Año Fiscal',
+			'numcertificado': 'Número de Certificado',
+			'contrato': 'Número de Contrato',
+			'nombre': 'Nombre del Beneficiario',
+			'curp': 'CURP',
+			'descripcion': 'Descripción',
+			'cantidad': 'Cantidad',
+			'nfer_concepto': 'Concepto de Subsidio',
+			'nacimiento': 'Fecha de Nacimiento',
+			'domicilio': 'Domicilio',
+			'telefono': 'Teléfono',
+			'celular': 'Celular',
+			'autorizo': 'Autorizado por',
+			'idmunicipio': 'Municipio',
+			'sexo': 'Sexo',
+			'autorizo_fecha': 'Fecha de Autorización',
+			'autorizo_hora': 'Hora de Autorización',
+			'parrafo_opcional': 'Párrafo Opcional',
+			'archivo_sustento': 'Archivo de Sustento',
+		}
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		# Filtrar municipios activos
+		self.fields['idmunicipio'].queryset = CatalogosMunicipios.objects.filter().select_related('entidad')
+		# Filtrar sexos activos
+		self.fields['sexo'].queryset = CatalogosSexo.objects.filter(activo=True)
+		# Filtrar conceptos de subsidio activos
+		self.fields['nfer_concepto'].queryset = FerCatSubsidio.objects.filter(activo=True)
+		# Establecer año actual por defecto
+		if not self.instance.pk:
+			import datetime
+			self.fields['ejercicio'].initial = datetime.date.today().year
+			self.fields['autorizo_fecha'].initial = datetime.date.today()
+			self.fields['autorizo_hora'].initial = datetime.datetime.now().strftime('%H:%M')
+
+	def clean_cantidad(self):
+		cantidad = self.cleaned_data.get('cantidad')
+		if cantidad and cantidad <= 0:
+			raise ValidationError('La cantidad debe ser mayor a 0.')
+		return cantidad
+
+	def clean_curp(self):
+		curp = self.cleaned_data.get('curp')
+		if curp and len(curp) != 18:
+			raise ValidationError('El CURP debe tener 18 caracteres.')
+		return curp.upper() if curp else curp
+
+	def clean_archivo_sustento(self):
+		archivo = self.cleaned_data.get('archivo_sustento')
+		if archivo:
+			# Validar tamaño (máximo 5 MB)
+			if archivo.size > 5242880:  # 5 MB
+				raise ValidationError('El archivo no debe superar 5 MB.')
+			# Validar extensión
+			extensiones_permitidas = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']
+			ext = archivo.name.split('.')[-1].lower()
+			if ext not in extensiones_permitidas:
+				raise ValidationError('El archivo debe ser PDF, imagen o documento Word.')
+		return archivo

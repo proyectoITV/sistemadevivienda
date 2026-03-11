@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_fer
 
 urlpatterns = [
     path('', views.index, name='index'),
@@ -96,4 +97,13 @@ urlpatterns = [
     # AJAX
     path('api/departamentos-por-direccion/', views.get_departamentos_por_direccion, name='get_departamentos_por_direccion'),
     path('api/estadisticas-cola/', views.api_estadisticas_cola, name='api_estadisticas_cola'),
+    
+    # Fondo Económico de Reserva (FER)
+    path('fer/asignacion/', views_fer.fer_asignacion_listado, name='fer_asignacion_listado'),
+    path('fer/crear/', views_fer.fer_informacion_crear, name='fer_informacion_crear'),
+    path('fer/<int:nfer_id>/editar/', views_fer.fer_informacion_editar, name='fer_informacion_editar'),
+    path('fer/<int:nfer_id>/detalle/', views_fer.fer_informacion_detalle, name='fer_informacion_detalle'),
+    path('fer/<int:nfer_id>/inactivar/', views_fer.fer_informacion_inactivar, name='fer_informacion_inactivar'),
+    path('fer/<int:nfer_id>/certificado/', views_fer.fer_certificado_generar, name='fer_certificado_generar'),
+    path('api/fer/grafico-datos/', views_fer.fer_api_datos_grafico, name='fer_api_datos_grafico'),
 ]

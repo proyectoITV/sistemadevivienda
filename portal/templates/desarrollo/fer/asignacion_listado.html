@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Asignación de Recurso - Fondo Económico de Reserva{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Encabezado -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-2">
+                <i class="fas fa-coins text-danger"></i>
+                Asignación de Recurso - Fondo Económico de Reserva
+            </h1>
+            <p class="text-muted">Gestión de beneficiarios y asignación de subsidios</p>
+        </div>
+        <div class="col-md-4 text-right">
+            <a href="{% url 'fer_informacion_crear' %}" class="btn btn-danger btn-lg">
+                <i class="fas fa-plus"></i> Nuevo Registro
+            </a>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Filtro por Año -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <label for="ejercicio" class="form-label"><strong>Seleccionar Año Fiscal:</strong></label>
+                    <select id="ejercicio" class="form-control form-select">
+                        {% for año in años_disponibles %}
+                        <option value="{{ año }}" {% if año == ejercicio_actual %}selected{% endif %}>{{ año }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <p class="text-muted mb-0"><small>Fondo Total Disponible:</small></p>
+                                    <h4 class="mb-0">${{ fondo_ejercicio|floatformat:2 }}</h4>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-wallet fa-2x text-danger" style="opacity: 0.3;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <p class="text-muted mb-0"><small>Fondo Disponible:</small></p>
+                                    <h4 class="mb-0 {% if fondo_disponible < 0 %}text-danger{% endif %}">${{ fondo_disponible|floatformat:2 }}</h4>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-chart-pie fa-2x text-primary" style="opacity: 0.3;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mt-2"><i class="fas fa-chart-pie"></i> Aplicación de Recursos</h5>
+                </div>
+                <div class="card-body" style="height: 300px;">
+                    <canvas id="graficoAplicacion"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mt-2"><i class="fas fa-list-check"></i> Resumen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Total Beneficiarios:</strong> <span class="badge bg-danger">{{ registros|length }}</span></p>
+                            <p><strong>Total Asignado:</strong> <span class="badge bg-success">${{ total_asignado|floatformat:2 }}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>% Asignado:</strong> <span id="porcentaje-asignado">-</span>%</p>
+                            <p><strong>% Disponible:</strong> <span id="porcentaje-disponible">-</span>%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de registros -->
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mt-2"><i class="fas fa-table"></i> Registros de Beneficiarios</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Certificado</th>
+                        <th>Nombre</th>
+                        <th>Municipio</th>
+                        <th>Cantidad</th>
+                        <th>Concepto</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for registro in registros %}
+                    <tr>
+                        <td><strong>#{{ registro.numcertificado|default:"--" }}</strong></td>
+                        <td>{{ registro.nombre }}</td>
+                        <td><small>{{ registro.idmunicipio.nombre }}</small></td>
+                        <td><strong>${{ registro.cantidad|floatformat:2 }}</strong></td>
+                        <td><small>{{ registro.nfer_concepto.fer_descripcion }}</small></td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'fer_informacion_detalle' registro.nfer_id %}" class="btn btn-outline-primary" title="Ver Detalles">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'fer_informacion_editar' registro.nfer_id %}" class="btn btn-outline-warning" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="POST" action="{% url 'fer_certificado_generar' registro.nfer_id %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-success btn-sm" title="Generar Certificado">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" action="{% url 'fer_informacion_inactivar' registro.nfer_id %}" style="display:inline;" onsubmit="return confirm('¿Inactivar este registro?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Inactivar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <p>No hay registros para este año fiscal</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js para el gráfico -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+<script>
+document.getElementById('ejercicio').addEventListener('change', function() {
+    window.location.href = '?ejercicio=' + this.value;
+});
+
+// Cargar datos del gráfico
+fetch('{% url "fer_api_datos_grafico" %}?ejercicio={{ ejercicio_actual }}')
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error(data.error);
+            return;
+        }
+
+        // Actualizar porcentajes
+        document.getElementById('porcentaje-asignado').textContent = data.porcentaje_asignado;
+        document.getElementById('porcentaje-disponible').textContent = data.porcentaje_disponible;
+
+        // Crear gráfico
+        const ctx = document.getElementById('graficoAplicacion').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Asignado', 'Disponible'],
+                datasets: [{
+                    data: [data.fondo_asignado, data.fondo_disponible],
+                    backgroundColor: ['#dc3545', '#e9ecef'],
+                    borderColor: ['#dc3545', '#dee2e6'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    })
+    .catch(error => console.error('Error:', error));
+</script>
+{% endblock %}
