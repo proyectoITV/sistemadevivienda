@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.db import ProgrammingError, OperationalError, transaction, IntegrityError
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.paginator import Paginator
+from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, FileResponse
@@ -120,7 +122,7 @@ def nuestras_oficinas(request):
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser
-from .models import PersonalEmpleados, RecuperacionContrasena
+from .models import PersonalEmpleados, RecuperacionContrasena, TransparenciaGo
 from .email_utils import enviar_correo_recuperacion
 
 
@@ -229,6 +231,109 @@ def dashboard(request):
 	return render(request, 'desarrollo/web/dashboard.html')
 
 
+@login_required(login_url='login')
+def listar_archivos_transparencia(request):
+	"""Listado de archivos de transparencia con carga de nuevos PDF."""
+	if request.method == 'POST':
+		form = TransparenciaArchivoUploadForm(request.POST, request.FILES)
+		if form.is_valid():
+			with transaction.atomic():
+				ahora = timezone.localtime(timezone.now())
+				usuario_carga = getattr(request.user, 'usuario', '') or getattr(request.user, 'username', '') or 'sistema'
+				ultimo_registro = TransparenciaGo.objects.select_for_update().order_by('-id_file').first()
+				nuevo_id = (ultimo_registro.id_file if ultimo_registro else 0) + 1
+
+				# 1) Registro en BD con IdFile incremental (ultimo + 1)
+				registro = TransparenciaGo.objects.create(
+					id_file=nuevo_id,
+					file_nombre=form.cleaned_data['nombre'].strip(),
+					id_user=usuario_carga,
+					fecha=ahora.date(),
+					hora=ahora.time().replace(microsecond=0),
+					file_descripcion=form.cleaned_data.get('comentarios', '').strip(),
+				)
+
+				# 2) Renombrado dinamico usando el IdFile: Transparencia/Files/{IdFile}.pdf
+				ruta_pdf = f"Transparencia/Files/{registro.id_file}.pdf"
+				if default_storage.exists(ruta_pdf):
+					default_storage.delete(ruta_pdf)
+				default_storage.save(ruta_pdf, form.cleaned_data['archivo_pdf'])
+
+			messages.success(request, 'Archivo de transparencia cargado correctamente.')
+			return redirect('listar_archivos_transparencia')
+		messages.error(request, 'No fue posible cargar el archivo. Verifica los campos e intenta de nuevo.')
+	else:
+		form = TransparenciaArchivoUploadForm()
+
+	archivos_qs = TransparenciaGo.objects.all().order_by('-fecha', '-hora', '-id_file')
+	paginator = Paginator(archivos_qs, 10)
+	page_number = request.GET.get('page')
+	page_obj = paginator.get_page(page_number)
+
+	for archivo in page_obj.object_list:
+		fecha_hora_registro = datetime.combine(archivo.fecha, archivo.hora)
+		if timezone.is_naive(fecha_hora_registro):
+			fecha_hora_registro = timezone.make_aware(fecha_hora_registro, timezone.get_current_timezone())
+		tiempo_transcurrido = timezone.now() - fecha_hora_registro
+		archivo.puede_eliminar = tiempo_transcurrido < timedelta(hours=24)
+		limite_eliminacion = timedelta(hours=24)
+
+		if archivo.puede_eliminar:
+			tiempo_restante = limite_eliminacion - tiempo_transcurrido
+			segundos_restantes = max(0, int(tiempo_restante.total_seconds()))
+			horas_restantes = segundos_restantes // 3600
+			minutos_restantes = (segundos_restantes % 3600) // 60
+			archivo.tooltip_eliminar = (
+				f"Se puede eliminar. Tiempo restante: {horas_restantes:02d}h {minutos_restantes:02d}m"
+			)
+		else:
+			tiempo_bloqueado = tiempo_transcurrido - limite_eliminacion
+			segundos_bloqueado = max(0, int(tiempo_bloqueado.total_seconds()))
+			horas_bloqueado = segundos_bloqueado // 3600
+			minutos_bloqueado = (segundos_bloqueado % 3600) // 60
+			archivo.tooltip_eliminar = (
+				f"Eliminacion bloqueada (>=24h). Bloqueado desde hace {horas_bloqueado:02d}h {minutos_bloqueado:02d}m"
+			)
+
+		ruta_pdf = f"Transparencia/Files/{archivo.id_file}.pdf"
+		archivo.pdf_url = f"{settings.MEDIA_URL}{ruta_pdf}" if default_storage.exists(ruta_pdf) else ''
+		archivo.ruta_directa = ruta_pdf
+
+	context = {
+		'page_obj': page_obj,
+		'form_upload': form,
+		'total_archivos': archivos_qs.count(),
+	}
+	return render(request, 'desarrollo/Transparencia/listar_archivos.html', context)
+
+
+@login_required(login_url='login')
+def eliminar_archivo_transparencia(request, id_file):
+	"""Elimina archivo de transparencia solo si tiene menos de 24 horas desde su registro."""
+	if request.method != 'POST':
+		messages.error(request, 'Metodo no permitido para eliminar archivos.')
+		return redirect('listar_archivos_transparencia')
+
+	archivo = get_object_or_404(TransparenciaGo, id_file=id_file)
+	fecha_hora_registro = datetime.combine(archivo.fecha, archivo.hora)
+	if timezone.is_naive(fecha_hora_registro):
+		fecha_hora_registro = timezone.make_aware(fecha_hora_registro, timezone.get_current_timezone())
+
+	tiempo_transcurrido = timezone.now() - fecha_hora_registro
+	if tiempo_transcurrido >= timedelta(hours=24):
+		messages.warning(request, 'No se puede eliminar: el archivo tiene 24 horas o mas de antiguedad.')
+		return redirect('listar_archivos_transparencia')
+
+	ruta_pdf = f"Transparencia/Files/{archivo.id_file}.pdf"
+	with transaction.atomic():
+		archivo.delete()
+		if default_storage.exists(ruta_pdf):
+			default_storage.delete(ruta_pdf)
+
+	messages.success(request, 'Archivo eliminado correctamente.')
+	return redirect('listar_archivos_transparencia')
+
+
 def recuperar_contrasena(request):
 	"""Vista para solicitar recuperación de contraseña"""
 	if request.method == 'POST':
@@ -332,6 +437,7 @@ from .forms import (
 	PersonalDepartamentoForm,
 	PersonalPuestosForm,
 	PersonalTipoDeContratacionForm,
+	TransparenciaArchivoUploadForm,
 )
 
 

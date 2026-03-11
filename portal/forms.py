@@ -12,6 +12,7 @@ from .models import (
 	PersonalDepartamento,
 	ConfiguracionSistema,
 	UsuariosDelSistema,
+	TransparenciaGo,
 	PatrimonioBienesDelInstituto,
 	CatalogosMarcas,
 	PatrimonioClasificacionSerap,
@@ -718,3 +719,35 @@ class PatrimonioEntregaDepartamentoForm(forms.ModelForm):
 			raise ValidationError('El empleado que entrega no tiene bienes activos para transferir.')
 
 		return cleaned_data
+
+
+class TransparenciaArchivoUploadForm(forms.Form):
+	archivo_pdf = forms.FileField(
+		label='Archivo PDF',
+		widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf', 'required': True})
+	)
+	nombre = forms.CharField(
+		label='Nombre',
+		max_length=255,
+		widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre para publicar el archivo', 'required': True})
+	)
+	comentarios = forms.CharField(
+		label='Comentarios',
+		required=False,
+		widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Observaciones adicionales (opcional)'})
+	)
+
+	def clean_archivo_pdf(self):
+		archivo = self.cleaned_data.get('archivo_pdf')
+		if not archivo:
+			raise ValidationError('Debes seleccionar un archivo PDF.')
+
+		nombre_archivo = archivo.name.lower()
+		if not nombre_archivo.endswith('.pdf'):
+			raise ValidationError('Solo se permiten archivos con extension .pdf.')
+
+		# Limite de 20 MB para prevenir cargas excesivas
+		if archivo.size > 20 * 1024 * 1024:
+			raise ValidationError('El archivo no debe superar 20 MB.')
+
+		return archivo
