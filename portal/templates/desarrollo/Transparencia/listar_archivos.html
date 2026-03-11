@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Transparencia - Archivos{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-search-dollar" style="color: #ab0033;"></i> Transparencia</h2>
+            <p class="text-muted mb-0">Listado de archivos publicados en orden cronológico descendente.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Regresar al Dashboard
+            </a>
+            <button type="button" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;" data-bs-toggle="modal" data-bs-target="#modalSubirArchivo">
+                <i class="fas fa-upload"></i> Subir nuevo archivo
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+            <h5 class="mb-0"><i class="fas fa-file-pdf"></i> Archivos de Transparencia</h5>
+            <span class="badge text-bg-light">Total: {{ total_archivos }}</span>
+        </div>
+        <div class="card-body">
+            {% if page_obj.object_list %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 80px;">ID</th>
+                            <th>Nombre</th>
+                            <th>Informacion</th>
+                            <th style="width: 180px;">Usuario</th>
+                            <th style="width: 190px;">Fecha de carga</th>
+                            <th style="width: 220px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for archivo in page_obj.object_list %}
+                        <tr>
+                            <td><strong>{{ archivo.id_file }}</strong></td>
+                            <td>{{ archivo.file_nombre }}</td>
+                            <td>{{ archivo.file_descripcion|default:'-' }}</td>
+                            <td>{{ archivo.id_user }}</td>
+                            <td>{{ archivo.fecha|date:"d/m/Y" }} {{ archivo.hora|time:"H:i:s" }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    {% if archivo.pdf_url %}
+                                    <a href="{{ archivo.pdf_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Visualizar PDF">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% else %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="PDF no disponible">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    {% endif %}
+
+                                    <button type="button" class="btn btn-sm btn-outline-secondary copiar-url"
+                                            data-url="{{ request.scheme }}://{{ request.get_host }}{{ MEDIA_URL }}{{ archivo.ruta_directa }}"
+                                            title="Copiar URL directa">
+                                        <i class="fas fa-link"></i>
+                                    </button>
+
+                                    <form id="eliminar-form-{{ archivo.id_file }}" method="post" action="{% url 'eliminar_archivo_transparencia' archivo.id_file %}" class="d-inline">
+                                        {% csrf_token %}
+                                        {% if archivo.puede_eliminar %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-modal"
+                                                data-form-id="eliminar-form-{{ archivo.id_file }}"
+                                                data-archivo-nombre="{{ archivo.file_nombre|escape }}"
+                                                title="Eliminar archivo"
+                                                data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{{ archivo.tooltip_eliminar }}"
+                                                >
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% else %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger" disabled
+                                                data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{{ archivo.tooltip_eliminar }}"
+                                                title="No se puede eliminar despues de 24 horas">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.paginator.num_pages > 1 %}
+            <nav aria-label="Paginacion de archivos" class="mt-3">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">Primera</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">Primera</span></li>
+                    <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                    {% endif %}
+
+                    <li class="page-item active" aria-current="page">
+                        <span class="page-link">Pagina {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Ultima</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+                    <li class="page-item disabled"><span class="page-link">Ultima</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-folder-open fa-2x mb-2"></i>
+                <p class="mb-0">No hay archivos de transparencia registrados.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalConfirmarEliminacion" tabindex="-1" aria-labelledby="modalConfirmarEliminacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalConfirmarEliminacionLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Confirmar eliminacion
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2"><strong>¡Atencion!</strong> Esta accion eliminara el archivo de forma permanente.</p>
+                <p class="mb-0 text-muted" id="textoArchivoEliminar"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarEliminar">
+                    <i class="fas fa-trash"></i> Eliminar definitivamente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalSubirArchivo" tabindex="-1" aria-labelledby="modalSubirArchivoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: white;">
+                <h5 class="modal-title" id="modalSubirArchivoLabel">
+                    <i class="fas fa-upload"></i> Subir nuevo archivo de Transparencia
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_archivo_pdf" class="form-label">Seleccion de archivo (PDF) <span class="text-danger">*</span></label>
+                        {{ form_upload.archivo_pdf }}
+                        {% if form_upload.archivo_pdf.errors %}
+                        <div class="text-danger small mt-1">{{ form_upload.archivo_pdf.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                        {{ form_upload.nombre }}
+                        {% if form_upload.nombre.errors %}
+                        <div class="text-danger small mt-1">{{ form_upload.nombre.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="id_comentarios" class="form-label">Comentarios</label>
+                        {{ form_upload.comentarios }}
+                        {% if form_upload.comentarios.errors %}
+                        <div class="text-danger small mt-1">{{ form_upload.comentarios.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;">
+                        <i class="fas fa-save"></i> Guardar archivo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if form_upload.errors %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = new bootstrap.Modal(document.getElementById('modalSubirArchivo'));
+        modal.show();
+    });
+</script>
+{% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+            new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        let formEliminarPendiente = null;
+        const modalEliminarElement = document.getElementById('modalConfirmarEliminacion');
+        const modalEliminar = new bootstrap.Modal(modalEliminarElement);
+        const textoArchivoEliminar = document.getElementById('textoArchivoEliminar');
+        const btnConfirmarEliminar = document.getElementById('btnConfirmarEliminar');
+
+        document.querySelectorAll('.btn-eliminar-modal').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const formId = btn.getAttribute('data-form-id');
+                const nombreArchivo = btn.getAttribute('data-archivo-nombre') || '';
+                formEliminarPendiente = document.getElementById(formId);
+                textoArchivoEliminar.textContent = nombreArchivo ? 'Archivo: ' + nombreArchivo : '';
+                modalEliminar.show();
+            });
+        });
+
+        btnConfirmarEliminar.addEventListener('click', function () {
+            if (formEliminarPendiente) {
+                formEliminarPendiente.submit();
+            }
+        });
+
+        const botonesCopiar = document.querySelectorAll('.copiar-url');
+        botonesCopiar.forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                const url = btn.getAttribute('data-url');
+                try {
+                    await navigator.clipboard.writeText(url);
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Copiado';
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('btn-success');
+                    setTimeout(function () {
+                        btn.innerHTML = original;
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-outline-secondary');
+                    }, 1200);
+                } catch (e) {
+                    alert('No fue posible copiar la URL.');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -10,6 +10,8 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('intro/', views.intro, name='intro'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('transparencia/archivos/', views.listar_archivos_transparencia, name='listar_archivos_transparencia'),
+    path('transparencia/archivos/<int:id_file>/eliminar/', views.eliminar_archivo_transparencia, name='eliminar_archivo_transparencia'),
     path('recuperar-contrasena/', views.recuperar_contrasena, name='recuperar_contrasena'),
     path('restablecer-contrasena/<str:token>/', views.restablecer_contrasena, name='restablecer_contrasena'),
     

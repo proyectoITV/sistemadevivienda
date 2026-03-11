@@ -485,6 +485,25 @@ class ColaCorreos(models.Model):
 	def __str__(self):
 		return f"{self.get_tipo_correo_display()} - {self.email_destino} ({self.get_estado_display()})"
 
+# ==================== MODELOS DE TRANSPARENCIA ====================
+class TransparenciaGo(models.Model):
+	"""Archivos publicados en el modulo de transparencia."""
+	id_file = models.AutoField(primary_key=True, db_column='IdFile')
+	file_nombre = models.CharField(max_length=255, db_column='FileNombre', help_text='Nombre del archivo original')
+	id_user = models.CharField(max_length=255, db_column='IdUser', help_text='Usuario que subio el archivo')
+	fecha = models.DateField(db_column='fecha')
+	hora = models.TimeField(db_column='hora')
+	file_descripcion = models.TextField(db_column='FileDescripcion', blank=True, help_text='Descripcion del archivo')
+
+	class Meta:
+		db_table = 'TransparenciaGo'
+		verbose_name = 'Archivo de Transparencia'
+		verbose_name_plural = 'Archivos de Transparencia'
+		ordering = ['fecha', 'hora', 'id_file']
+
+	def __str__(self):
+		return f"{self.file_nombre} ({self.fecha} {self.hora})"
+
 
 # ==================== MODELOS DE PATRIMONIO ====================
 
