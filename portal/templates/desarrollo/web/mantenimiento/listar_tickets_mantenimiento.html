@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    :root { --color1: #ab0033; }
+    body { background: #f0f2f5; }
+    .page-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #ab0033 100%);
+        color: white; padding: 2rem 2.5rem; border-radius: 0 0 20px 20px; margin-bottom: 2rem;
+    }
+    .stat-card, .filter-bar, .ticket-card {
+        background: white; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    }
+    .stat-card { padding: 1.3rem 1.5rem; display: flex; align-items: center; gap: 1rem; text-decoration: none; color: inherit; }
+    .ticket-card { border: 1px solid #e9ecef; overflow: hidden; }
+    .ticket-card:hover { border-color: var(--color1); transform: translateY(-2px); transition: .2s; }
+    .priority-bar { width: 5px; flex-shrink: 0; }
+    .priority-baja { background: #6c757d; }
+    .priority-normal { background: #0dcaf0; }
+    .priority-alta { background: #ffc107; }
+    .priority-critica { background: #dc3545; }
+    .estado-abierto { background: #cfe2ff; color: #084298; }
+    .estado-asignado { background: #d1ecf1; color: #055160; }
+    .estado-en_revision, .estado-en_reparacion { background: #fff3cd; color: #664d03; }
+    .estado-espera_refaccion { background: #e2e3e5; color: #41464b; }
+    .estado-resuelto, .estado-entregado { background: #d1e7dd; color: #0a3622; }
+    .estado-cerrado { background: #343a40; color: white; }
+    .badge-estado { font-size: .72rem; padding: .3em .65em; border-radius: 50px; font-weight: 600; }
+    .tickets-tabs { border-bottom: 2px solid #dee2e6; margin-bottom: 1.5rem; }
+    .tickets-tabs .nav-link { color: #6c757d; font-weight: 600; border: none; border-bottom: 3px solid transparent; }
+    .tickets-tabs .nav-link.active { color: var(--color1); border-bottom-color: var(--color1); }
+    .filter-bar { padding: 1rem 1.5rem; margin-bottom: 1.5rem; }
+    .empty-state { text-align: center; padding: 4rem 2rem; color: #adb5bd; }
+    .btn-nuevo { background: linear-gradient(135deg, var(--color1), #e0003d); color: white; border: none; border-radius: 10px; padding: .6rem 1.4rem; font-weight: 600; }
+    .btn-nuevo:hover { color: white; }
+</style>
+
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h2><i class="fas fa-tools me-2"></i>Servicio de Mantenimiento</h2>
+            <p class="mb-0 opacity-75">Reporta fallas de equipo y da seguimiento a la atención del Departamento de Soporte.</p>
+        </div>
+        <a href="{% url 'crear_ticket_mantenimiento' %}" class="btn btn-nuevo">
+            <i class="fas fa-plus me-1"></i> Nuevo Ticket
+        </a>
+    </div>
+</div>
+
+<div class="container-fluid px-4">
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-sm-3"><a href="?tab=todos" class="stat-card"><div><div class="text-primary fs-3 fw-bold">{{ conteo_todos }}</div><small class="text-muted">Todos</small></div></a></div>
+        <div class="col-6 col-sm-3"><a href="?tab=solicitados" class="stat-card"><div><div class="text-danger fs-3 fw-bold">{{ conteo_solicitados }}</div><small class="text-muted">Solicitados</small></div></a></div>
+        <div class="col-6 col-sm-3"><a href="?tab=recibidos" class="stat-card"><div><div class="text-success fs-3 fw-bold">{{ conteo_recibidos }}</div><small class="text-muted">Recibidos</small></div></a></div>
+        <div class="col-6 col-sm-3"><a href="?tab=recibidos&estado=abierto" class="stat-card"><div><div class="text-warning fs-3 fw-bold">{{ conteo_pendientes }}</div><small class="text-muted">Pendientes</small></div></a></div>
+    </div>
+
+    <ul class="nav tickets-tabs">
+        <li class="nav-item"><a class="nav-link {% if tab == 'todos' %}active{% endif %}" href="?tab=todos">Todos</a></li>
+        <li class="nav-item"><a class="nav-link {% if tab == 'solicitados' %}active{% endif %}" href="?tab=solicitados">Mis solicitudes</a></li>
+        <li class="nav-item"><a class="nav-link {% if tab == 'recibidos' %}active{% endif %}" href="?tab=recibidos">Recibidos</a></li>
+    </ul>
+
+    <form method="get" class="filter-bar">
+        <input type="hidden" name="tab" value="{{ tab }}">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold mb-1">Buscar</label>
+                <input type="text" name="q" class="form-control" placeholder="Asunto, equipo, inventario o solicitante" value="{{ busqueda }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold mb-1">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    {% for val, lbl in estados %}<option value="{{ val }}" {% if estado == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold mb-1">Prioridad</label>
+                <select name="prioridad" class="form-select">
+                    <option value="">Todas</option>
+                    {% for val, lbl in prioridades %}<option value="{{ val }}" {% if prioridad == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1"><button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter"></i></button></div>
+        </div>
+    </form>
+
+    {% if tickets %}
+    <div class="row g-3">
+        {% for ticket in tickets %}
+        <div class="col-12 col-lg-6 col-xl-4">
+            <a href="{% url 'ver_ticket_mantenimiento' ticket.id_ticket_mantenimiento %}" class="text-decoration-none text-reset">
+                <div class="ticket-card d-flex h-100">
+                    <div class="priority-bar priority-{{ ticket.prioridad }}"></div>
+                    <div class="p-3 flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <small class="text-muted fw-semibold">#{{ ticket.id_ticket_mantenimiento }} · {{ ticket.folio_corto }}</small>
+                            <div class="d-flex flex-column align-items-end gap-1">
+                                <span class="badge-estado estado-{{ ticket.estado }}">{{ ticket.get_estado_display }}</span>
+                                {% if ticket.esta_vencido %}
+                                <span class="badge bg-danger">Vencido SLA</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="fw-bold text-dark">{{ ticket.asunto }}</div>
+                        <div class="small text-muted mt-1">{{ ticket.descripcion|truncatechars:120 }}</div>
+                        <div class="small text-muted mt-3">
+                            <div><i class="fas fa-user me-1"></i> {{ ticket.solicitante.nombre_completo }}</div>
+                            <div><i class="fas fa-building me-1"></i> {{ ticket.departamento_solicitante.departamento|default:ticket.solicitante.iddepartamento.departamento|default:'Sin departamento' }}</div>
+                            <div><i class="fas fa-tools me-1"></i> Soporte: {{ ticket.departamento_soporte.departamento }}</div>
+                            <div><i class="fas fa-desktop me-1"></i> {{ ticket.equipo|default:ticket.get_tipo_equipo_display }}</div>
+                            {% if ticket.numero_inventario %}<div><i class="fas fa-barcode me-1"></i> {{ ticket.numero_inventario }}</div>{% endif %}
+                            {% if ticket.atendido_por %}<div><i class="fas fa-user-cog me-1 text-success"></i> {{ ticket.atendido_por.nombre_completo }}</div>{% endif %}
+                            <div><i class="fas fa-calendar-alt me-1"></i> {{ ticket.fecha_creacion|date:'d/m/Y H:i' }}</div>
+                            {% if ticket.fecha_limite_sla %}
+                            <div>
+                                <i class="fas fa-hourglass-half me-1 {% if ticket.esta_vencido %}text-danger{% else %}text-warning{% endif %}"></i>
+                                SLA: {{ ticket.fecha_limite_sla|date:'d/m/Y H:i' }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-tools fa-4x mb-3"></i>
+        <h5>No hay tickets de mantenimiento para mostrar</h5>
+        <p class="text-muted">{% if busqueda or estado or prioridad %}Prueba con otros filtros.{% else %}Registra la primera incidencia para que soporte la atienda.{% endif %}</p>
+        <a href="{% url 'crear_ticket_mantenimiento' %}" class="btn btn-nuevo mt-2"><i class="fas fa-plus me-1"></i> Crear Ticket</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -10,6 +10,9 @@ demo@itavu.mx
 python .\cargar_estados.py
 python .\cargar_municipios.py
 python .\cargar_delegaciones.py
+python .\cargar_direcciones.py
+python .\cargar_departamentos.py
+python .\cargar_puestos.py
 
 C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe manage.py migrate anuncios 0018
 C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe verificar_cola_correos.py

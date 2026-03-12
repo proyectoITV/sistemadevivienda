@@ -101,6 +101,41 @@ def enviar_correo_directo(email_destino, asunto, contenido_texto, contenido_html
 		return False
 
 
+def enviar_notificacion_mantenimiento(ticket, email_destino, titulo_evento, resumen, id_empleado=None, nombre_destinatario=None):
+	"""Envía una notificación del módulo de mantenimiento al solicitante o a soporte."""
+	if not email_destino:
+		return False
+
+	config = obtener_configuracion_smtp()
+	nombre_corto = config.nombre_corto if config else 'Sistema'
+	nombre_destinatario = nombre_destinatario or ticket.solicitante.nombre_completo
+	asunto = f"[{nombre_corto}] Mantenimiento #{ticket.id_ticket_mantenimiento}: {titulo_evento}"
+	contenido_texto = (
+		f"Hola {nombre_destinatario},\n\n"
+		f"Tu ticket de mantenimiento #{ticket.id_ticket_mantenimiento} ({ticket.asunto}) tuvo una actualización.\n\n"
+		f"Estado actual: {ticket.get_estado_display()}\n"
+		f"Equipo: {ticket.equipo or ticket.get_tipo_equipo_display()}\n"
+		f"Resumen: {resumen}\n\n"
+		f"Departamento solicitante: {ticket.departamento_solicitante.departamento if ticket.departamento_solicitante else 'No definido'}\n"
+		f"Departamento de soporte: {ticket.departamento_soporte.departamento}\n"
+	)
+	contenido_html = f"""
+		<div style=\"font-family: Arial, sans-serif; color: #243447;\">
+			<h2 style=\"color:#ab0033;\">Servicio de Mantenimiento</h2>
+			<p>Hola <strong>{nombre_destinatario}</strong>,</p>
+			<p>Tu ticket <strong>#{ticket.id_ticket_mantenimiento}</strong> tuvo una actualización.</p>
+			<ul>
+				<li><strong>Asunto:</strong> {ticket.asunto}</li>
+				<li><strong>Estado actual:</strong> {ticket.get_estado_display()}</li>
+				<li><strong>Equipo:</strong> {ticket.equipo or ticket.get_tipo_equipo_display()}</li>
+				<li><strong>Resumen:</strong> {resumen}</li>
+			</ul>
+			<p>Si necesitas más información, entra al módulo de Servicio de Mantenimiento en el sistema.</p>
+		</div>
+	"""
+	return enviar_correo_directo(email_destino, asunto, contenido_texto, contenido_html)
+
+
 def procesar_cola_correos(limite_diario=2000):
 	"""
 	Procesa la cola de correos pendientes.
