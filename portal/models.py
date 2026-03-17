@@ -385,6 +385,14 @@ class ConfiguracionSistema(models.Model):
 		help_text='Duración de la pantalla de introducción en segundos (1-6)',
 		validators=[MinValueValidator(1), MaxValueValidator(6)]
 	)
+	departamento_soporte_mantenimiento = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='configuraciones_soporte_mantenimiento',
+		help_text='Departamento que atenderá los tickets de Servicio de Mantenimiento'
+	)
 	
 	fecha_creacion = models.DateTimeField(auto_now_add=True)
 	fecha_modificacion = models.DateTimeField(auto_now=True)
@@ -826,6 +834,443 @@ class PatrimonioEntregaDepartamentoDetalle(models.Model):
 
 	def __str__(self):
 		return f"Entrega #{self.entrega.identrega} - {self.bien.numero_inventario_itavu}"
+
+
+# ============================================================
+#  MÓDULO: TICKET DE SERVICIO
+# ============================================================
+
+class TicketServicio(models.Model):
+	"""Ticket de servicio inter-departamental para agilizar pendientes"""
+
+	PRIORIDAD_CHOICES = [
+		('baja',    'Baja'),
+		('normal',  'Normal'),
+		('alta',    'Alta'),
+		('urgente', 'Urgente'),
+	]
+
+	ESTADO_CHOICES = [
+		('abierto',     'Abierto'),
+		('en_proceso',  'En Proceso'),
+		('en_espera',   'En Espera'),
+		('resuelto',    'Resuelto'),
+		('cerrado',     'Cerrado'),
+	]
+
+	CATEGORIA_CHOICES = [
+		('solicitud',    'Solicitud'),
+		('informacion',  'Información'),
+		('soporte',      'Soporte Técnico'),
+		('tramite',      'Trámite'),
+		('otro',         'Otro'),
+	]
+
+	id_ticket       = models.AutoField(primary_key=True)
+	folio           = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+	asunto          = models.CharField(max_length=255, help_text='Título breve del ticket')
+	descripcion     = models.TextField(help_text='Descripción detallada del ticket')
+	categoria       = models.CharField(max_length=30, choices=CATEGORIA_CHOICES, default='solicitud')
+	prioridad       = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='normal')
+	estado          = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='abierto')
+
+	emisor          = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.PROTECT,
+		related_name='tickets_enviados', help_text='Quien crea el ticket'
+	)
+	departamento_destino = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.PROTECT,
+		related_name='tickets_recibidos_departamento',
+		help_text='Departamento destino del ticket',
+		null=True,
+		blank=True,
+	)
+	receptor        = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.PROTECT,
+		related_name='tickets_recibidos', help_text='A quien va dirigido el ticket',
+		null=True,
+		blank=True,
+	)
+	atendido_por    = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		related_name='tickets_atendidos',
+		help_text='Empleado del departamento que toma el ticket',
+		null=True,
+		blank=True,
+	)
+
+	fecha_creacion      = models.DateTimeField(auto_now_add=True)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+	fecha_vencimiento   = models.DateField(null=True, blank=True, help_text='Fecha límite esperada')
+	fecha_resolucion    = models.DateTimeField(null=True, blank=True)
+
+	observaciones = models.TextField(blank=True)
+
+	class Meta:
+		db_table    = 'tickets_servicio'
+		verbose_name = 'Ticket de Servicio'
+		verbose_name_plural = 'Tickets de Servicio'
+		ordering = ['-fecha_creacion']
+		indexes = [
+			models.Index(fields=['estado', 'prioridad']),
+			models.Index(fields=['emisor', 'departamento_destino']),
+		]
+
+	def __str__(self):
+		return f"#{self.id_ticket} – {self.asunto}"
+
+	@property
+	def folio_corto(self):
+		return str(self.folio).upper()[:8]
+
+	@property
+	def color_prioridad(self):
+		return {
+			'baja':    'secondary',
+			'normal':  'info',
+			'alta':    'warning',
+			'urgente': 'danger',
+		}.get(self.prioridad, 'secondary')
+
+	@property
+	def color_estado(self):
+		return {
+			'abierto':    'primary',
+			'en_proceso': 'warning',
+			'en_espera':  'secondary',
+			'resuelto':   'success',
+			'cerrado':    'dark',
+		}.get(self.estado, 'secondary')
+
+	@property
+	def icono_prioridad(self):
+		return {
+			'baja':    'fa-arrow-down',
+			'normal':  'fa-minus',
+			'alta':    'fa-arrow-up',
+			'urgente': 'fa-fire',
+		}.get(self.prioridad, 'fa-minus')
+
+
+class TicketServicioArchivo(models.Model):
+	"""Archivos adjuntos de un ticket"""
+
+	id_archivo    = models.AutoField(primary_key=True)
+	ticket        = models.ForeignKey(
+		TicketServicio, on_delete=models.CASCADE, related_name='archivos'
+	)
+	archivo       = models.FileField(upload_to='tickets/adjuntos/%Y/%m/')
+	nombre_original = models.CharField(max_length=255)
+	tamanio       = models.PositiveIntegerField(default=0, help_text='Tamaño en bytes')
+	tipo_mime     = models.CharField(max_length=100, blank=True)
+	subido_por    = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='archivos_tickets'
+	)
+	fecha_subida  = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_servicio_archivo'
+		verbose_name = 'Archivo de Ticket'
+		verbose_name_plural = 'Archivos de Tickets'
+		ordering = ['fecha_subida']
+
+	def __str__(self):
+		return self.nombre_original
+
+	@property
+	def tamanio_legible(self):
+		size = self.tamanio
+		for unit in ['B', 'KB', 'MB', 'GB']:
+			if size < 1024:
+				return f"{size:.1f} {unit}"
+			size /= 1024
+		return f"{size:.1f} TB"
+
+	@property
+	def es_imagen(self):
+		return self.tipo_mime.startswith('image/') if self.tipo_mime else False
+
+	@property
+	def icono(self):
+		mime = self.tipo_mime or ''
+		if 'pdf' in mime:             return 'fa-file-pdf text-danger'
+		if 'word' in mime or 'doc' in self.nombre_original.lower(): return 'fa-file-word text-primary'
+		if 'excel' in mime or 'xls' in self.nombre_original.lower(): return 'fa-file-excel text-success'
+		if mime.startswith('image/'): return 'fa-file-image text-warning'
+		if 'zip' in mime or 'rar' in mime: return 'fa-file-archive text-secondary'
+		return 'fa-file text-muted'
+
+
+class TicketServicioComentario(models.Model):
+	"""Comentarios y actualizaciones del ticket"""
+
+	id_comentario = models.AutoField(primary_key=True)
+	ticket        = models.ForeignKey(
+		TicketServicio, on_delete=models.CASCADE, related_name='comentarios'
+	)
+	autor         = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='comentarios_tickets'
+	)
+	mensaje       = models.TextField()
+	es_nota_interna = models.BooleanField(default=False, help_text='Solo visible para el emisor del ticket')
+	cambio_estado   = models.CharField(max_length=15, blank=True, help_text='Estado anterior si hubo cambio')
+	fecha           = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_servicio_comentario'
+		verbose_name = 'Comentario de Ticket'
+		verbose_name_plural = 'Comentarios de Tickets'
+		ordering = ['fecha']
+
+	def __str__(self):
+		return f"Ticket #{self.ticket.id_ticket} – {self.autor}"
+
+
+class TicketMantenimiento(models.Model):
+	"""Tickets para atención de equipo y soporte de mantenimiento."""
+
+	SLA_HORAS_POR_PRIORIDAD = {
+		'baja': 72,
+		'normal': 48,
+		'alta': 24,
+		'critica': 8,
+	}
+
+	TIPO_EQUIPO_CHOICES = [
+		('desktop', 'Computadora de escritorio'),
+		('laptop', 'Laptop'),
+		('impresora', 'Impresora'),
+		('scanner', 'Escáner'),
+		('red', 'Red / Internet'),
+		('periferico', 'Periférico'),
+		('otro', 'Otro'),
+	]
+
+	PRIORIDAD_CHOICES = [
+		('baja', 'Baja'),
+		('normal', 'Normal'),
+		('alta', 'Alta'),
+		('critica', 'Crítica'),
+	]
+
+	ESTADO_CHOICES = [
+		('abierto', 'Abierto'),
+		('asignado', 'Asignado'),
+		('en_revision', 'En revisión'),
+		('en_reparacion', 'En reparación'),
+		('espera_refaccion', 'En espera de refacción'),
+		('resuelto', 'Resuelto'),
+		('entregado', 'Entregado'),
+		('cerrado', 'Cerrado'),
+	]
+
+	id_ticket_mantenimiento = models.AutoField(primary_key=True)
+	folio = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+	asunto = models.CharField(max_length=255, help_text='Título breve de la incidencia')
+	descripcion = models.TextField(help_text='Descripción del problema reportado')
+	tipo_equipo = models.CharField(max_length=20, choices=TIPO_EQUIPO_CHOICES, default='desktop')
+	equipo = models.CharField(max_length=150, blank=True, help_text='Nombre o referencia del equipo')
+	numero_inventario = models.CharField(max_length=100, blank=True, help_text='Número de inventario o serie')
+	ubicacion = models.CharField(max_length=255, blank=True, help_text='Ubicación exacta del equipo o del solicitante')
+	prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='normal')
+	estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='abierto')
+
+	solicitante = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.PROTECT,
+		related_name='tickets_mantenimiento_solicitados',
+		help_text='Empleado que reporta la incidencia'
+	)
+	departamento_solicitante = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='tickets_mantenimiento_solicitados',
+		help_text='Departamento del empleado solicitante'
+	)
+	departamento_soporte = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.PROTECT,
+		related_name='tickets_mantenimiento_recibidos',
+		help_text='Departamento responsable de la atención'
+	)
+	atendido_por = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='tickets_mantenimiento_atendidos',
+		help_text='Empleado del área de soporte que atiende el ticket'
+	)
+
+	solicita_formateo = models.BooleanField(default=False)
+	equipo_retirado = models.BooleanField(default=False)
+	trabajo_realizado = models.TextField(blank=True)
+	piezas_instaladas = models.TextField(blank=True)
+	sla_horas_objetivo = models.PositiveIntegerField(default=48)
+	fecha_limite_sla = models.DateTimeField(null=True, blank=True)
+	fecha_retiro_equipo = models.DateTimeField(null=True, blank=True)
+	fecha_resolucion = models.DateTimeField(null=True, blank=True)
+	fecha_entrega_equipo = models.DateTimeField(null=True, blank=True)
+	solucion_confirmada = models.BooleanField(default=False)
+
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'tickets_mantenimiento'
+		verbose_name = 'Ticket de Mantenimiento'
+		verbose_name_plural = 'Tickets de Mantenimiento'
+		ordering = ['-fecha_creacion']
+		indexes = [
+			models.Index(fields=['estado', 'prioridad']),
+			models.Index(fields=['solicitante', 'departamento_soporte']),
+		]
+
+	def __str__(self):
+		return f"MTTO #{self.id_ticket_mantenimiento} – {self.asunto}"
+
+	@property
+	def folio_corto(self):
+		return str(self.folio).upper()[:8]
+
+	@property
+	def color_prioridad(self):
+		return {
+			'baja': 'secondary',
+			'normal': 'info',
+			'alta': 'warning',
+			'critica': 'danger',
+		}.get(self.prioridad, 'secondary')
+
+	@property
+	def color_estado(self):
+		return {
+			'abierto': 'primary',
+			'asignado': 'info',
+			'en_revision': 'warning',
+			'en_reparacion': 'warning',
+			'espera_refaccion': 'secondary',
+			'resuelto': 'success',
+			'entregado': 'success',
+			'cerrado': 'dark',
+		}.get(self.estado, 'secondary')
+
+	@property
+	def icono_prioridad(self):
+		return {
+			'baja': 'fa-arrow-down',
+			'normal': 'fa-minus',
+			'alta': 'fa-arrow-up',
+			'critica': 'fa-bolt',
+		}.get(self.prioridad, 'fa-minus')
+
+	@property
+	def esta_vencido(self):
+		if not self.fecha_limite_sla:
+			return False
+		if self.estado in ['resuelto', 'entregado', 'cerrado']:
+			return False
+		return timezone.now() > self.fecha_limite_sla
+
+	@property
+	def horas_restantes_sla(self):
+		if not self.fecha_limite_sla:
+			return None
+		delta = self.fecha_limite_sla - timezone.now()
+		return int(delta.total_seconds() // 3600)
+
+
+class TicketMantenimientoArchivo(models.Model):
+	"""Archivos adjuntos de tickets de mantenimiento."""
+
+	id_archivo = models.AutoField(primary_key=True)
+	ticket = models.ForeignKey(
+		TicketMantenimiento, on_delete=models.CASCADE, related_name='archivos'
+	)
+	archivo = models.FileField(upload_to='mantenimiento/adjuntos/%Y/%m/')
+	nombre_original = models.CharField(max_length=255)
+	tamanio = models.PositiveIntegerField(default=0)
+	tipo_mime = models.CharField(max_length=100, blank=True)
+	subido_por = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='archivos_tickets_mantenimiento'
+	)
+	fecha_subida = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_mantenimiento_archivo'
+		verbose_name = 'Archivo de Ticket de Mantenimiento'
+		verbose_name_plural = 'Archivos de Tickets de Mantenimiento'
+		ordering = ['fecha_subida']
+
+	def __str__(self):
+		return self.nombre_original
+
+	@property
+	def tamanio_legible(self):
+		size = self.tamanio
+		for unit in ['B', 'KB', 'MB', 'GB']:
+			if size < 1024:
+				return f"{size:.1f} {unit}"
+			size /= 1024
+		return f"{size:.1f} TB"
+
+	@property
+	def icono(self):
+		mime = self.tipo_mime or ''
+		if 'pdf' in mime:
+			return 'fa-file-pdf text-danger'
+		if 'word' in mime or 'doc' in self.nombre_original.lower():
+			return 'fa-file-word text-primary'
+		if 'excel' in mime or 'xls' in self.nombre_original.lower():
+			return 'fa-file-excel text-success'
+		if mime.startswith('image/'):
+			return 'fa-file-image text-warning'
+		if 'zip' in mime or 'rar' in mime:
+			return 'fa-file-archive text-secondary'
+		return 'fa-file text-muted'
+
+
+class TicketMantenimientoSeguimiento(models.Model):
+	"""Bitácora y comentarios de atención de mantenimiento."""
+
+	TIPO_CHOICES = [
+		('comentario', 'Comentario'),
+		('estado', 'Cambio de estado'),
+		('intervencion', 'Intervención técnica'),
+		('notificacion', 'Notificación'),
+	]
+
+	id_seguimiento = models.AutoField(primary_key=True)
+	ticket = models.ForeignKey(
+		TicketMantenimiento, on_delete=models.CASCADE, related_name='seguimientos'
+	)
+	autor = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='seguimientos_tickets_mantenimiento'
+	)
+	tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='comentario')
+	mensaje = models.TextField()
+	trabajo_realizado = models.TextField(blank=True)
+	piezas_instaladas = models.TextField(blank=True)
+	cambio_estado = models.CharField(max_length=20, blank=True)
+	notificar_solicitante = models.BooleanField(default=False)
+	fecha = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_mantenimiento_seguimiento'
+		verbose_name = 'Seguimiento de Ticket de Mantenimiento'
+		verbose_name_plural = 'Seguimientos de Tickets de Mantenimiento'
+		ordering = ['fecha']
+
+	def __str__(self):
+		return f"MTTO #{self.ticket.id_ticket_mantenimiento} – {self.tipo}"
 
 
 # ==================== MODELOS DE VEHICULOS ====================

@@ -26,6 +26,7 @@ from .models import (
 	VehiculosBitacora,
 	VehiculoFoto,
 	VehiculosProveedores,
+	TicketMantenimiento,
 )
 
 
@@ -264,6 +265,10 @@ class PersonalTipoDeContratacionForm(forms.ModelForm):
 class ConfiguracionSistemaForm(forms.ModelForm):
 	"""Formulario para configuración del sistema"""
 	
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields['departamento_soporte_mantenimiento'].queryset = PersonalDepartamento.objects.filter(activo=True).order_by('departamento')
+
 	class Meta:
 		model = ConfiguracionSistema
 		fields = [
@@ -282,6 +287,7 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'logo',
 			'tiempo_sesion_minutos',
 			'duracion_intro_segundos',
+			'departamento_soporte_mantenimiento',
 		]
 		widgets = {
 			'razon_social': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Razón social'}),
@@ -299,6 +305,7 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
 			'tiempo_sesion_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5', 'max': '1440', 'step': '1'}),
 			'duracion_intro_segundos': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'max': '6', 'step': '1'}),
+			'departamento_soporte_mantenimiento': forms.Select(attrs={'class': 'form-select'}),
 		}
 		labels = {
 			'razon_social': 'Razón Social',
@@ -316,6 +323,42 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'logo': 'Logo',
 			'tiempo_sesion_minutos': 'Tiempo de sesión (Inactividad) en minutos',
 			'duracion_intro_segundos': 'Duración de Intro (Dashboard) en segundos',
+			'departamento_soporte_mantenimiento': 'Departamento de Soporte para Mantenimiento',
+		}
+
+
+class TicketMantenimientoCrearForm(forms.ModelForm):
+	class Meta:
+		model = TicketMantenimiento
+		fields = [
+			'asunto',
+			'descripcion',
+			'tipo_equipo',
+			'equipo',
+			'numero_inventario',
+			'ubicacion',
+			'prioridad',
+			'solicita_formateo',
+		]
+		widgets = {
+			'asunto': forms.TextInput(attrs={'class': 'form-control', 'maxlength': '255', 'placeholder': 'Ej: Mi computadora ya no enciende'}),
+			'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'Describe el problema, cuándo empezó y qué intentaste hacer'}),
+			'tipo_equipo': forms.Select(attrs={'class': 'form-select'}),
+			'equipo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Equipo de recepción / Laptop Dell'}),
+			'numero_inventario': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Inventario o número de serie'}),
+			'ubicacion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Planta alta, oficina 4'}),
+			'prioridad': forms.Select(attrs={'class': 'form-select'}),
+			'solicita_formateo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+		}
+		labels = {
+			'asunto': 'Asunto',
+			'descripcion': 'Descripción del problema',
+			'tipo_equipo': 'Tipo de equipo',
+			'equipo': 'Equipo',
+			'numero_inventario': 'Inventario / serie',
+			'ubicacion': 'Ubicación',
+			'prioridad': 'Prioridad',
+			'solicita_formateo': 'Posible formateo requerido',
 		}
 
 

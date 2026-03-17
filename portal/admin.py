@@ -15,7 +15,10 @@ from .models import (
 	RecuperacionContrasena,
 	ConfiguracionSistema,
 	UsuariosDelSistema,
-	ColaCorreos
+	ColaCorreos,
+	TicketMantenimiento,
+	TicketMantenimientoArchivo,
+	TicketMantenimientoSeguimiento
 )
 
 @admin.register(Anuncio)
@@ -230,6 +233,27 @@ class PersonalEmpleadosAdmin(admin.ModelAdmin):
 			'classes': ('collapse',)
 		}),
 	)
+
+
+@admin.register(TicketMantenimiento)
+class TicketMantenimientoAdmin(admin.ModelAdmin):
+	list_display = ('id_ticket_mantenimiento', 'asunto', 'solicitante', 'departamento_soporte', 'estado', 'prioridad', 'atendido_por', 'fecha_creacion')
+	list_filter = ('estado', 'prioridad', 'tipo_equipo', 'departamento_soporte', 'solicita_formateo', 'equipo_retirado')
+	search_fields = ('asunto', 'descripcion', 'equipo', 'numero_inventario', 'solicitante__nombre_completo')
+	readonly_fields = ('fecha_creacion', 'fecha_actualizacion', 'folio')
+
+
+@admin.register(TicketMantenimientoArchivo)
+class TicketMantenimientoArchivoAdmin(admin.ModelAdmin):
+	list_display = ('id_archivo', 'ticket', 'nombre_original', 'subido_por', 'fecha_subida')
+	search_fields = ('nombre_original', 'ticket__asunto')
+
+
+@admin.register(TicketMantenimientoSeguimiento)
+class TicketMantenimientoSeguimientoAdmin(admin.ModelAdmin):
+	list_display = ('id_seguimiento', 'ticket', 'tipo', 'autor', 'notificar_solicitante', 'fecha')
+	list_filter = ('tipo', 'notificar_solicitante', 'fecha')
+	search_fields = ('ticket__asunto', 'mensaje', 'autor__nombre_completo')
 
 
 @admin.register(RecuperacionContrasena)
