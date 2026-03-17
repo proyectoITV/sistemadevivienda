@@ -78,6 +78,18 @@
                                     </ul>
                                 </div>
                             </li>
+                            <li>
+                                <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#vehiculos_menu" title="Vehiculos">
+                                    <i class="fas fa-car"></i> <span class="label">Vehiculos</span>
+                                    <i class="fas fa-chevron-down chevron-icon"></i>
+                                </a>
+                                <div class="collapse" id="vehiculos_menu">
+                                    <ul class="nav flex-column ms-4 submenu">
+                                        <li><a class="nav-link" href="{% url 'listar_vehiculos' %}" title="Catalogo de Vehiculos"><i class="fas fa-list"></i> <span class="label">Catalogo de Vehiculos</span></a></li>
+                                        <li><a class="nav-link" href="{% url 'listar_bitacora_vehiculos' %}" title="Bitacora de Vehiculos"><i class="fas fa-tools"></i> <span class="label">Bitacora de Vehiculos</span></a></li>
+                                    </ul>
+                                </div>
+                            </li>
                         </ul>
                     </div>
                 </li>

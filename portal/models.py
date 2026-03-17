@@ -826,3 +826,164 @@ class PatrimonioEntregaDepartamentoDetalle(models.Model):
 
 	def __str__(self):
 		return f"Entrega #{self.entrega.identrega} - {self.bien.numero_inventario_itavu}"
+
+
+# ==================== MODELOS DE VEHICULOS ====================
+
+class VehiculosMarcas(models.Model):
+	clave_marca = models.IntegerField(primary_key=True, db_column='Clave_Marca')
+	marca = models.CharField(max_length=255, db_column='Marca', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_marcas'
+		verbose_name = 'Marca de Vehiculo'
+		verbose_name_plural = 'Marcas de Vehiculos'
+		ordering = ['clave_marca']
+
+	def __str__(self):
+		return self.marca or str(self.clave_marca)
+
+
+class VehiculosColores(models.Model):
+	clave_color = models.IntegerField(primary_key=True, db_column='Clave_Color')
+	color = models.CharField(max_length=255, db_column='Color', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_colores'
+		verbose_name = 'Color de Vehiculo'
+		verbose_name_plural = 'Colores de Vehiculos'
+		ordering = ['clave_color']
+
+	def __str__(self):
+		return self.color or str(self.clave_color)
+
+
+class VehiculosEstatus(models.Model):
+	idestatus = models.IntegerField(primary_key=True, db_column='IdEstatus')
+	estatus = models.CharField(max_length=255, db_column='Estatus')
+
+	class Meta:
+		db_table = 'vehiculos_estatus'
+		verbose_name = 'Estatus de Vehiculo'
+		verbose_name_plural = 'Estatus de Vehiculos'
+		ordering = ['idestatus']
+
+	def __str__(self):
+		return self.estatus
+
+
+class VehiculoPropietario(models.Model):
+	idpropietario = models.IntegerField(primary_key=True, db_column='IdPropietario')
+	propietario = models.CharField(max_length=255, db_column='Propietario', blank=True)
+
+	class Meta:
+		db_table = 'vehiculo_propietario'
+		verbose_name = 'Propietario de Vehiculo'
+		verbose_name_plural = 'Propietarios de Vehiculos'
+		ordering = ['idpropietario']
+
+	def __str__(self):
+		return self.propietario or str(self.idpropietario)
+
+
+class VehiculosTiposDeMantenimiento(models.Model):
+	clave_tipo_mant = models.IntegerField(primary_key=True, db_column='clave_tipo_mant')
+	tipo_mantenimiento = models.CharField(max_length=255, db_column='Tipo_Mantenimiento', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_tiposdemantenimiento'
+		verbose_name = 'Tipo de Mantenimiento'
+		verbose_name_plural = 'Tipos de Mantenimiento'
+		ordering = ['clave_tipo_mant']
+
+	def __str__(self):
+		return self.tipo_mantenimiento or str(self.clave_tipo_mant)
+
+
+class VehiculosProveedores(models.Model):
+	clave_proveedor = models.IntegerField(primary_key=True, db_column='clave_proveedor')
+	nombre_proveedor = models.CharField(max_length=255, db_column='Nombre_proveedor', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_proveedores'
+		verbose_name = 'Proveedor de Vehiculos'
+		verbose_name_plural = 'Proveedores de Vehiculos'
+		ordering = ['clave_proveedor']
+
+	def __str__(self):
+		return self.nombre_proveedor or str(self.clave_proveedor)
+
+
+class Vehiculos(models.Model):
+	num_economico = models.CharField(max_length=255, primary_key=True, db_column='Num_economico')
+	clave_marca = models.ForeignKey(VehiculosMarcas, on_delete=models.SET_NULL, null=True, blank=True, db_column='Clave_marca')
+	tipo = models.CharField(max_length=255, db_column='Tipo', blank=True)
+	clave_color = models.ForeignKey(VehiculosColores, on_delete=models.SET_NULL, null=True, blank=True, db_column='Clave_Color')
+	modelo = models.IntegerField(db_column='Modelo', null=True, blank=True)
+	placas = models.CharField(max_length=255, db_column='Placas', blank=True)
+	serie = models.CharField(max_length=255, db_column='Serie', blank=True)
+	idestatus = models.ForeignKey(VehiculosEstatus, on_delete=models.RESTRICT, db_column='IdEstatus')
+	idareaadscripcion = models.ForeignKey(PersonalDepartamento, on_delete=models.SET_NULL, null=True, blank=True, db_column='IdAreaAdscripcion')
+	idresguradante = models.ForeignKey(PersonalEmpleados, on_delete=models.SET_NULL, null=True, blank=True, db_column='IdResguradante')
+	comentario = models.TextField(db_column='Comentario', blank=True)
+	cilindros = models.IntegerField(db_column='Cilindros')
+	idpropietario = models.ForeignKey(VehiculoPropietario, on_delete=models.SET_NULL, null=True, blank=True, db_column='IdPropietario')
+
+	class Meta:
+		db_table = 'vehiculos'
+		verbose_name = 'Vehiculo'
+		verbose_name_plural = 'Vehiculos'
+		ordering = ['num_economico']
+
+	def __str__(self):
+		return self.num_economico
+
+
+class VehiculosBitacora(models.Model):
+	clave_servicio = models.AutoField(primary_key=True, db_column='Clave_servicio')
+	num_economico = models.ForeignKey(Vehiculos, on_delete=models.RESTRICT, db_column='Num_economico')
+	fecha_solicitud = models.DateTimeField(db_column='Fecha_solicitud')
+	fecha_ejecucion = models.DateTimeField(db_column='Fecha_ejecucion')
+	clave_tipo_mant = models.ForeignKey(VehiculosTiposDeMantenimiento, on_delete=models.RESTRICT, db_column='clave_tipo_mant')
+	km_prog = models.IntegerField(db_column='Km_prog')
+	km_real = models.IntegerField(db_column='Km_real')
+	num_solicitud = models.IntegerField(db_column='num_solicitud')
+	num_factura = models.CharField(max_length=255, db_column='num_factura')
+	clave_proveedor = models.ForeignKey(VehiculosProveedores, on_delete=models.RESTRICT, db_column='clave_proveedor')
+	descripcion = models.CharField(max_length=1000, db_column='Descripcion')
+	costo_mano_obra = models.DecimalField(max_digits=19, decimal_places=4, db_column='Costo_mano_obra')
+	costo_refaccion = models.DecimalField(max_digits=19, decimal_places=4, db_column='Costo_refaccion')
+	importe_factura = models.DecimalField(max_digits=19, decimal_places=4, db_column='Importe_factura')
+	archivo_factura = models.FileField(upload_to='vehiculos/facturas/', db_column='Archivo_factura', null=True, blank=True)
+	cancelada = models.BooleanField(db_column='Cancelada', default=False)
+	act_fecha = models.DateField(db_column='act_fecha')
+	act_hora = models.TimeField(db_column='act_hora')
+	act_user = models.CharField(max_length=50, db_column='act_user')
+
+	class Meta:
+		db_table = 'vehiculos_bitacora'
+		verbose_name = 'Bitacora de Vehiculo'
+		verbose_name_plural = 'Bitacora de Vehiculos'
+		ordering = ['-clave_servicio']
+
+	def __str__(self):
+		return f"Servicio #{self.clave_servicio} - {self.num_economico_id}"
+
+
+class VehiculoFoto(models.Model):
+	idfoto = models.AutoField(primary_key=True)
+	vehiculo = models.ForeignKey(Vehiculos, on_delete=models.CASCADE, related_name='fotos')
+	imagen = models.ImageField(upload_to='vehiculos/fotos/')
+	descripcion = models.CharField(max_length=255, blank=True)
+	es_principal = models.BooleanField(default=False)
+	orden = models.PositiveIntegerField(default=0)
+	fecha_captura = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'vehiculo_fotos'
+		verbose_name = 'Foto de Vehiculo'
+		verbose_name_plural = 'Fotos de Vehiculos'
+		ordering = ['-es_principal', 'orden', '-fecha_captura']
+
+	def __str__(self):
+		return f"Foto {self.idfoto} - {self.vehiculo_id}"

@@ -1,0 +1,444 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h2 class="mb-0"><i class="fas fa-car-side" style="color: #ab0033;"></i> {{ titulo }}</h2>
+        <a href="{% url 'listar_vehiculos' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+
+    {% if vehiculo %}
+    <div class="row g-3 mb-4">
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header simple-header">
+                    <h6 class="mb-0">Fotografia</h6>
+                </div>
+                <div class="card-body">
+                    {% if fotos %}
+                    <div id="vehiculoFotosCarousel" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-inner rounded border" style="background: #f3f3f3;">
+                            {% for foto in fotos %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                <img src="{{ foto.imagen.url }}" class="d-block w-100" alt="Foto vehiculo" style="height: 320px; object-fit: contain;">
+                                <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded-2 p-2">
+                                    <p class="mb-0">{{ foto.descripcion|default:'Sin descripcion' }}</p>
+                                    {% if foto.es_principal %}<span class="badge bg-warning text-dark mt-1">Foto Principal</span>{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#vehiculoFotosCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#vehiculoFotosCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="empty-photo-box rounded border overflow-hidden">
+                        <img src="{% static 'desarrollo/img/vehiculo_default.png' %}" alt="Vehiculo sin fotografia" class="w-100 h-100" style="object-fit: contain; background: #f7f7f7;">
+                    </div>
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data" class="row g-2 mt-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="subir_foto_vehiculo">
+                        <div class="col-12">
+                            <div class="capture-input">{{ foto_form.imagen }}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="capture-input">{{ foto_form.descripcion }}</div>
+                        </div>
+                        <div class="col-12 d-grid">
+                            <button type="submit" class="btn btn-outline-primary"><i class="fas fa-upload"></i> Subir Foto</button>
+                        </div>
+                    </form>
+
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-secondary w-100" type="button" data-bs-toggle="collapse" data-bs-target="#adminFotosCollapse" aria-expanded="false" aria-controls="adminFotosCollapse">
+                            <i class="fas fa-images"></i> Administrar Fotos
+                        </button>
+                        <div class="collapse mt-2" id="adminFotosCollapse">
+                            {% if fotos %}
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 45px;">Orden</th>
+                                            <th>Foto</th>
+                                            <th>Descripcion</th>
+                                            <th>Estado</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for foto in fotos %}
+                                        <tr class="foto-row" draggable="true" data-idfoto="{{ foto.idfoto }}">
+                                            <td class="text-center text-muted"><i class="fas fa-grip-vertical"></i></td>
+                                            <td><img src="{{ foto.imagen.url }}" alt="miniatura" style="width: 80px; height: 55px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;"></td>
+                                            <td>{{ foto.descripcion|default:'Sin descripcion' }}</td>
+                                            <td>
+                                                {% if foto.es_principal %}
+                                                <span class="badge bg-success">Principal</span>
+                                                {% else %}
+                                                <span class="badge bg-secondary">Secundaria</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="d-flex gap-2">
+                                                {% if not foto.es_principal %}
+                                                <form method="post" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="form_action" value="marcar_foto_principal">
+                                                    <input type="hidden" name="idfoto" value="{{ foto.idfoto }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success"><i class="fas fa-star"></i> Principal</button>
+                                                </form>
+                                                {% endif %}
+                                                <form method="post" class="d-inline" onsubmit="return confirm('Se eliminara la foto seleccionada. ¿Deseas continuar?');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="form_action" value="eliminar_foto_vehiculo">
+                                                    <input type="hidden" name="idfoto" value="{{ foto.idfoto }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i> Eliminar</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <form id="reorderFotosForm" method="post" class="d-none">
+                                {% csrf_token %}
+                                <input type="hidden" name="form_action" value="reordenar_foto">
+                                <input type="hidden" name="idfoto_origen" id="idfoto_origen">
+                                <input type="hidden" name="idfoto_destino" id="idfoto_destino">
+                            </form>
+                            {% else %}
+                            <p class="text-muted small mb-0">No hay fotos para administrar.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header simple-header">
+                    <h6 class="mb-0">Datos del Vehiculo</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="guardar_vehiculo">
+                        <div class="row g-3">
+                            {% for field in form %}
+                            <div class="col-md-6">
+                                <label for="{{ field.id_for_label }}" class="form-label field-label">{{ field.label }}</label>
+                                <div class="capture-input">{{ field }}</div>
+                                {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-4 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;"><i class="fas fa-save"></i> {{ accion }}</button>
+                            <a href="{% url 'listar_vehiculos' %}" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm">
+        <div class="card-header simple-header">
+            <h6 class="mb-0">Datos del Vehiculo</h6>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="guardar_vehiculo">
+                <div class="row g-3">
+                    {% for field in form %}
+                    <div class="col-md-6">
+                        <label for="{{ field.id_for_label }}" class="form-label field-label">{{ field.label }}</label>
+                        <div class="capture-input">{{ field }}</div>
+                        {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;"><i class="fas fa-save"></i> {{ accion }}</button>
+                    <a href="{% url 'listar_vehiculos' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if vehiculo %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2" style="background: #f7efe5;">
+            <h5 class="mb-0"><i class="fas fa-tools"></i> Bitacoras del Vehiculo</h5>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-primary" style="background: #ab0033; border-color: #ab0033;" data-bs-toggle="modal" data-bs-target="#modalNuevaBitacora">
+                    <i class="fas fa-plus"></i> Nueva Bitacora
+                </button>
+                <a href="{% url 'imprimir_bitacoras_vehiculo' vehiculo.num_economico %}" target="_blank" class="btn btn-sm btn-outline-dark">
+                    <i class="fas fa-print"></i> Imprimir Todos
+                </a>
+                <button type="button" id="btnPrintSelected" class="btn btn-sm btn-outline-secondary" disabled>
+                    <i class="fas fa-file-alt"></i> Imprimir Seleccionado
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 55px;">Sel.</th>
+                            <th>Servicio</th>
+                            <th>Fecha Solicitud</th>
+                            <th>Fecha Ejecucion</th>
+                            <th>Tipo de Servicio</th>
+                            <th>Proveedor</th>
+                            <th>Importe</th>
+                            <th>Cancelada</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in bitacoras %}
+                        <tr>
+                            <td><input class="form-check-input bitacora-selector" type="radio" name="bitacora_select" value="{{ b.clave_servicio }}"></td>
+                            <td>#{{ b.clave_servicio }}</td>
+                            <td>{{ b.fecha_solicitud|date:'d/m/Y' }}</td>
+                            <td>{{ b.fecha_ejecucion|date:'d/m/Y' }}</td>
+                            <td>{{ b.clave_tipo_mant }}</td>
+                            <td>{{ b.clave_proveedor }}</td>
+                            <td>${{ b.importe_factura|floatformat:2 }}</td>
+                            <td>{% if b.cancelada %}<span class="badge bg-danger">Si</span>{% else %}<span class="badge bg-success">No</span>{% endif %}</td>
+                            <td>
+                                <a href="{% url 'editar_bitacora_vehiculo' b.clave_servicio %}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                <a href="{% url 'imprimir_bitacora_detalle' b.clave_servicio %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Imprimir"><i class="fas fa-print"></i></a>
+                                {% if b.archivo_factura %}
+                                <a href="{{ b.archivo_factura.url }}" target="_blank" class="btn btn-sm btn-outline-success" title="Ver factura"><i class="fas fa-file-invoice"></i></a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted py-3">No hay bitacoras para este vehiculo.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if bitacoras and bitacoras.paginator.num_pages > 1 %}
+            <nav aria-label="Paginacion de bitacoras">
+                <ul class="pagination pagination-sm justify-content-end mb-0">
+                    {% if bitacoras.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?bitacora_page=1">Primera</a></li>
+                    <li class="page-item"><a class="page-link" href="?bitacora_page={{ bitacoras.previous_page_number }}">Anterior</a></li>
+                    {% endif %}
+                    <li class="page-item disabled"><span class="page-link">Pagina {{ bitacoras.number }} de {{ bitacoras.paginator.num_pages }}</span></li>
+                    {% if bitacoras.has_next %}
+                    <li class="page-item"><a class="page-link" href="?bitacora_page={{ bitacoras.next_page_number }}">Siguiente</a></li>
+                    <li class="page-item"><a class="page-link" href="?bitacora_page={{ bitacoras.paginator.num_pages }}">Ultima</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalNuevaBitacora" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #ab0033 0%, #bc955c 100%); color: #fff;">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle"></i> Nueva Bitacora</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <form method="post" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_action" value="crear_bitacora_modal">
+                        {{ bitacora_form.num_economico }}
+                        <div class="vehicle-context-box mb-3">
+                            <div class="small text-muted mb-1">Capturando para vehiculo</div>
+                            <div><strong>Nº Economico:</strong> {{ vehiculo.num_economico }}</div>
+                            <div><strong>Marca:</strong> {{ vehiculo.clave_marca|default:'-' }} | <strong>Tipo:</strong> {{ vehiculo.tipo|default:'-' }}</div>
+                            <div><strong>Placas:</strong> {{ vehiculo.placas|default:'-' }} | <strong>Serie:</strong> {{ vehiculo.serie|default:'-' }}</div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.fecha_solicitud.label }}</label><div class="capture-input">{{ bitacora_form.fecha_solicitud }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.fecha_ejecucion.label }}</label><div class="capture-input">{{ bitacora_form.fecha_ejecucion }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.km_prog.label }}</label><div class="capture-input">{{ bitacora_form.km_prog }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.km_real.label }}</label><div class="capture-input">{{ bitacora_form.km_real }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.num_solicitud.label }}</label><div class="capture-input">{{ bitacora_form.num_solicitud }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.num_factura.label }}</label><div class="capture-input">{{ bitacora_form.num_factura }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.costo_mano_obra.label }}</label><div class="input-group capture-money"><span class="input-group-text">$</span>{{ bitacora_form.costo_mano_obra }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.costo_refaccion.label }}</label><div class="input-group capture-money"><span class="input-group-text">$</span>{{ bitacora_form.costo_refaccion }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.importe_factura.label }}</label><div class="input-group capture-money"><span class="input-group-text">$</span>{{ bitacora_form.importe_factura }}</div></div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.clave_tipo_mant.label }}</label><div class="capture-input">{{ bitacora_form.clave_tipo_mant }}</div></div>
+                            <div class="col-md-6">
+                                <label class="form-label field-label d-flex justify-content-between align-items-center gap-2">
+                                    <span>{{ bitacora_form.clave_proveedor.label }}</span>
+                                    <a href="{% url 'crear_proveedor_vehiculo' %}" target="_blank" class="btn btn-sm btn-outline-secondary">Agregar proveedor</a>
+                                </label>
+                                <div class="capture-input">{{ bitacora_form.clave_proveedor }}</div>
+                            </div>
+                            <div class="col-md-6"><label class="form-label field-label">{{ bitacora_form.archivo_factura.label }}</label><div class="capture-input">{{ bitacora_form.archivo_factura }}</div></div>
+                            <div class="col-md-12"><label class="form-label field-label">{{ bitacora_form.descripcion.label }}</label><div class="capture-input">{{ bitacora_form.descripcion }}</div></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;"><i class="fas fa-save"></i> Guardar Bitacora</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    .simple-header {
+        background: #f2f2f2;
+        color: #333;
+        border-bottom: 1px solid #ddd;
+    }
+    .field-label {
+        font-weight: 600;
+        color: #555;
+        margin-bottom: .25rem;
+    }
+    .capture-input .form-control,
+    .capture-input .form-select {
+        background: #fff;
+        border: 1px solid #cfcfcf;
+    }
+    .capture-money .form-control { border-left: 0; }
+    .capture-money .input-group-text {
+        background: #f3f3f3;
+        border-color: #cfcfcf;
+        color: #444;
+    }
+    .empty-photo-box { height: 320px; background: #f7f7f7; }
+    .foto-row.dragging { opacity: .45; }
+    .foto-row.drag-over {
+        outline: 2px dashed #ab0033;
+        outline-offset: -2px;
+        background: #fff6fa;
+    }
+    .capture-input .form-control:focus,
+    .capture-input .form-select:focus {
+        border-color: #ab0033;
+        box-shadow: 0 0 0 .2rem rgba(171, 0, 51, .18);
+    }
+    .vehicle-context-box {
+        border: 1px solid #d8c7a7;
+        background: #fffaf1;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const selects = document.querySelectorAll('select.select2-enhanced');
+        selects.forEach(function (select) {
+            const placeholder = select.getAttribute('data-placeholder') || 'Buscar opcion...';
+            $(select).select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                dropdownParent: select.closest('.modal') ? $('#modalNuevaBitacora') : $(document.body),
+                placeholder: placeholder,
+                allowClear: !select.required,
+                language: {
+                    noResults: function () { return 'Sin resultados'; },
+                    searching: function () { return 'Buscando...'; }
+                }
+            });
+        });
+
+        const printSelectedBtn = document.getElementById('btnPrintSelected');
+        const selectors = document.querySelectorAll('.bitacora-selector');
+        if (printSelectedBtn && selectors.length) {
+            selectors.forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    printSelectedBtn.disabled = false;
+                    printSelectedBtn.dataset.claveServicio = this.value;
+                });
+            });
+
+            printSelectedBtn.addEventListener('click', function () {
+                const clave = this.dataset.claveServicio;
+                if (!clave) {
+                    return;
+                }
+                window.open('/vehiculos/bitacora/' + clave + '/imprimir/', '_blank');
+            });
+        }
+
+        {% if open_bitacora_modal %}
+        const modalNuevaBitacora = document.getElementById('modalNuevaBitacora');
+        if (modalNuevaBitacora) {
+            const modal = new bootstrap.Modal(modalNuevaBitacora);
+            modal.show();
+        }
+        {% endif %}
+
+        const fotoRows = document.querySelectorAll('.foto-row');
+        const reorderForm = document.getElementById('reorderFotosForm');
+        const origenInput = document.getElementById('idfoto_origen');
+        const destinoInput = document.getElementById('idfoto_destino');
+        let draggedRow = null;
+
+        fotoRows.forEach(function (row) {
+            row.addEventListener('dragstart', function () {
+                draggedRow = this;
+                this.classList.add('dragging');
+            });
+
+            row.addEventListener('dragend', function () {
+                this.classList.remove('dragging');
+                fotoRows.forEach(function (r) { r.classList.remove('drag-over'); });
+            });
+
+            row.addEventListener('dragover', function (event) {
+                event.preventDefault();
+                this.classList.add('drag-over');
+            });
+
+            row.addEventListener('dragleave', function () {
+                this.classList.remove('drag-over');
+            });
+
+            row.addEventListener('drop', function (event) {
+                event.preventDefault();
+                this.classList.remove('drag-over');
+                if (!draggedRow || draggedRow === this || !reorderForm) {
+                    return;
+                }
+
+                origenInput.value = draggedRow.dataset.idfoto;
+                destinoInput.value = this.dataset.idfoto;
+                reorderForm.submit();
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitacoras de Vehiculo {{ vehiculo.num_economico }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #111; margin: 20px; font-size: 12px; }
+        .line { border-bottom: 1px solid #222; margin: 6px 0 14px; }
+        .header-top { font-size: 11px; font-weight: 700; }
+        .title { text-align: center; font-size: 24px; margin: 18px 0 18px; font-weight: 800; letter-spacing: .2px; }
+        .section-title { font-size: 18px; font-style: italic; font-weight: 700; margin-top: 8px; }
+        .section-line { border-bottom: 2px solid #222; margin: 4px 0 10px; }
+        .meta-grid { display: grid; grid-template-columns: 210px 1fr; row-gap: 4px; column-gap: 14px; margin-bottom: 10px; }
+        .meta-grid strong { font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #999; padding: 6px; vertical-align: top; }
+        th { background: #efefef; text-align: left; font-size: 11px; }
+        td { font-size: 11px; }
+        .footer { margin-top: 16px; border-top: 1px solid #222; padding-top: 6px; font-size: 11px; display: flex; justify-content: space-between; }
+        @media print {
+            .no-print { display: none; }
+            body { margin: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 12px;">
+        <button onclick="window.print()">Imprimir</button>
+    </div>
+
+    <div class="header-top">DIRECCION DE ADMINISTRACION Y FINANZAS</div>
+    <div style="font-size: 11px; font-weight: 700;">DEPARTAMENTO DE RECURSOS MATERIALES Y SERVICIOS GENERALES</div>
+    <div class="line"></div>
+
+    <div class="title">BITACORA GENERAL DE SERVICIOS DEL VEHICULO</div>
+
+    <div class="section-title">DATOS DEL VEHICULO</div>
+    <div class="section-line"></div>
+    <div class="meta-grid">
+        <strong>Nº Economico</strong><span>{{ vehiculo.num_economico }}</span>
+        <strong>Marca</strong><span>{{ vehiculo.clave_marca|default:'-' }}</span>
+        <strong>Tipo</strong><span>{{ vehiculo.tipo|default:'-' }}</span>
+        <strong>Color</strong><span>{{ vehiculo.clave_color|default:'-' }}</span>
+        <strong>Modelo</strong><span>{{ vehiculo.modelo|default:'-' }}</span>
+        <strong>Placas</strong><span>{{ vehiculo.placas|default:'-' }}</span>
+        <strong>Serie</strong><span>{{ vehiculo.serie|default:'-' }}</span>
+        <strong>Adscripcion</strong><span>{{ vehiculo.idareaadscripcion|default:'-' }}</span>
+        <strong>Fecha de impresion</strong><span>{% now "d/m/Y H:i" %}</span>
+    </div>
+
+    <div class="section-title" style="margin-top: 14px;">DATOS DEL SERVICIO</div>
+    <div class="section-line"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Servicio</th>
+                <th>Fecha Solicitud</th>
+                <th>Fecha Ejecucion</th>
+                <th>Tipo de Servicio</th>
+                <th>Km Prog.</th>
+                <th>Km Real</th>
+                <th>Proveedor</th>
+                <th>Factura</th>
+                <th>Costo Mano Obra</th>
+                <th>Costo Refaccion</th>
+                <th>Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in registros %}
+            <tr>
+                <td>#{{ r.clave_servicio }}</td>
+                <td>{{ r.fecha_solicitud|date:'d/m/Y' }}</td>
+                <td>{{ r.fecha_ejecucion|date:'d/m/Y' }}</td>
+                <td>{{ r.clave_tipo_mant }}</td>
+                <td>{{ r.km_prog }}</td>
+                <td>{{ r.km_real }}</td>
+                <td>{{ r.clave_proveedor }}</td>
+                <td>{{ r.num_factura }}</td>
+                <td>$ {{ r.costo_mano_obra|floatformat:2 }}</td>
+                <td>$ {{ r.costo_refaccion|floatformat:2 }}</td>
+                <td>${{ r.importe_factura|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="11">No hay registros de bitacora para este vehiculo.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <span>Impreso por: {{ request.user|default:'sistema' }}</span>
+        <span>1 / 1</span>
+    </div>
+
+    <script>
+        window.addEventListener('load', function () {
+            window.print();
+        });
+    </script>
+</body>
+</html>

@@ -334,6 +334,385 @@ def eliminar_archivo_transparencia(request, id_file):
 	return redirect('listar_archivos_transparencia')
 
 
+# ============== MODULO DE VEHICULOS ==============
+
+@login_required(login_url='login')
+def listar_vehiculos(request):
+	from .models import Vehiculos
+
+	search = request.GET.get('search', '').strip()
+	estatus_filtro = request.GET.get('estatus', 'activos').strip().lower()
+	vehiculos = Vehiculos.objects.select_related(
+		'clave_marca',
+		'clave_color',
+		'idestatus',
+		'idpropietario',
+		'idareaadscripcion',
+		'idresguradante',
+	).all().order_by('num_economico')
+
+	# Por defecto se muestra el catalogo con unidades activas.
+	if estatus_filtro == 'activos':
+		vehiculos = vehiculos.filter(idestatus_id=0)
+	elif estatus_filtro == 'inactivos':
+		vehiculos = vehiculos.exclude(idestatus_id=0)
+
+	if search:
+		vehiculos = vehiculos.filter(
+			Q(num_economico__icontains=search) |
+			Q(tipo__icontains=search) |
+			Q(placas__icontains=search) |
+			Q(serie__icontains=search)
+		)
+
+	paginador = Paginator(vehiculos, 15)
+	page_obj = paginador.get_page(request.GET.get('page'))
+
+	return render(request, 'desarrollo/vehiculos/listar_vehiculos.html', {
+		'page_obj': page_obj,
+		'search': search,
+		'estatus_filtro': estatus_filtro,
+	})
+
+
+@login_required(login_url='login')
+def crear_vehiculo(request):
+	from .forms import VehiculosForm
+
+	if request.method == 'POST':
+		form = VehiculosForm(request.POST)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Vehiculo creado exitosamente.')
+			return redirect('listar_vehiculos')
+	else:
+		form = VehiculosForm()
+
+	return render(request, 'desarrollo/vehiculos/form_vehiculo.html', {'form': form, 'titulo': 'Nuevo Vehiculo', 'accion': 'Crear'})
+
+
+@login_required(login_url='login')
+def editar_vehiculo(request, num_economico):
+	from .models import Vehiculos, VehiculosBitacora, VehiculoFoto
+	from .forms import VehiculosForm, VehiculosBitacoraForm, VehiculoFotoForm
+
+	vehiculo = get_object_or_404(Vehiculos, num_economico=num_economico)
+	bitacoras_qs = VehiculosBitacora.objects.select_related('clave_tipo_mant', 'clave_proveedor').filter(
+		num_economico=vehiculo
+	).order_by('-clave_servicio')
+	fotos = VehiculoFoto.objects.filter(vehiculo=vehiculo).order_by('-es_principal', 'orden', '-fecha_captura')
+	paginador_bitacora = Paginator(bitacoras_qs, 10)
+	bitacoras = paginador_bitacora.get_page(request.GET.get('bitacora_page'))
+	open_bitacora_modal = False
+
+	if request.method == 'POST':
+		if request.POST.get('form_action') == 'crear_bitacora_modal':
+			bitacora_form = VehiculosBitacoraForm(request.POST, request.FILES, vehiculo=vehiculo)
+			if bitacora_form.is_valid():
+				nuevo = bitacora_form.save(commit=False)
+				identificador_empleado = (
+					getattr(request.user, 'numero_empleado', '')
+					or str(getattr(request.user, 'id_empleado', '') or '')
+					or getattr(request.user, 'usuario', '')
+					or str(request.user)
+				)
+				nuevo.act_user = str(identificador_empleado)[:50]
+				nuevo.act_fecha = timezone.localdate()
+				nuevo.act_hora = timezone.localtime().time().replace(microsecond=0)
+				nuevo.save()
+				messages.success(request, 'Bitacora agregada correctamente.')
+				return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+			open_bitacora_modal = True
+			form = VehiculosForm(instance=vehiculo)
+			foto_form = VehiculoFotoForm()
+		elif request.POST.get('form_action') == 'subir_foto_vehiculo':
+			foto_form = VehiculoFotoForm(request.POST, request.FILES)
+			if foto_form.is_valid():
+				nueva_foto = foto_form.save(commit=False)
+				nueva_foto.vehiculo = vehiculo
+				ultimo = VehiculoFoto.objects.filter(vehiculo=vehiculo).order_by('-orden').first()
+				nueva_foto.orden = (ultimo.orden + 1) if ultimo else 1
+				if not VehiculoFoto.objects.filter(vehiculo=vehiculo, es_principal=True).exists():
+					nueva_foto.es_principal = True
+				nueva_foto.save()
+				messages.success(request, 'Foto del vehiculo cargada correctamente.')
+				return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+			form = VehiculosForm(instance=vehiculo)
+			bitacora_form = VehiculosBitacoraForm(vehiculo=vehiculo)
+		elif request.POST.get('form_action') == 'reordenar_foto':
+			id_origen = request.POST.get('idfoto_origen')
+			id_destino = request.POST.get('idfoto_destino')
+			if id_origen and id_destino and id_origen != id_destino:
+				foto_origen = get_object_or_404(VehiculoFoto, idfoto=id_origen, vehiculo=vehiculo)
+				foto_destino = get_object_or_404(VehiculoFoto, idfoto=id_destino, vehiculo=vehiculo)
+				orden_origen = foto_origen.orden
+				foto_origen.orden = foto_destino.orden
+				foto_destino.orden = orden_origen
+				foto_origen.save(update_fields=['orden'])
+				foto_destino.save(update_fields=['orden'])
+				messages.success(request, 'Orden de fotos actualizado.')
+			return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+		elif request.POST.get('form_action') == 'marcar_foto_principal':
+			idfoto = request.POST.get('idfoto')
+			foto = get_object_or_404(VehiculoFoto, idfoto=idfoto, vehiculo=vehiculo)
+			VehiculoFoto.objects.filter(vehiculo=vehiculo, es_principal=True).update(es_principal=False)
+			foto.es_principal = True
+			foto.save(update_fields=['es_principal'])
+			messages.success(request, 'Foto principal actualizada.')
+			return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+		elif request.POST.get('form_action') == 'eliminar_foto_vehiculo':
+			idfoto = request.POST.get('idfoto')
+			foto = get_object_or_404(VehiculoFoto, idfoto=idfoto, vehiculo=vehiculo)
+			era_principal = foto.es_principal
+			if foto.imagen:
+				foto.imagen.delete(save=False)
+			foto.delete()
+			if era_principal:
+				siguiente = VehiculoFoto.objects.filter(vehiculo=vehiculo).order_by('-fecha_captura').first()
+				if siguiente:
+					siguiente.es_principal = True
+					siguiente.save(update_fields=['es_principal'])
+			messages.success(request, 'Foto eliminada correctamente.')
+			return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+		else:
+			form = VehiculosForm(request.POST, instance=vehiculo)
+			if form.is_valid():
+				form.save()
+				messages.success(request, 'Vehiculo actualizado exitosamente.')
+				return redirect('listar_vehiculos')
+			bitacora_form = VehiculosBitacoraForm(vehiculo=vehiculo)
+			foto_form = VehiculoFotoForm()
+	else:
+		form = VehiculosForm(instance=vehiculo)
+		bitacora_form = VehiculosBitacoraForm(vehiculo=vehiculo)
+		foto_form = VehiculoFotoForm()
+
+	return render(request, 'desarrollo/vehiculos/form_vehiculo.html', {
+		'form': form,
+		'vehiculo': vehiculo,
+		'bitacoras': bitacoras,
+		'fotos': fotos,
+		'foto_form': foto_form,
+		'bitacora_form': bitacora_form,
+		'open_bitacora_modal': open_bitacora_modal,
+		'titulo': 'Editar Vehiculo',
+		'accion': 'Guardar cambios',
+	})
+
+
+@login_required(login_url='login')
+def imprimir_bitacoras_vehiculo(request, num_economico):
+	from .models import Vehiculos, VehiculosBitacora
+
+	vehiculo = get_object_or_404(Vehiculos, num_economico=num_economico)
+	registros = VehiculosBitacora.objects.select_related('clave_tipo_mant', 'clave_proveedor').filter(
+		num_economico=vehiculo
+	).order_by('-clave_servicio')
+
+	return render(request, 'desarrollo/vehiculos/imprimir_bitacoras_vehiculo.html', {
+		'vehiculo': vehiculo,
+		'registros': registros,
+	})
+
+
+@login_required(login_url='login')
+def imprimir_bitacora_detalle(request, clave_servicio):
+	from .models import VehiculosBitacora, PersonalEmpleados
+
+	registro = get_object_or_404(
+		VehiculosBitacora.objects.select_related('num_economico', 'clave_tipo_mant', 'clave_proveedor'),
+		clave_servicio=clave_servicio
+	)
+
+	capturista_nombre = 'Usuario del sistema'
+	act_user = (registro.act_user or '').strip()
+	if act_user:
+		empleado_capturista = PersonalEmpleados.objects.filter(numero_empleado=act_user).first()
+		if empleado_capturista is None and act_user.isdigit():
+			empleado_capturista = PersonalEmpleados.objects.filter(id_empleado=int(act_user)).first()
+		if empleado_capturista:
+			capturista_nombre = empleado_capturista.nombre_completo
+		else:
+			capturista_nombre = act_user
+
+	jefe_departamento = (
+		PersonalEmpleados.objects
+		.filter(
+			activo=True,
+			iddepartamento_id=53,
+			idpuesto__nombre__icontains='Jefe de Departamento',
+		)
+		.order_by('nombre_completo')
+		.first()
+	)
+	vobo_nombre = jefe_departamento.nombre_completo if jefe_departamento else '-'
+
+	return render(request, 'desarrollo/vehiculos/imprimir_bitacora_detalle.html', {
+		'registro': registro,
+		'capturista_nombre': capturista_nombre,
+		'vobo_nombre': vobo_nombre,
+	})
+
+
+@login_required(login_url='login')
+def listar_bitacora_vehiculos(request):
+	from .models import VehiculosBitacora, Vehiculos
+
+	search = request.GET.get('search', '').strip()
+	registros = VehiculosBitacora.objects.select_related('num_economico', 'clave_tipo_mant', 'clave_proveedor').all().order_by('-clave_servicio')
+	vehiculos_activos = Vehiculos.objects.filter(idestatus_id=0).order_by('num_economico')
+
+	if search:
+		registros = registros.filter(
+			Q(num_economico__num_economico__icontains=search) |
+			Q(num_factura__icontains=search) |
+			Q(descripcion__icontains=search)
+		)
+
+	paginador = Paginator(registros, 12)
+	page_obj = paginador.get_page(request.GET.get('page'))
+
+	return render(request, 'desarrollo/vehiculos/listar_bitacora.html', {
+		'page_obj': page_obj,
+		'search': search,
+		'vehiculos_activos': vehiculos_activos,
+	})
+
+
+@login_required(login_url='login')
+def crear_bitacora_vehiculo(request):
+	from .models import Vehiculos
+	from .forms import VehiculosBitacoraForm
+
+	vehiculo_id = request.GET.get('num_economico') or request.POST.get('num_economico')
+	if not vehiculo_id:
+		messages.warning(request, 'Selecciona primero el vehiculo al que deseas agregar la bitacora.')
+		return redirect('listar_bitacora_vehiculos')
+
+	vehiculo = get_object_or_404(Vehiculos, num_economico=vehiculo_id)
+
+	if vehiculo is None:
+		messages.error(request, 'No hay automoviles activos disponibles para generar bitacora.')
+		return redirect('listar_vehiculos')
+
+	if request.method == 'POST':
+		form = VehiculosBitacoraForm(request.POST, request.FILES, vehiculo=vehiculo)
+		if form.is_valid():
+			nuevo = form.save(commit=False)
+			identificador_empleado = (
+				getattr(request.user, 'numero_empleado', '')
+				or str(getattr(request.user, 'id_empleado', '') or '')
+				or getattr(request.user, 'usuario', '')
+				or str(request.user)
+			)
+			nuevo.act_user = str(identificador_empleado)[:50]
+			nuevo.act_fecha = timezone.localdate()
+			nuevo.act_hora = timezone.localtime().time().replace(microsecond=0)
+			nuevo.save()
+			messages.success(request, 'Registro de bitacora creado exitosamente.')
+			next_url = request.POST.get('next', '').strip()
+			if next_url:
+				return redirect(next_url)
+			return redirect('listar_bitacora_vehiculos')
+	else:
+		form = VehiculosBitacoraForm(vehiculo=vehiculo)
+
+	return render(request, 'desarrollo/vehiculos/form_bitacora.html', {
+		'form': form,
+		'vehiculo': vehiculo,
+		'titulo': 'Nueva Bitacora de Vehiculo',
+		'accion': 'Crear',
+	})
+
+
+@login_required(login_url='login')
+def editar_bitacora_vehiculo(request, clave_servicio):
+	from .models import VehiculosBitacora
+	from .forms import VehiculosBitacoraForm
+
+	registro = get_object_or_404(VehiculosBitacora, clave_servicio=clave_servicio)
+
+	if request.method == 'POST':
+		form = VehiculosBitacoraForm(request.POST, request.FILES, instance=registro, vehiculo=registro.num_economico)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Registro de bitacora actualizado exitosamente.')
+			return redirect('listar_bitacora_vehiculos')
+	else:
+		form = VehiculosBitacoraForm(instance=registro, vehiculo=registro.num_economico)
+
+	return render(request, 'desarrollo/vehiculos/form_bitacora.html', {
+		'form': form,
+		'registro': registro,
+		'vehiculo': registro.num_economico,
+		'titulo': 'Editar Bitacora de Vehiculo',
+		'accion': 'Guardar cambios',
+	})
+
+
+@login_required(login_url='login')
+def listar_proveedores_vehiculos(request):
+	from .models import VehiculosProveedores
+
+	search = request.GET.get('search', '').strip()
+	proveedores = VehiculosProveedores.objects.all().order_by('clave_proveedor')
+	if search:
+		proveedores = proveedores.filter(nombre_proveedor__icontains=search)
+
+	return render(request, 'desarrollo/vehiculos/listar_proveedores_vehiculos.html', {
+		'proveedores': proveedores,
+		'search': search,
+	})
+
+
+@login_required(login_url='login')
+def crear_proveedor_vehiculo(request):
+	from .models import VehiculosProveedores
+	from .forms import VehiculosProveedorForm
+
+	if request.method == 'POST':
+		form = VehiculosProveedorForm(request.POST)
+		if form.is_valid():
+			nuevo = form.save(commit=False)
+			ultimo = VehiculosProveedores.objects.order_by('-clave_proveedor').first()
+			nuevo.clave_proveedor = (ultimo.clave_proveedor + 1) if ultimo else 1
+			nuevo.save()
+			messages.success(request, 'Proveedor de vehiculo agregado correctamente.')
+			return redirect('listar_proveedores_vehiculos')
+	else:
+		form = VehiculosProveedorForm()
+
+	return render(request, 'desarrollo/vehiculos/form_proveedor_vehiculo.html', {
+		'form': form,
+		'titulo': 'Nuevo Proveedor de Vehiculo',
+		'accion': 'Crear',
+	})
+
+
+@login_required(login_url='login')
+def editar_proveedor_vehiculo(request, clave_proveedor):
+	from .models import VehiculosProveedores
+	from .forms import VehiculosProveedorForm
+
+	proveedor = get_object_or_404(VehiculosProveedores, clave_proveedor=clave_proveedor)
+
+	if request.method == 'POST':
+		form = VehiculosProveedorForm(request.POST, instance=proveedor)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Proveedor de vehiculo actualizado correctamente.')
+			return redirect('listar_proveedores_vehiculos')
+	else:
+		form = VehiculosProveedorForm(instance=proveedor)
+
+	return render(request, 'desarrollo/vehiculos/form_proveedor_vehiculo.html', {
+		'form': form,
+		'proveedor': proveedor,
+		'titulo': 'Editar Proveedor de Vehiculo',
+		'accion': 'Guardar cambios',
+	})
+
+
 def recuperar_contrasena(request):
 	"""Vista para solicitar recuperación de contraseña"""
 	if request.method == 'POST':
