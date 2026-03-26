@@ -1,5 +1,10 @@
 cd C:\xampp\htdocs\Desarrollos web\sistemadevivienda
+C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe manage.py makemigrations --merge anuncios
 C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe manage.py migrate
+
+REM Crear usuario demo si la tabla de usuarios está vacía
+C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe crear_usuario_demo.py
+
 C:\Users\ITV-OC-239\AppData\Local\Programs\Python\Python314\python.exe manage.py runserver
 
 demo
