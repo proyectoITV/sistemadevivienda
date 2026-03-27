@@ -59,24 +59,24 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-md-4 mb-3">
-                                        <label for="{{ form.nacimiento.id_for_label }}" class="form-label">{{ form.nacimiento.label }} <span class="text-danger">*</span></label>
-                                        {{ form.nacimiento }}
-                                        {% if form.nacimiento.errors %}
-                                        <small class="text-danger">{{ form.nacimiento.errors.0 }}</small>
+                                        <label for="{{ form.fechanacimiento.id_for_label }}" class="form-label">{{ form.fechanacimiento.label }} <span class="text-danger">*</span></label>
+                                        {{ form.fechanacimiento }}
+                                        {% if form.fechanacimiento.errors %}
+                                        <small class="text-danger">{{ form.fechanacimiento.errors.0 }}</small>
                                         {% endif %}
                                     </div>
                                     <div class="col-md-4 mb-3">
-                                        <label for="{{ form.sexo.id_for_label }}" class="form-label">{{ form.sexo.label }} <span class="text-danger">*</span></label>
-                                        {{ form.sexo }}
-                                        {% if form.sexo.errors %}
-                                        <small class="text-danger">{{ form.sexo.errors.0 }}</small>
+                                        <label for="{{ form.id_sexo.id_for_label }}" class="form-label">{{ form.id_sexo.label }} <span class="text-danger">*</span></label>
+                                        {{ form.id_sexo }}
+                                        {% if form.id_sexo.errors %}
+                                        <small class="text-danger">{{ form.id_sexo.errors.0 }}</small>
                                         {% endif %}
                                     </div>
                                     <div class="col-md-4 mb-3">
-                                        <label for="{{ form.idmunicipio.id_for_label }}" class="form-label">{{ form.idmunicipio.label }} <span class="text-danger">*</span></label>
-                                        {{ form.idmunicipio }}
-                                        {% if form.idmunicipio.errors %}
-                                        <small class="text-danger">{{ form.idmunicipio.errors.0 }}</small>
+                                        <label for="{{ form.id_municipio.id_for_label }}" class="form-label">{{ form.id_municipio.label }} <span class="text-danger">*</span></label>
+                                        {{ form.id_municipio }}
+                                        {% if form.id_municipio.errors %}
+                                        <small class="text-danger">{{ form.id_municipio.errors.0 }}</small>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -98,7 +98,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="{{ form.celular.id_for_label }}" class="form-label">{{ form.celular.label }} <span class="text-danger">*</span></label>
+                                        <label for="{{ form.celular.id_for_label }}" class="form-label">{{ form.celular.label }}</label>
                                         {{ form.celular }}
                                         {% if form.celular.errors %}
                                         <small class="text-danger">{{ form.celular.errors.0 }}</small>
@@ -116,21 +116,12 @@
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="{{ form.ejercicio.id_for_label }}" class="form-label">{{ form.ejercicio.label }} <span class="text-danger">*</span></label>
-                                        {{ form.ejercicio }}
-                                        {% if form.ejercicio.errors %}
-                                        <small class="text-danger">{{ form.ejercicio.errors.0 }}</small>
+                                        <label for="{{ form.nfer_id.id_for_label }}" class="form-label">{{ form.nfer_id.label }} <span class="text-danger">*</span></label>
+                                        {{ form.nfer_id }}
+                                        {% if form.nfer_id.errors %}
+                                        <small class="text-danger">{{ form.nfer_id.errors.0 }}</small>
                                         {% endif %}
                                     </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="{{ form.numcertificado.id_for_label }}" class="form-label">{{ form.numcertificado.label }}</label>
-                                        {{ form.numcertificado }}
-                                        {% if form.numcertificado.errors %}
-                                        <small class="text-danger">{{ form.numcertificado.errors.0 }}</small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label for="{{ form.contrato.id_for_label }}" class="form-label">{{ form.contrato.label }} <span class="text-danger">*</span></label>
                                         {{ form.contrato }}
@@ -138,6 +129,8 @@
                                         <small class="text-danger">{{ form.contrato.errors.0 }}</small>
                                         {% endif %}
                                     </div>
+                                </div>
+                                <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label for="{{ form.cantidad.id_for_label }}" class="form-label">{{ form.cantidad.label }} <span class="text-danger">*</span></label>
                                         {{ form.cantidad }}
@@ -145,8 +138,6 @@
                                         <small class="text-danger">{{ form.cantidad.errors.0 }}</small>
                                         {% endif %}
                                     </div>
-                                </div>
-                                <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label for="{{ form.nfer_concepto.id_for_label }}" class="form-label">{{ form.nfer_concepto.label }} <span class="text-danger">*</span></label>
                                         {{ form.nfer_concepto }}
@@ -161,40 +152,6 @@
                                         {{ form.descripcion }}
                                         {% if form.descripcion.errors %}
                                         <small class="text-danger">{{ form.descripcion.errors.0 }}</small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Información de Autorización -->
-                        <div class="card mb-4">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0"><i class="fas fa-check-circle"></i> Información de Autorización</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <label for="{{ form.autorizo.id_for_label }}" class="form-label">{{ form.autorizo.label }} <span class="text-danger">*</span></label>
-                                        {{ form.autorizo }}
-                                        {% if form.autorizo.errors %}
-                                        <small class="text-danger">{{ form.autorizo.errors.0 }}</small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="{{ form.autorizo_fecha.id_for_label }}" class="form-label">{{ form.autorizo_fecha.label }} <span class="text-danger">*</span></label>
-                                        {{ form.autorizo_fecha }}
-                                        {% if form.autorizo_fecha.errors %}
-                                        <small class="text-danger">{{ form.autorizo_fecha.errors.0 }}</small>
-                                        {% endif %}
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="{{ form.autorizo_hora.id_for_label }}" class="form-label">{{ form.autorizo_hora.label }} <span class="text-danger">*</span></label>
-                                        {{ form.autorizo_hora }}
-                                        {% if form.autorizo_hora.errors %}
-                                        <small class="text-danger">{{ form.autorizo_hora.errors.0 }}</small>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -253,6 +210,15 @@
 // Validación en cliente
 document.getElementById('formFer').addEventListener('submit', function(e) {
     // La validación será hecha en el servidor
+});
+
+// Convertir nombre y CURP a mayúsculas
+document.getElementById('{{ form.nombre.id_for_label }}').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+});
+
+document.getElementById('{{ form.curp.id_for_label }}').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
 });
 </script>
 {% endblock %}

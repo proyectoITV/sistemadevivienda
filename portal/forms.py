@@ -24,6 +24,7 @@ from .models import (
 	FerCatSubsidio,
 	CatalogosSexo,
 	CatalogosMunicipios,
+	CatalogosAdministraciones,
 )
 
 
@@ -732,51 +733,42 @@ class FerInformacionForm(forms.ModelForm):
 	class Meta:
 		model = FerInformacion
 		fields = [
-			'ejercicio', 'numcertificado', 'contrato', 'nombre', 'curp',
-			'descripcion', 'cantidad', 'nfer_concepto', 'nacimiento',
-			'domicilio', 'telefono', 'celular', 'autorizo', 'idmunicipio',
-			'sexo', 'autorizo_fecha', 'autorizo_hora', 'parrafo_opcional',
-			'archivo_sustento'
+			'nfer_id', 'contrato', 'nombre', 'curp',
+			'descripcion', 'cantidad', 'nfer_concepto', 'fechanacimiento',
+			'domicilio', 'telefono', 'celular', 'id_municipio',
+			'id_sexo', 'parrafo_opcional', 'archivo_sustento'
 		]
 		widgets = {
-			'ejercicio': forms.NumberInput(attrs={'class': 'form-control', 'type': 'number', 'placeholder': 'Año fiscal'}),
-			'numcertificado': forms.NumberInput(attrs={'class': 'form-control', 'type': 'number', 'placeholder': 'Número de certificado'}),
+			'nfer_id': forms.NumberInput(attrs={'class': 'form-control', 'type': 'number', 'placeholder': 'ID del beneficiario', 'readonly': 'readonly'}),
 			'contrato': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de contrato'}),
-			'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre completo del beneficiario'}),
-			'curp': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'CURP del beneficiario'}),
+			'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre completo del beneficiario', 'style': 'text-transform: uppercase;'}),
+			'curp': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'CURP del beneficiario', 'style': 'text-transform: uppercase;'}),
 			'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción del concepto'}),
 			'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Cantidad en pesos'}),
 			'nfer_concepto': forms.Select(attrs={'class': 'form-control form-select'}),
-			'nacimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+			'fechanacimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
 			'domicilio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Domicilio del beneficiario'}),
 			'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono de contacto'}),
 			'celular': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Celular de contacto'}),
-			'autorizo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Persona que autorizó'}),
-			'idmunicipio': forms.Select(attrs={'class': 'form-control form-select'}),
-			'sexo': forms.Select(attrs={'class': 'form-control form-select'}),
-			'autorizo_fecha': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-			'autorizo_hora': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+			'id_municipio': forms.Select(attrs={'class': 'form-control form-select'}),
+			'id_sexo': forms.Select(attrs={'class': 'form-control form-select'}),
 			'parrafo_opcional': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Párrafo adicional (opcional)'}),
 			'archivo_sustento': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.doc,.docx,.jpg,.jpeg,.png'}),
 		}
 		labels = {
-			'ejercicio': 'Año Fiscal',
-			'numcertificado': 'Número de Certificado',
+			'nfer_id': 'ID del Beneficiario',
 			'contrato': 'Número de Contrato',
 			'nombre': 'Nombre del Beneficiario',
 			'curp': 'CURP',
 			'descripcion': 'Descripción',
 			'cantidad': 'Cantidad',
 			'nfer_concepto': 'Concepto de Subsidio',
-			'nacimiento': 'Fecha de Nacimiento',
+			'fechanacimiento': 'Fecha de Nacimiento',
 			'domicilio': 'Domicilio',
 			'telefono': 'Teléfono',
 			'celular': 'Celular',
-			'autorizo': 'Autorizado por',
-			'idmunicipio': 'Municipio',
-			'sexo': 'Sexo',
-			'autorizo_fecha': 'Fecha de Autorización',
-			'autorizo_hora': 'Hora de Autorización',
+			'id_municipio': 'Municipio',
+			'id_sexo': 'Sexo',
 			'parrafo_opcional': 'Párrafo Opcional',
 			'archivo_sustento': 'Archivo de Sustento',
 		}
@@ -784,23 +776,41 @@ class FerInformacionForm(forms.ModelForm):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		# Filtrar municipios activos
-		self.fields['idmunicipio'].queryset = CatalogosMunicipios.objects.filter().select_related('entidad')
+		self.fields['id_municipio'].queryset = CatalogosMunicipios.objects.filter().select_related('entidad')
 		# Filtrar sexos activos
-		self.fields['sexo'].queryset = CatalogosSexo.objects.filter(activo=True)
+		self.fields['id_sexo'].queryset = CatalogosSexo.objects.filter(activo=True)
 		# Filtrar conceptos de subsidio activos
 		self.fields['nfer_concepto'].queryset = FerCatSubsidio.objects.filter(activo=True)
-		# Establecer año actual por defecto
+		# Establecer valores por defecto cuando se crea un nuevo registro
 		if not self.instance.pk:
 			import datetime
-			self.fields['ejercicio'].initial = datetime.date.today().year
-			self.fields['autorizo_fecha'].initial = datetime.date.today()
-			self.fields['autorizo_hora'].initial = datetime.datetime.now().strftime('%H:%M')
+			# Calcular nfer_id dentro de la administración actual
+			try:
+				administracion_actual = CatalogosAdministraciones.objects.filter(
+					fechainicio__lte=datetime.date.today(),
+					fechatermino__gte=datetime.date.today()
+				).first()
+				if administracion_actual:
+					# Calcular max local y evitar colisión global
+					last_nfer = FerInformacion.objects.filter(
+						autorizo_fecha__gte=administracion_actual.fechainicio,
+						autorizo_fecha__lte=administracion_actual.fechatermino
+					).order_by('-nfer_id').first()
+					candidate = (last_nfer.nfer_id + 1) if last_nfer else 1
+					while FerInformacion.objects.filter(nfer_id=candidate).exists():
+						candidate += 1
+					self.fields['nfer_id'].initial = candidate
+				else:
+					last_global = FerInformacion.objects.order_by('-nfer_id').first()
+					self.fields['nfer_id'].initial = (last_global.nfer_id + 1) if last_global else 1
+			except Exception:
+				self.fields['nfer_id'].initial = 1
 
-	def clean_cantidad(self):
-		cantidad = self.cleaned_data.get('cantidad')
-		if cantidad and cantidad <= 0:
-			raise ValidationError('La cantidad debe ser mayor a 0.')
-		return cantidad
+	def clean_nombre(self):
+		nombre = self.cleaned_data.get('nombre')
+		if nombre:
+			return nombre.upper()
+		return nombre
 
 	def clean_curp(self):
 		curp = self.cleaned_data.get('curp')
@@ -808,9 +818,20 @@ class FerInformacionForm(forms.ModelForm):
 			raise ValidationError('El CURP debe tener 18 caracteres.')
 		return curp.upper() if curp else curp
 
+	def clean_nfer_id(self):
+		nfer_id = self.cleaned_data.get('nfer_id')
+		if nfer_id is None:
+			return nfer_id
+		qs = FerInformacion.objects.filter(nfer_id=nfer_id)
+		if self.instance.pk:
+			qs = qs.exclude(pk=self.instance.pk)
+		if qs.exists():
+			raise ValidationError('Ya existe un registro con este ID de beneficiario.')
+		return nfer_id
+
 	def clean_archivo_sustento(self):
 		archivo = self.cleaned_data.get('archivo_sustento')
-		if archivo:
+		if archivo and hasattr(archivo, 'size'):
 			# Validar tamaño (máximo 5 MB)
 			if archivo.size > 5242880:  # 5 MB
 				raise ValidationError('El archivo no debe superar 5 MB.')

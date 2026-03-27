@@ -2084,7 +2084,7 @@ def importar_bienes_excel(request):
 					except ValueError:
 						pass
 				
-				bien.usuario_captura = request.user.username
+				bien.usuario_captura = request.user.get_username()
 				bien.save()
 				
 				importados += 1

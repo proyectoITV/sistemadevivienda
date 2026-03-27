@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Asignación de Recurso - Fondo Económico de Reserva{% endblock %}
 
@@ -31,15 +32,17 @@
     {% endfor %}
     {% endif %}
 
-    <!-- Filtro por Año -->
+    <!-- Filtro por Administración -->
     <div class="row mb-3">
         <div class="col-md-3">
             <div class="card">
                 <div class="card-body">
-                    <label for="ejercicio" class="form-label"><strong>Seleccionar Año Fiscal:</strong></label>
-                    <select id="ejercicio" class="form-control form-select">
-                        {% for año in años_disponibles %}
-                        <option value="{{ año }}" {% if año == ejercicio_actual %}selected{% endif %}>{{ año }}</option>
+                    <label for="administracion_id" class="form-label"><strong>Seleccionar administración a visualizar:</strong></label>
+                    <select id="administracion_id" class="form-control form-select">
+                        {% for administracion in administraciones %}
+                        <option value="{{ administracion.idadministracion }}" {% if administracion == administracion_seleccionada %}selected{% endif %}>
+                            {{ administracion.fechainicio|date:"Y" }} - {{ administracion.fechatermino|date:"Y" }} | {{ administracion.gobernador }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -47,13 +50,13 @@
         </div>
         <div class="col-md-9">
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <p class="text-muted mb-0"><small>Fondo Total Disponible:</small></p>
-                                    <h4 class="mb-0">${{ fondo_ejercicio|floatformat:2 }}</h4>
+                                    <h4 class="mb-0">${{ fondo_total|floatformat:2|intcomma }}</h4>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-wallet fa-2x text-danger" style="opacity: 0.3;"></i>
@@ -62,13 +65,28 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <p class="text-muted mb-0"><small>Fondo Aplicado:</small></p>
+                                    <h4 class="mb-0">${{ total_aplicado|floatformat:2|intcomma }}</h4>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-hand-holding-dollar fa-2x text-success" style="opacity: 0.3;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
                     <div class="card bg-light">
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
                                     <p class="text-muted mb-0"><small>Fondo Disponible:</small></p>
-                                    <h4 class="mb-0 {% if fondo_disponible < 0 %}text-danger{% endif %}">${{ fondo_disponible|floatformat:2 }}</h4>
+                                    <h4 class="mb-0 {% if fondo_disponible < 0 %}text-danger{% endif %}">${{ fondo_disponible|floatformat:2|intcomma }}</h4>
                                 </div>
                                 <div class="align-self-center">
                                     <i class="fas fa-chart-pie fa-2x text-primary" style="opacity: 0.3;"></i>
@@ -90,6 +108,10 @@
                 </div>
                 <div class="card-body" style="height: 300px;">
                     <canvas id="graficoAplicacion"></canvas>
+                    <div id="grafico-error" class="d-none text-center text-muted" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                        <i class="fas fa-chart-pie fa-2x mb-2"></i>
+                        <p>No hay datos disponibles para el gráfico</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -102,7 +124,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <p><strong>Total Beneficiarios:</strong> <span class="badge bg-danger">{{ registros|length }}</span></p>
-                            <p><strong>Total Asignado:</strong> <span class="badge bg-success">${{ total_asignado|floatformat:2 }}</span></p>
+                            <p><strong>Total Asignado:</strong> <span class="badge bg-success">${{ total_aplicado|floatformat:2|intcomma }}</span></p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>% Asignado:</strong> <span id="porcentaje-asignado">-</span>%</p>
@@ -119,14 +141,30 @@
         <div class="card-header bg-danger text-white">
             <h5 class="mt-2"><i class="fas fa-table"></i> Registros de Beneficiarios</h5>
         </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <input id="searchInput" type="text" class="form-control" placeholder="Buscar beneficiarios, municipio, ejercicio, certificado...">
+                </div>
+                <div class="col-md-6 text-end">
+                    <label for="pageSizeSelect" class="form-label me-2">Mostrar:</label>
+                    <select id="pageSizeSelect" class="form-select d-inline-block w-auto">
+                        {% for size in page_sizes %}
+                        <option value="{{ size }}" {% if size == current_page_size %}selected{% endif %}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table id="registrosTable" class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
+                        <th>Ejercicio</th>
                         <th>Certificado</th>
                         <th>Nombre</th>
                         <th>Municipio</th>
-                        <th>Cantidad</th>
+                        <th class="text-end">Cantidad</th>
                         <th>Concepto</th>
                         <th>Acciones</th>
                     </tr>
@@ -134,26 +172,26 @@
                 <tbody>
                     {% for registro in registros %}
                     <tr>
-                        <td><strong>#{{ registro.numcertificado|default:"--" }}</strong></td>
+                        <td><strong>{{ registro.ejercicio }}</strong></td>
+                        <td><strong>{{ registro.numcertificado|default:"--" }}</strong></td>
                         <td>{{ registro.nombre }}</td>
-                        <td><small>{{ registro.idmunicipio.nombre }}</small></td>
-                        <td><strong>${{ registro.cantidad|floatformat:2 }}</strong></td>
+                        <td><small>{{ registro.id_municipio.nombre }}</small></td>
+                        <td class="text-end"><strong>${{ registro.cantidad|floatformat:2|intcomma }}</strong></td>
                         <td><small>{{ registro.nfer_concepto.fer_descripcion }}</small></td>
                         <td>
                             <div class="btn-group btn-group-sm" role="group">
-                                <a href="{% url 'fer_informacion_detalle' registro.nfer_id %}" class="btn btn-outline-primary" title="Ver Detalles">
+                                <a href="{% url 'fer_informacion_detalle' registro.nfer_id registro.ejercicio %}" class="btn btn-outline-primary" title="Ver Detalles">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <a href="{% url 'fer_informacion_editar' registro.nfer_id %}" class="btn btn-outline-warning" title="Editar">
+                                <a href="{% url 'fer_informacion_editar' registro.nfer_id registro.ejercicio %}" class="btn btn-outline-warning" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <form method="POST" action="{% url 'fer_certificado_generar' registro.nfer_id %}" style="display:inline;">
-                                    {% csrf_token %}
+                                <form method="GET" action="{% url 'fer_certificado_generar' registro.nfer_id registro.ejercicio %}" style="display:inline;">
                                     <button type="submit" class="btn btn-outline-success btn-sm" title="Generar Certificado">
                                         <i class="fas fa-file-pdf"></i>
                                     </button>
                                 </form>
-                                <form method="POST" action="{% url 'fer_informacion_inactivar' registro.nfer_id %}" style="display:inline;" onsubmit="return confirm('¿Inactivar este registro?');">
+                                <form method="POST" action="{% url 'fer_informacion_inactivar' registro.nfer_id registro.ejercicio %}" style="display:inline;" onsubmit="return confirm('¿Inactivar este registro?');">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-outline-danger btn-sm" title="Inactivar">
                                         <i class="fas fa-times"></i>
@@ -164,9 +202,9 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">
+                        <td colspan="7" class="text-center text-muted py-4">
                             <i class="fas fa-inbox fa-2x mb-2"></i>
-                            <p>No hay registros para este año fiscal</p>
+                            <p>No hay registros para la administración seleccionada</p>
                         </td>
                     </tr>
                     {% endfor %}
@@ -174,26 +212,75 @@
             </table>
         </div>
     </div>
+
+    <!-- Paginación -->
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-center mt-4">
+        <nav aria-label="Navegación de páginas">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if administracion_id %}administracion_id={{ administracion_id }}&{% endif %}page={{ page_obj.previous_page_number }}&page_size={{ current_page_size }}" aria-label="Anterior">
+                        <span aria-hidden="true">&laquo; Anterior</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if administracion_id %}administracion_id={{ administracion_id }}&{% endif %}page={{ page_obj.next_page_number }}&page_size={{ current_page_size }}" aria-label="Siguiente">
+                        <span aria-hidden="true">Siguiente &raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    <div class="text-center mt-2 text-muted">
+        <small>Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ page_obj.paginator.count }} registros</small>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Chart.js para el gráfico -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
 <script>
-document.getElementById('ejercicio').addEventListener('change', function() {
-    window.location.href = '?ejercicio=' + this.value;
+document.getElementById('administracion_id').addEventListener('change', function() {
+    const url = new URL(window.location);
+    url.searchParams.set('administracion_id', this.value);
+    url.searchParams.delete('page'); // Reset to first page when changing administration
+    window.location.href = url.toString();
+});
+
+document.getElementById('pageSizeSelect').addEventListener('change', function() {
+    const url = new URL(window.location);
+    url.searchParams.set('page_size', this.value);
+    url.searchParams.set('page', '1'); // Reset to first page when changing page size
+    window.location.href = url.toString();
 });
 
 // Cargar datos del gráfico
-fetch('{% url "fer_api_datos_grafico" %}?ejercicio={{ ejercicio_actual }}')
+fetch('{% url "fer_api_datos_grafico" %}?administracion_id={{ administracion_seleccionada.idadministracion|default:"" }}')
     .then(response => response.json())
     .then(data => {
         if (data.error) {
             console.error(data.error);
+            // Mostrar mensaje de error
+            document.getElementById('grafico-error').classList.remove('d-none');
+            document.getElementById('graficoAplicacion').style.display = 'none';
             return;
         }
 
+        // Ocultar mensaje de error y mostrar gráfico
+        document.getElementById('grafico-error').classList.add('d-none');
+        document.getElementById('graficoAplicacion').style.display = 'block';
+
         // Actualizar porcentajes
-        document.getElementById('porcentaje-asignado').textContent = data.porcentaje_asignado;
+        document.getElementById('porcentaje-asignado').textContent = data.porcentaje_aplicado;
         document.getElementById('porcentaje-disponible').textContent = data.porcentaje_disponible;
 
         // Crear gráfico
@@ -201,9 +288,9 @@ fetch('{% url "fer_api_datos_grafico" %}?ejercicio={{ ejercicio_actual }}')
         new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Asignado', 'Disponible'],
+                labels: ['Aplicado', 'Disponible'],
                 datasets: [{
-                    data: [data.fondo_asignado, data.fondo_disponible],
+                    data: [data.fondo_aplicado, data.fondo_disponible],
                     backgroundColor: ['#dc3545', '#e9ecef'],
                     borderColor: ['#dc3545', '#dee2e6'],
                     borderWidth: 2
@@ -227,5 +314,21 @@ fetch('{% url "fer_api_datos_grafico" %}?ejercicio={{ ejercicio_actual }}')
         });
     })
     .catch(error => console.error('Error:', error));
+
+// Filtro de búsqueda en el listado
+(function() {
+    const searchInput = document.getElementById('searchInput');
+    const tableBody = document.querySelector('#registrosTable tbody');
+
+    if (!searchInput || !tableBody) return;
+
+    searchInput.addEventListener('input', () => {
+        const filter = searchInput.value.trim().toLowerCase();
+        tableBody.querySelectorAll('tr').forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = filter === '' || text.includes(filter) ? '' : 'none';
+        });
+    });
+})();
 </script>
 {% endblock %}
