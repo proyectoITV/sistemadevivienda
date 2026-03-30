@@ -11,6 +11,19 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('intro/', views.intro, name='intro'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('transparencia/archivos/', views.listar_archivos_transparencia, name='listar_archivos_transparencia'),
+    path('transparencia/archivos/<int:id_file>/eliminar/', views.eliminar_archivo_transparencia, name='eliminar_archivo_transparencia'),
+    path('vehiculos/', views.listar_vehiculos, name='listar_vehiculos'),
+    path('vehiculos/crear/', views.crear_vehiculo, name='crear_vehiculo'),
+    path('vehiculos/<str:num_economico>/editar/', views.editar_vehiculo, name='editar_vehiculo'),
+    path('vehiculos/<str:num_economico>/bitacora/imprimir/', views.imprimir_bitacoras_vehiculo, name='imprimir_bitacoras_vehiculo'),
+    path('vehiculos/bitacora/', views.listar_bitacora_vehiculos, name='listar_bitacora_vehiculos'),
+    path('vehiculos/bitacora/crear/', views.crear_bitacora_vehiculo, name='crear_bitacora_vehiculo'),
+    path('vehiculos/bitacora/<int:clave_servicio>/editar/', views.editar_bitacora_vehiculo, name='editar_bitacora_vehiculo'),
+    path('vehiculos/bitacora/<int:clave_servicio>/imprimir/', views.imprimir_bitacora_detalle, name='imprimir_bitacora_detalle'),
+    path('vehiculos/proveedores/', views.listar_proveedores_vehiculos, name='listar_proveedores_vehiculos'),
+    path('vehiculos/proveedores/crear/', views.crear_proveedor_vehiculo, name='crear_proveedor_vehiculo'),
+    path('vehiculos/proveedores/<int:clave_proveedor>/editar/', views.editar_proveedor_vehiculo, name='editar_proveedor_vehiculo'),
     path('recuperar-contrasena/', views.recuperar_contrasena, name='recuperar_contrasena'),
     path('restablecer-contrasena/<str:token>/', views.restablecer_contrasena, name='restablecer_contrasena'),
     
@@ -106,4 +119,18 @@ urlpatterns = [
     path('fer/<int:nfer_id>/<int:ejercicio>/inactivar/', views_fer.fer_informacion_inactivar, name='fer_informacion_inactivar'),
     path('fer/<int:nfer_id>/<int:ejercicio>/certificado/', views_fer.fer_certificado_generar, name='fer_certificado_generar'),
     path('api/fer/grafico-datos/', views_fer.fer_api_datos_grafico, name='fer_api_datos_grafico'),
+
+    # Tickets de Servicio
+    path('tickets/', views.listar_tickets, name='listar_tickets'),
+    path('tickets/nuevo/', views.crear_ticket, name='crear_ticket'),
+    path('tickets/<int:id_ticket>/', views.ver_ticket, name='ver_ticket'),
+    path('tickets/archivos/<int:id_archivo>/descargar/', views.descargar_archivo_ticket, name='descargar_archivo_ticket'),
+    path('tickets/archivos/<int:id_archivo>/eliminar/', views.eliminar_archivo_ticket, name='eliminar_archivo_ticket'),
+
+    # Servicio de Mantenimiento
+    path('mantenimiento/', views.listar_tickets_mantenimiento, name='listar_tickets_mantenimiento'),
+    path('mantenimiento/nuevo/', views.crear_ticket_mantenimiento, name='crear_ticket_mantenimiento'),
+    path('mantenimiento/<int:id_ticket_mantenimiento>/', views.ver_ticket_mantenimiento, name='ver_ticket_mantenimiento'),
+    path('mantenimiento/archivos/<int:id_archivo>/descargar/', views.descargar_archivo_mantenimiento, name='descargar_archivo_mantenimiento'),
+    path('mantenimiento/archivos/<int:id_archivo>/eliminar/', views.eliminar_archivo_mantenimiento, name='eliminar_archivo_mantenimiento'),
 ]

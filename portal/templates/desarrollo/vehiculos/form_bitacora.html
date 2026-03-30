@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h2 class="mb-0"><i class="fas fa-car-side" style="color: #ab0033;"></i> {{ titulo }}</h2>
+        <a href="{% url 'listar_bitacora_vehiculos' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header simple-header">
+            <h6 class="mb-0">Datos de la Bitacora</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.num_economico }}
+                {% if vehiculo %}
+                <div class="vehicle-context-box mb-3">
+                    <div class="small text-muted mb-1">Capturando para vehiculo</div>
+                    <div><strong>Nº Economico:</strong> {{ vehiculo.num_economico }}</div>
+                    <div><strong>Marca:</strong> {{ vehiculo.clave_marca|default:'-' }} | <strong>Tipo:</strong> {{ vehiculo.tipo|default:'-' }}</div>
+                    <div><strong>Placas:</strong> {{ vehiculo.placas|default:'-' }} | <strong>Serie:</strong> {{ vehiculo.serie|default:'-' }}</div>
+                </div>
+                {% endif %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.fecha_solicitud.id_for_label }}" class="form-label field-label">{{ form.fecha_solicitud.label }}</label>
+                        <div class="capture-input">{{ form.fecha_solicitud }}</div>
+                        {% if form.fecha_solicitud.errors %}<div class="text-danger small">{{ form.fecha_solicitud.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.fecha_ejecucion.id_for_label }}" class="form-label field-label">{{ form.fecha_ejecucion.label }}</label>
+                        <div class="capture-input">{{ form.fecha_ejecucion }}</div>
+                        {% if form.fecha_ejecucion.errors %}<div class="text-danger small">{{ form.fecha_ejecucion.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.km_prog.id_for_label }}" class="form-label field-label">{{ form.km_prog.label }}</label>
+                        <div class="capture-input">{{ form.km_prog }}</div>
+                        {% if form.km_prog.errors %}<div class="text-danger small">{{ form.km_prog.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.km_real.id_for_label }}" class="form-label field-label">{{ form.km_real.label }}</label>
+                        <div class="capture-input">{{ form.km_real }}</div>
+                        {% if form.km_real.errors %}<div class="text-danger small">{{ form.km_real.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.num_solicitud.id_for_label }}" class="form-label field-label">{{ form.num_solicitud.label }}</label>
+                        <div class="capture-input">{{ form.num_solicitud }}</div>
+                        {% if form.num_solicitud.errors %}<div class="text-danger small">{{ form.num_solicitud.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.num_factura.id_for_label }}" class="form-label field-label">{{ form.num_factura.label }}</label>
+                        <div class="capture-input">{{ form.num_factura }}</div>
+                        {% if form.num_factura.errors %}<div class="text-danger small">{{ form.num_factura.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.costo_mano_obra.id_for_label }}" class="form-label field-label">{{ form.costo_mano_obra.label }}</label>
+                        <div class="input-group capture-money">
+                            <span class="input-group-text">$</span>
+                            {{ form.costo_mano_obra }}
+                        </div>
+                        {% if form.costo_mano_obra.errors %}<div class="text-danger small">{{ form.costo_mano_obra.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.costo_refaccion.id_for_label }}" class="form-label field-label">{{ form.costo_refaccion.label }}</label>
+                        <div class="input-group capture-money">
+                            <span class="input-group-text">$</span>
+                            {{ form.costo_refaccion }}
+                        </div>
+                        {% if form.costo_refaccion.errors %}<div class="text-danger small">{{ form.costo_refaccion.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.importe_factura.id_for_label }}" class="form-label field-label">{{ form.importe_factura.label }}</label>
+                        <div class="input-group capture-money">
+                            <span class="input-group-text">$</span>
+                            {{ form.importe_factura }}
+                        </div>
+                        {% if form.importe_factura.errors %}<div class="text-danger small">{{ form.importe_factura.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.clave_tipo_mant.id_for_label }}" class="form-label field-label">{{ form.clave_tipo_mant.label }}</label>
+                        <div class="capture-input">{{ form.clave_tipo_mant }}</div>
+                        {% if form.clave_tipo_mant.errors %}<div class="text-danger small">{{ form.clave_tipo_mant.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.clave_proveedor.id_for_label }}" class="form-label field-label d-flex justify-content-between align-items-center gap-2">
+                            <span>{{ form.clave_proveedor.label }}</span>
+                            <a href="{% url 'crear_proveedor_vehiculo' %}" target="_blank" class="btn btn-sm btn-outline-secondary">Agregar proveedor</a>
+                        </label>
+                        <div class="capture-input">{{ form.clave_proveedor }}</div>
+                        {% if form.clave_proveedor.errors %}<div class="text-danger small">{{ form.clave_proveedor.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-12">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label field-label">{{ form.descripcion.label }}</label>
+                        <div class="capture-input">{{ form.descripcion }}</div>
+                        {% if form.descripcion.errors %}<div class="text-danger small">{{ form.descripcion.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-12">
+                        <label for="{{ form.archivo_factura.id_for_label }}" class="form-label field-label">{{ form.archivo_factura.label }}</label>
+                        <div class="capture-input">{{ form.archivo_factura }}</div>
+                        {% if registro and registro.archivo_factura %}
+                        <div class="mt-2">
+                            <a href="{{ registro.archivo_factura.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-file-invoice"></i> Ver factura actual
+                            </a>
+                        </div>
+                        {% endif %}
+                        {% if form.archivo_factura.errors %}<div class="text-danger small">{{ form.archivo_factura.errors|striptags }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" style="background: #ab0033; border-color: #ab0033;"><i class="fas fa-save"></i> {{ accion }}</button>
+                    <a href="{% url 'listar_bitacora_vehiculos' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    .simple-header {
+        background: #f2f2f2;
+        color: #333;
+        border-bottom: 1px solid #ddd;
+    }
+    .field-label {
+        font-weight: 600;
+        color: #555;
+        margin-bottom: .25rem;
+    }
+    .capture-input .form-control,
+    .capture-input .form-select,
+    .capture-money .form-control {
+        background: #fff;
+        border: 1px solid #cfcfcf;
+    }
+    .capture-money .input-group-text {
+        border: 1px solid #cfcfcf;
+        border-right: 0;
+        font-weight: 600;
+        background: #f3f3f3;
+        color: #444;
+    }
+    .capture-input .form-control:focus,
+    .capture-input .form-select:focus,
+    .capture-money .form-control:focus {
+        border-color: #ab0033;
+        box-shadow: 0 0 0 .2rem rgba(171, 0, 51, .18);
+    }
+    .vehicle-context-box {
+        border: 1px solid #d8c7a7;
+        background: #fffaf1;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const selects = document.querySelectorAll('select.select2-enhanced');
+        selects.forEach(function (select) {
+            const placeholder = select.getAttribute('data-placeholder') || 'Buscar opcion...';
+            $(select).select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: placeholder,
+                allowClear: !select.required,
+                language: {
+                    noResults: function () { return 'Sin resultados'; },
+                    searching: function () { return 'Buscando...'; }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

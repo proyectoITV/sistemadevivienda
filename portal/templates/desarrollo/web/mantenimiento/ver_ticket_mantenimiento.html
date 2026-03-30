@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    :root { --color1: #ab0033; }
+    body { background: #f0f2f5; }
+    .ticket-header { background: linear-gradient(135deg, #2c3e50 0%, #ab0033 100%); color: white; padding: 1.8rem 2.5rem 3.5rem; }
+    .body-wrap { margin-top: -2rem; padding: 0 2rem 3rem; }
+    .t-card { background: white; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,.07); padding: 1.5rem; margin-bottom: 1.2rem; }
+    .card-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #aaa; margin-bottom: 1rem; padding-bottom: .6rem; border-bottom: 1px solid #f0f0f0; }
+    .description-block { background: #f8f9fa; border-radius: 10px; padding: 1rem 1.2rem; white-space: pre-wrap; }
+    .badge-estado, .badge-prio { font-size: .8rem; padding: .35em .8em; border-radius: 50px; font-weight: 700; }
+    .estado-abierto { background: #cfe2ff; color: #084298; }
+    .estado-asignado { background: #d1ecf1; color: #055160; }
+    .estado-en_revision, .estado-en_reparacion { background: #fff3cd; color: #664d03; }
+    .estado-espera_refaccion { background: #e2e3e5; color: #41464b; }
+    .estado-resuelto, .estado-entregado { background: #d1e7dd; color: #0a3622; }
+    .estado-cerrado { background: #343a40; color: #fff; }
+    .prio-baja { background: rgba(255,255,255,.15); }
+    .prio-normal { background: rgba(13,202,240,.3); }
+    .prio-alta { background: rgba(255,193,7,.4); color: #333; }
+    .prio-critica { background: rgba(220,53,69,.5); }
+    .info-row { display: flex; align-items: flex-start; gap: .6rem; margin-bottom: .7rem; font-size: .88rem; }
+    .timeline { position: relative; padding-left: 2.5rem; }
+    .timeline::before { content: ''; position: absolute; left: .85rem; top: 0; bottom: 0; width: 2px; background: #e9ecef; }
+    .tl-item { position: relative; margin-bottom: 1.5rem; }
+    .tl-dot { position: absolute; left: -2.5rem; top: .25rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .65rem; color: white; }
+    .tl-dot-comentario { background: #6c757d; }
+    .tl-dot-estado { background: #ab0033; }
+    .tl-dot-intervencion { background: #198754; }
+    .tl-dot-notificacion { background: #0dcaf0; }
+    .tl-bubble { background: #f8f9fa; border-radius: 12px; padding: .9rem 1.1rem; border: 1px solid #e9ecef; }
+    .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .8rem; }
+    .file-chip { border: 1px solid #e9ecef; border-radius: 12px; padding: .8rem 1rem; display: flex; align-items: center; gap: .7rem; text-decoration: none; color: inherit; background: #fafafa; }
+    .drop-mini { border: 2px dashed #dee2e6; border-radius: 10px; padding: 1rem; text-align: center; cursor: pointer; background: #fafafa; position: relative; }
+    .drop-mini input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .mini-file-item { display: flex; align-items: center; gap: .5rem; background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: .4rem .8rem; margin-bottom: .4rem; font-size: .8rem; }
+    @media (max-width:767.98px) { .body-wrap { padding: 0 1rem 3rem; } .ticket-header { padding: 1.5rem 1rem 3rem; } }
+</style>
+
+<div class="ticket-header">
+    <div class="d-flex align-items-start gap-3 flex-wrap">
+        <a href="{% url 'listar_tickets_mantenimiento' %}" class="btn btn-sm btn-outline-light mt-1"><i class="fas fa-arrow-left"></i></a>
+        <div class="flex-grow-1">
+            <div class="small opacity-75 mb-1">#{{ ticket.id_ticket_mantenimiento }} · {{ ticket.folio_corto }}</div>
+            <h2>{{ ticket.asunto }}</h2>
+            <div class="opacity-75">Solicitado por <strong>{{ ticket.solicitante.nombre_completo }}</strong> el {{ ticket.fecha_creacion|date:"d/m/Y H:i" }}</div>
+            <div class="d-flex gap-2 flex-wrap mt-3">
+                <span class="badge-estado estado-{{ ticket.estado }}">{{ ticket.get_estado_display }}</span>
+                <span class="badge-prio prio-{{ ticket.prioridad }}"><i class="fas {{ ticket.icono_prioridad }} me-1"></i>{{ ticket.get_prioridad_display }}</span>
+                <span class="badge-prio"><i class="fas fa-desktop me-1"></i>{{ ticket.get_tipo_equipo_display }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="body-wrap">
+    {% if messages %}{% for msg in messages %}<div class="alert alert-{{ msg.tags }} alert-dismissible fade show rounded-3 mb-3">{{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+
+    {% if ticket.fecha_limite_sla %}
+        {% if ticket.esta_vencido %}
+        <div class="alert alert-danger rounded-3">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            SLA vencido desde {{ ticket.fecha_limite_sla|date:'d/m/Y H:i' }}.
+        </div>
+        {% else %}
+        <div class="alert alert-warning rounded-3">
+            <i class="fas fa-hourglass-half me-1"></i>
+            Fecha límite SLA: {{ ticket.fecha_limite_sla|date:'d/m/Y H:i' }} ({{ ticket.sla_horas_objetivo }}h objetivo).
+        </div>
+        {% endif %}
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-align-left me-1"></i> Descripción del problema</div>
+                <div class="description-block">{{ ticket.descripcion }}</div>
+            </div>
+
+            {% if ticket.trabajo_realizado or ticket.piezas_instaladas %}
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-wrench me-1"></i> Trabajo realizado por soporte</div>
+                {% if ticket.trabajo_realizado %}<div class="description-block mb-3">{{ ticket.trabajo_realizado }}</div>{% endif %}
+                {% if ticket.piezas_instaladas %}
+                <div class="card-title mt-3"><i class="fas fa-microchip me-1"></i> Piezas / accesorios agregados</div>
+                <div class="description-block">{{ ticket.piezas_instaladas }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if archivos %}
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-paperclip me-1"></i> Archivos adjuntos ({{ archivos.count }})</div>
+                <div class="files-grid">
+                    {% for arch in archivos %}
+                    <a href="{% url 'descargar_archivo_mantenimiento' arch.id_archivo %}" class="file-chip">
+                        <i class="fas {{ arch.icono }}"></i>
+                        <div>
+                            <div class="small fw-semibold text-dark">{{ arch.nombre_original }}</div>
+                            <div class="small text-muted">{{ arch.tamanio_legible }}</div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-stream me-1"></i> Bitácora de seguimiento</div>
+                <div class="timeline">
+                    <div class="tl-item">
+                        <div class="tl-dot" style="background:#0dcaf0;"><i class="fas fa-flag"></i></div>
+                        <div class="tl-bubble">
+                            <div class="fw-bold small">{{ ticket.solicitante.nombre_completo }}</div>
+                            <div class="small text-muted mb-2">{{ ticket.fecha_creacion|date:'d/m/Y H:i' }}</div>
+                            <div>Ticket registrado para {{ ticket.departamento_soporte.departamento }}.</div>
+                        </div>
+                    </div>
+                    {% for seg in seguimientos %}
+                    <div class="tl-item">
+                        <div class="tl-dot tl-dot-{{ seg.tipo }}">
+                            <i class="fas {% if seg.tipo == 'intervencion' %}fa-tools{% elif seg.tipo == 'estado' %}fa-exchange-alt{% else %}fa-comment{% endif %}"></i>
+                        </div>
+                        <div class="tl-bubble">
+                            <div class="d-flex justify-content-between gap-3 flex-wrap">
+                                <div class="small fw-bold">{{ seg.autor.nombre_completo|default:'Sistema' }}</div>
+                                <div class="small text-muted">{{ seg.fecha|date:'d/m/Y H:i' }}</div>
+                            </div>
+                            {% if seg.cambio_estado %}<div class="small text-muted mb-2">Estado previo: {{ seg.cambio_estado }}</div>{% endif %}
+                            <div>{{ seg.mensaje }}</div>
+                            {% if seg.trabajo_realizado %}<div class="mt-2 small"><strong>Trabajo realizado:</strong> {{ seg.trabajo_realizado }}</div>{% endif %}
+                            {% if seg.piezas_instaladas %}<div class="mt-1 small"><strong>Piezas instaladas:</strong> {{ seg.piezas_instaladas }}</div>{% endif %}
+                            {% if seg.notificar_solicitante %}<div class="mt-2 small text-success"><i class="fas fa-envelope me-1"></i>Se notificó al solicitante</div>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if ticket.estado != 'cerrado' %}
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-reply me-1"></i> Agregar actualización</div>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="comentar">
+                    <textarea name="mensaje" class="form-control mb-3" rows="3" placeholder="Escribe una actualización o comentario" required></textarea>
+                    <div class="drop-mini mb-2">
+                        <input type="file" name="archivos" id="fileInputComment" multiple>
+                        <i class="fas fa-paperclip text-muted"></i> Adjuntar archivos opcionales
+                    </div>
+                    <div id="miniFileList" class="mb-2"></div>
+                    {% if es_soporte %}
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="notificar_solicitante" id="id_notificar_solicitante" checked>
+                        <label class="form-check-label" for="id_notificar_solicitante">Notificar al solicitante por correo</label>
+                    </div>
+                    {% endif %}
+                    <div class="text-end"><button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i> Enviar</button></div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-info-circle me-1"></i> Información</div>
+                <div class="info-row"><i class="fas fa-building text-muted"></i><span>Solicitante: <strong>{{ ticket.departamento_solicitante.departamento|default:ticket.solicitante.iddepartamento.departamento|default:'Sin departamento' }}</strong></span></div>
+                <div class="info-row"><i class="fas fa-tools text-muted"></i><span>Soporte: <strong>{{ ticket.departamento_soporte.departamento }}</strong></span></div>
+                <div class="info-row"><i class="fas fa-desktop text-muted"></i><span>Equipo: <strong>{{ ticket.equipo|default:ticket.get_tipo_equipo_display }}</strong></span></div>
+                {% if ticket.numero_inventario %}<div class="info-row"><i class="fas fa-barcode text-muted"></i><span>Inventario: <strong>{{ ticket.numero_inventario }}</strong></span></div>{% endif %}
+                {% if ticket.ubicacion %}<div class="info-row"><i class="fas fa-map-marker-alt text-muted"></i><span>Ubicación: <strong>{{ ticket.ubicacion }}</strong></span></div>{% endif %}
+                {% if ticket.atendido_por %}<div class="info-row"><i class="fas fa-user-cog text-success"></i><span>Atiende: <strong>{{ ticket.atendido_por.nombre_completo }}</strong></span></div>{% endif %}
+                <div class="info-row"><i class="fas fa-sync-alt text-muted"></i><span>Actualizado: <strong>{{ ticket.fecha_actualizacion|date:'d/m/Y H:i' }}</strong></span></div>
+                {% if ticket.fecha_retiro_equipo %}<div class="info-row"><i class="fas fa-dolly text-warning"></i><span>Equipo retirado: <strong>{{ ticket.fecha_retiro_equipo|date:'d/m/Y H:i' }}</strong></span></div>{% endif %}
+                {% if ticket.fecha_resolucion %}<div class="info-row"><i class="fas fa-check-circle text-success"></i><span>Resuelto: <strong>{{ ticket.fecha_resolucion|date:'d/m/Y H:i' }}</strong></span></div>{% endif %}
+                {% if ticket.fecha_entrega_equipo %}<div class="info-row"><i class="fas fa-hand-holding text-success"></i><span>Entregado: <strong>{{ ticket.fecha_entrega_equipo|date:'d/m/Y H:i' }}</strong></span></div>{% endif %}
+                {% if ticket.fecha_limite_sla %}<div class="info-row"><i class="fas fa-hourglass-half {% if ticket.esta_vencido %}text-danger{% else %}text-warning{% endif %}"></i><span>SLA límite: <strong>{{ ticket.fecha_limite_sla|date:'d/m/Y H:i' }}</strong></span></div>{% endif %}
+            </div>
+
+            {% if puede_tomar_ticket %}
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-user-check me-1"></i> Tomar ticket</div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="tomar_ticket">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-hand-paper me-1"></i> Tomar atención</button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if es_soporte %}
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-wrench me-1"></i> Registrar intervención</div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="registrar_intervencion">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Trabajo realizado</label>
+                        <textarea name="trabajo_realizado" class="form-control" rows="4" placeholder="Describe lo que se hizo al equipo"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Piezas o accesorios agregados</label>
+                        <textarea name="piezas_instaladas" class="form-control" rows="3" placeholder="RAM, disco, mouse, cable, etc."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nuevo estado</label>
+                        <select name="nuevo_estado" class="form-select">
+                            {% for val, lbl in estados %}<option value="{{ val }}" {% if ticket.estado == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="equipo_retirado" id="id_equipo_retirado" {% if ticket.equipo_retirado %}checked{% endif %}>
+                        <label class="form-check-label" for="id_equipo_retirado">El equipo fue retirado para reparación / formateo</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="notificar_solicitante" id="id_notificar_intervencion" checked>
+                        <label class="form-check-label" for="id_notificar_intervencion">Notificar al solicitante</label>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100"><i class="fas fa-save me-1"></i> Guardar intervención</button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if es_soporte %}
+            <div class="t-card">
+                <div class="card-title"><i class="fas fa-exchange-alt me-1"></i> Cambiar estado</div>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="cambiar_estado">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Estado</label>
+                        <select name="nuevo_estado" class="form-select">
+                            {% for val, lbl in estados %}<option value="{{ val }}" {% if ticket.estado == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nota</label>
+                        <textarea name="nota_cambio" class="form-control" rows="3" placeholder="Comentario opcional sobre el cambio"></textarea>
+                    </div>
+                    {% if es_soporte %}
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="notificar_solicitante" id="id_notificar_estado" checked>
+                        <label class="form-check-label" for="id_notificar_estado">Notificar al solicitante</label>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-outline-primary w-100"><i class="fas fa-sync-alt me-1"></i> Actualizar estado</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+const fileInputComment = document.getElementById('fileInputComment');
+const miniFileList = document.getElementById('miniFileList');
+if (fileInputComment) {
+    fileInputComment.addEventListener('change', function() {
+        miniFileList.innerHTML = '';
+        Array.from(fileInputComment.files).forEach(file => {
+            const item = document.createElement('div');
+            item.className = 'mini-file-item';
+            item.innerHTML = `<i class="fas fa-paperclip text-muted"></i><span>${file.name}</span>`;
+            miniFileList.appendChild(item);
+        });
+    });
+}
+</script>
+{% endblock %}

@@ -10,13 +10,17 @@ from portal.models import PersonalEmpleados, PersonalDepartamento
 depts = PersonalDepartamento.objects.all()
 dept = depts.first() if depts.exists() else None
 
-# Crear usuario de prueba
+# NOTA:
+# El campo 'puesto' no existe en PersonalEmpleados.
+# Usualmente el campo correcto es 'idpuesto' o similar.
+# Cambia 'idpuesto' por el nombre real si es diferente.
+
 usuario, creado = PersonalEmpleados.objects.get_or_create(
     usuario='demo',
     defaults={
         'email': 'demo@itavu.mx',
         'nombre_completo': 'Usuario de Prueba',
-        'puesto': 'Administrador',
+        'idpuesto': None,  # Cambia esto si tienes un puesto específico
         'iddepartamento': dept,
         'is_staff': True,
         'is_admin': True,

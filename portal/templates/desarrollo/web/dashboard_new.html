@@ -78,6 +78,18 @@
                                     </ul>
                                 </div>
                             </li>
+                            <li>
+                                <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#vehiculos_menu" title="Vehiculos">
+                                    <i class="fas fa-car"></i> <span class="label">Vehiculos</span>
+                                    <i class="fas fa-chevron-down chevron-icon"></i>
+                                </a>
+                                <div class="collapse" id="vehiculos_menu">
+                                    <ul class="nav flex-column ms-4 submenu">
+                                        <li><a class="nav-link" href="{% url 'listar_vehiculos' %}" title="Catalogo de Vehiculos"><i class="fas fa-list"></i> <span class="label">Catalogo de Vehiculos</span></a></li>
+                                        <li><a class="nav-link" href="{% url 'listar_bitacora_vehiculos' %}" title="Bitacora de Vehiculos"><i class="fas fa-tools"></i> <span class="label">Bitacora de Vehiculos</span></a></li>
+                                    </ul>
+                                </div>
+                            </li>
                         </ul>
                     </div>
                 </li>
@@ -95,22 +107,7 @@
                 </li>
                 
                 <li class="nav-item">
-                    <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#vivienda" title="Vivienda">
-                        <i class="fas fa-home icon"></i>
-                        <span class="label">Vivienda</span>
-                        <i class="fas fa-chevron-down chevron-icon"></i>
-                    </a>
-                    <div class="collapse" id="vivienda">
-                        <ul class="nav flex-column ms-3 submenu">
-                            <li><a class="nav-link" href="#" title="Proyectos"><i class="fas fa-list"></i> <span class="label">Proyectos</span></a></li>
-                            <li><a class="nav-link" href="#" title="Reportes"><i class="fas fa-chart-bar"></i> <span class="label">Reportes</span></a></li>
-                        </ul>
-                    </div>
-                </li>
-                
-
-                <li class="nav-item">
-                    <a class="nav-link" href="#" title="Transparencia">
+                    <a class="nav-link" href="{% url 'listar_archivos_transparencia' %}" title="Transparencia">
                         <i class="fas fa-search-dollar icon"></i>
                         <span class="label">Transparencia</span>
                     </a>
@@ -127,6 +124,18 @@
                             <li><a class="nav-link" href="#" title="Configuración de Recurso"><i class="fas fa-cog"></i> <span class="label">Configuración de Recurso</span></a></li>
                         </ul>
                     </div>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'listar_tickets' %}" title="Ticket de Servicio">
+                        <i class="fas fa-ticket-alt icon"></i>
+                        <span class="label">Ticket de Servicio</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'listar_tickets_mantenimiento' %}" title="Servicio de Mantenimiento">
+                        <i class="fas fa-tools icon"></i>
+                        <span class="label">Servicio de Mantenimiento</span>
+                    </a>
                 </li>
                 {% if user.is_authenticated and user.usuario_sistema.rol == 'admin' %}
                 <li class="nav-item">
@@ -194,31 +203,34 @@
                             <i class="fas fa-users"></i>
                         </div>
                         <h5 class="card-title">Empleados</h5>
-                        <p class="stat-number">0</p>
+                        <p class="stat-number">{{ total_empleados }}</p>
                     </div>
                 </div>
             </div>
             
             <div class="col-md-3 mb-3">
+                <a href="{% url 'listar_tickets_mantenimiento' %}" class="text-decoration-none text-reset">
                 <div class="card stat-card">
                     <div class="card-body">
                         <div class="stat-icon" style="background: rgba(188, 149, 92, 0.1); color: #bc955c;">
-                            <i class="fas fa-home"></i>
+                            <i class="fas fa-tools"></i>
                         </div>
-                        <h5 class="card-title">Proyectos</h5>
-                        <p class="stat-number">0</p>
+                        <h5 class="card-title">Mantenimiento</h5>
+                        <p class="stat-number">{{ conteo_mantenimiento_total }}</p>
                     </div>
                 </div>
+                </a>
             </div>
             
             <div class="col-md-3 mb-3">
                 <div class="card stat-card">
                     <div class="card-body">
                         <div class="stat-icon" style="background: rgba(84, 86, 90, 0.1); color: #54565a;">
-                            <i class="fas fa-chart-line"></i>
+                            <i class="fas fa-exclamation-triangle"></i>
                         </div>
-                        <h5 class="card-title">Reportes</h5>
-                        <p class="stat-number">0</p>
+                        <h5 class="card-title">Pendientes MTTO</h5>
+                        <p class="stat-number">{{ conteo_mantenimiento_pendiente }}</p>
+                        <small class="text-danger">Vencidos SLA: {{ conteo_mantenimiento_vencido }}</small>
                     </div>
                 </div>
             </div>

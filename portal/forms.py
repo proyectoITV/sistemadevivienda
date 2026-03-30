@@ -2,6 +2,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from django.db import DatabaseError
+from datetime import datetime, time
+from decimal import Decimal, ROUND_HALF_UP
 
 from .models import (
 	SeguridadContactanos,
@@ -12,6 +14,7 @@ from .models import (
 	PersonalDepartamento,
 	ConfiguracionSistema,
 	UsuariosDelSistema,
+	TransparenciaGo,
 	PatrimonioBienesDelInstituto,
 	CatalogosMarcas,
 	PatrimonioClasificacionSerap,
@@ -25,6 +28,11 @@ from .models import (
 	CatalogosSexo,
 	CatalogosMunicipios,
 	CatalogosAdministraciones,
+	Vehiculos,
+	VehiculosBitacora,
+	VehiculoFoto,
+	VehiculosProveedores,
+	TicketMantenimiento,
 )
 
 
@@ -263,6 +271,10 @@ class PersonalTipoDeContratacionForm(forms.ModelForm):
 class ConfiguracionSistemaForm(forms.ModelForm):
 	"""Formulario para configuración del sistema"""
 	
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields['departamento_soporte_mantenimiento'].queryset = PersonalDepartamento.objects.filter(activo=True).order_by('departamento')
+
 	class Meta:
 		model = ConfiguracionSistema
 		fields = [
@@ -281,6 +293,7 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'logo',
 			'tiempo_sesion_minutos',
 			'duracion_intro_segundos',
+			'departamento_soporte_mantenimiento',
 		]
 		widgets = {
 			'razon_social': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Razón social'}),
@@ -298,6 +311,7 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
 			'tiempo_sesion_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5', 'max': '1440', 'step': '1'}),
 			'duracion_intro_segundos': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'max': '6', 'step': '1'}),
+			'departamento_soporte_mantenimiento': forms.Select(attrs={'class': 'form-select'}),
 		}
 		labels = {
 			'razon_social': 'Razón Social',
@@ -315,6 +329,42 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'logo': 'Logo',
 			'tiempo_sesion_minutos': 'Tiempo de sesión (Inactividad) en minutos',
 			'duracion_intro_segundos': 'Duración de Intro (Dashboard) en segundos',
+			'departamento_soporte_mantenimiento': 'Departamento de Soporte para Mantenimiento',
+		}
+
+
+class TicketMantenimientoCrearForm(forms.ModelForm):
+	class Meta:
+		model = TicketMantenimiento
+		fields = [
+			'asunto',
+			'descripcion',
+			'tipo_equipo',
+			'equipo',
+			'numero_inventario',
+			'ubicacion',
+			'prioridad',
+			'solicita_formateo',
+		]
+		widgets = {
+			'asunto': forms.TextInput(attrs={'class': 'form-control', 'maxlength': '255', 'placeholder': 'Ej: Mi computadora ya no enciende'}),
+			'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'Describe el problema, cuándo empezó y qué intentaste hacer'}),
+			'tipo_equipo': forms.Select(attrs={'class': 'form-select'}),
+			'equipo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Equipo de recepción / Laptop Dell'}),
+			'numero_inventario': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Inventario o número de serie'}),
+			'ubicacion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Planta alta, oficina 4'}),
+			'prioridad': forms.Select(attrs={'class': 'form-select'}),
+			'solicita_formateo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+		}
+		labels = {
+			'asunto': 'Asunto',
+			'descripcion': 'Descripción del problema',
+			'tipo_equipo': 'Tipo de equipo',
+			'equipo': 'Equipo',
+			'numero_inventario': 'Inventario / serie',
+			'ubicacion': 'Ubicación',
+			'prioridad': 'Prioridad',
+			'solicita_formateo': 'Posible formateo requerido',
 		}
 
 
@@ -841,3 +891,206 @@ class FerInformacionForm(forms.ModelForm):
 			if ext not in extensiones_permitidas:
 				raise ValidationError('El archivo debe ser PDF, imagen o documento Word.')
 		return archivo
+class TransparenciaArchivoUploadForm(forms.Form):
+	archivo_pdf = forms.FileField(
+		label='Archivo PDF',
+		widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf', 'required': True})
+	)
+	nombre = forms.CharField(
+		label='Nombre',
+		max_length=255,
+		widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre para publicar el archivo', 'required': True})
+	)
+	comentarios = forms.CharField(
+		label='Comentarios',
+		required=False,
+		widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Observaciones adicionales (opcional)'})
+	)
+
+	def clean_archivo_pdf(self):
+		archivo = self.cleaned_data.get('archivo_pdf')
+		if not archivo:
+			raise ValidationError('Debes seleccionar un archivo PDF.')
+
+		nombre_archivo = archivo.name.lower()
+		if not nombre_archivo.endswith('.pdf'):
+			raise ValidationError('Solo se permiten archivos con extension .pdf.')
+
+		# Limite de 20 MB para prevenir cargas excesivas
+		if archivo.size > 20 * 1024 * 1024:
+			raise ValidationError('El archivo no debe superar 20 MB.')
+
+		return archivo
+
+
+class VehiculosForm(forms.ModelForm):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		for nombre_campo, campo in self.fields.items():
+			if isinstance(campo.widget, forms.Select):
+				css = campo.widget.attrs.get('class', '')
+				campo.widget.attrs['class'] = f"{css} select2-enhanced".strip()
+
+		if 'idareaadscripcion' in self.fields:
+			self.fields['idareaadscripcion'].queryset = PersonalDepartamento.objects.filter(activo=True).order_by('departamento')
+
+		if 'idresguradante' in self.fields:
+			self.fields['idresguradante'].queryset = PersonalEmpleados.objects.filter(activo=True).order_by('nombre_completo')
+			self.fields['idresguradante'].label_from_instance = lambda obj: obj.nombre_completo
+
+	class Meta:
+		model = Vehiculos
+		fields = [
+			'num_economico',
+			'clave_marca',
+			'tipo',
+			'clave_color',
+			'modelo',
+			'placas',
+			'serie',
+			'idestatus',
+			'idareaadscripcion',
+			'idresguradante',
+			'comentario',
+			'cilindros',
+			'idpropietario',
+		]
+		widgets = {
+			'num_economico': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Numero economico'}),
+			'clave_marca': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Selecciona una marca'}),
+			'tipo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tipo de vehiculo'}),
+			'clave_color': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Selecciona un color'}),
+			'modelo': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Modelo (anio)'}),
+			'placas': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Placas'}),
+			'serie': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Serie'}),
+			'idestatus': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Selecciona estatus'}),
+			'idareaadscripcion': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Selecciona area de adscripcion'}),
+			'idresguradante': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Selecciona resguardante'}),
+			'comentario': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Comentario (opcional)'}),
+			'cilindros': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Numero de cilindros'}),
+			'idpropietario': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Selecciona propietario'}),
+		}
+		labels = {
+			'clave_color': 'Color',
+			'clave_marca': 'Marca',
+			'idestatus': 'Estatus',
+			'idareaadscripcion': 'Area de Adscripcion',
+			'idresguradante': 'Resguardante',
+		}
+
+
+class VehiculosBitacoraForm(forms.ModelForm):
+	fecha_solicitud = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
+	fecha_ejecucion = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
+
+	def __init__(self, *args, **kwargs):
+		vehiculo = kwargs.pop('vehiculo', None)
+		super().__init__(*args, **kwargs)
+		self.fields['num_economico'].queryset = self.fields['num_economico'].queryset.filter(idestatus_id=0).order_by('num_economico')
+		if vehiculo is not None:
+			self.fields['num_economico'].initial = vehiculo.pk
+			self.fields['num_economico'].queryset = self.fields['num_economico'].queryset.filter(pk=vehiculo.pk)
+		self.fields['num_economico'].widget = forms.HiddenInput()
+
+		for nombre_campo, campo in self.fields.items():
+			if isinstance(campo.widget, forms.Select):
+				css = campo.widget.attrs.get('class', '')
+				campo.widget.attrs['class'] = f"{css} select2-enhanced".strip()
+
+	class Meta:
+		model = VehiculosBitacora
+		fields = [
+			'num_economico',
+			'fecha_solicitud',
+			'fecha_ejecucion',
+			'km_prog',
+			'km_real',
+			'num_solicitud',
+			'num_factura',
+			'costo_mano_obra',
+			'costo_refaccion',
+			'importe_factura',
+			'clave_tipo_mant',
+			'clave_proveedor',
+			'descripcion',
+			'archivo_factura',
+		]
+		widgets = {
+			'num_economico': forms.HiddenInput(),
+			'fecha_solicitud': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+			'fecha_ejecucion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+			'clave_tipo_mant': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Buscar tipo de servicio...'}),
+			'km_prog': forms.NumberInput(attrs={'class': 'form-control'}),
+			'km_real': forms.NumberInput(attrs={'class': 'form-control'}),
+			'num_solicitud': forms.NumberInput(attrs={'class': 'form-control'}),
+			'num_factura': forms.TextInput(attrs={'class': 'form-control'}),
+			'clave_proveedor': forms.Select(attrs={'class': 'form-select', 'data-placeholder': 'Buscar proveedor...'}),
+			'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+			'costo_mano_obra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+			'costo_refaccion': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+			'importe_factura': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+			'archivo_factura': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.jpg,.jpeg,.png'}),
+		}
+		labels = {
+			'fecha_solicitud': 'Fecha de Solicitud',
+			'fecha_ejecucion': 'Fecha de ejecucion',
+			'km_prog': 'Km_prog',
+			'km_real': 'Km_real',
+			'num_solicitud': 'Num. de solicitud',
+			'num_factura': 'Num. de Factura',
+			'costo_mano_obra': 'Costo de mano de obra',
+			'costo_refaccion': 'Costo de refaccion',
+			'importe_factura': 'Importe factura',
+			'clave_tipo_mant': 'Tipo de Servicio',
+			'clave_proveedor': 'Proveedor',
+			'descripcion': 'Descripcion',
+			'archivo_factura': 'Archivo de Factura',
+		}
+
+	def clean_fecha_solicitud(self):
+		fecha = self.cleaned_data.get('fecha_solicitud')
+		if fecha and not isinstance(fecha, datetime):
+			return datetime.combine(fecha, time.min)
+		return fecha
+
+	def clean_fecha_ejecucion(self):
+		fecha = self.cleaned_data.get('fecha_ejecucion')
+		if fecha and not isinstance(fecha, datetime):
+			return datetime.combine(fecha, time.min)
+		return fecha
+
+	def _round_money(self, value):
+		if value is None:
+			return value
+		return Decimal(value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+	def clean_costo_mano_obra(self):
+		return self._round_money(self.cleaned_data.get('costo_mano_obra'))
+
+	def clean_costo_refaccion(self):
+		return self._round_money(self.cleaned_data.get('costo_refaccion'))
+
+	def clean_importe_factura(self):
+		return self._round_money(self.cleaned_data.get('importe_factura'))
+
+
+class VehiculoFotoForm(forms.ModelForm):
+	class Meta:
+		model = VehiculoFoto
+		fields = ['imagen', 'descripcion']
+		widgets = {
+			'imagen': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+			'descripcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descripcion (opcional)'}),
+		}
+
+
+class VehiculosProveedorForm(forms.ModelForm):
+	class Meta:
+		model = VehiculosProveedores
+		fields = ['nombre_proveedor']
+		widgets = {
+			'nombre_proveedor': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del proveedor'}),
+		}
+		labels = {
+			'nombre_proveedor': 'Proveedor',
+		}

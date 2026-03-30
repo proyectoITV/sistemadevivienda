@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" role="img" aria-label="Vehiculo sin fotografia">
+  <rect width="960" height="540" fill="#1f2126"/>
+
+  <g transform="translate(105,132)">
+    <path d="M75 270h690c34 0 60-27 60-60v-28c0-20-10-38-26-50l-78-58c-12-9-27-14-42-14H305c-22 0-42 9-56 25l-95 108H98c-31 0-56 25-56 56v18c0 30 24 54 53 54z" fill="#666"/>
+    <path d="M276 92h355c16 0 31 5 44 14l93 59H208l68-60c14-9 28-13 49-13z" fill="#666"/>
+    <rect x="220" y="108" width="188" height="55" rx="9" fill="#1f2126"/>
+    <rect x="430" y="108" width="250" height="55" rx="9" fill="#1f2126"/>
+
+    <circle cx="210" cy="270" r="69" fill="#666"/>
+    <circle cx="210" cy="270" r="34" fill="#1f2126"/>
+    <circle cx="665" cy="270" r="69" fill="#666"/>
+    <circle cx="665" cy="270" r="34" fill="#1f2126"/>
+  </g>
+</svg>

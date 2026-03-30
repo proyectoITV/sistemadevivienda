@@ -11,6 +11,8 @@ from django.utils import timezone
 from django.db import ProgrammingError, OperationalError, transaction, IntegrityError
 from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.paginator import Paginator
+from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, FileResponse
@@ -120,7 +122,7 @@ def nuestras_oficinas(request):
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import AnonymousUser
-from .models import PersonalEmpleados, RecuperacionContrasena
+from .models import PersonalEmpleados, RecuperacionContrasena, PersonalDepartamento, TransparenciaGo
 from .email_utils import enviar_correo_recuperacion
 
 
@@ -226,7 +228,522 @@ def dashboard(request):
 	# Si no hay sesión activa, redirigir al index
 	if not request.user.is_authenticated:
 		return redirect('index')
-	return render(request, 'desarrollo/web/dashboard.html')
+
+	# Indicadores rápidos
+	total_empleados = PersonalEmpleados.objects.filter(activo=True).count()
+
+	# Conteo de mantenimiento visible para el usuario
+	es_admin = _usuario_es_admin_sistema(request.user)
+	q_mantenimiento_recibidos = Q(pk__in=[])
+	if es_admin:
+		q_mantenimiento_recibidos = Q()
+	elif request.user.iddepartamento_id:
+		q_mantenimiento_recibidos = Q(departamento_soporte_id=request.user.iddepartamento_id)
+
+	qs_mantenimiento = TicketMantenimiento.objects.filter(
+		Q(solicitante=request.user) | q_mantenimiento_recibidos
+	)
+	if es_admin:
+		qs_mantenimiento = TicketMantenimiento.objects.all()
+
+	conteo_mantenimiento_total = qs_mantenimiento.count()
+	conteo_mantenimiento_pendiente = qs_mantenimiento.filter(
+		estado__in=['abierto', 'asignado', 'en_revision', 'en_reparacion', 'espera_refaccion']
+	).count()
+	conteo_mantenimiento_vencido = qs_mantenimiento.filter(
+		estado__in=['abierto', 'asignado', 'en_revision', 'en_reparacion', 'espera_refaccion'],
+		fecha_limite_sla__lt=timezone.now()
+	).count()
+
+	context = {
+		'total_empleados': total_empleados,
+		'conteo_mantenimiento_total': conteo_mantenimiento_total,
+		'conteo_mantenimiento_pendiente': conteo_mantenimiento_pendiente,
+		'conteo_mantenimiento_vencido': conteo_mantenimiento_vencido,
+	}
+	return render(request, 'desarrollo/web/dashboard.html', context)
+
+
+@login_required(login_url='login')
+def listar_archivos_transparencia(request):
+	"""Listado de archivos de transparencia con carga de nuevos PDF."""
+	if request.method == 'POST':
+		form = TransparenciaArchivoUploadForm(request.POST, request.FILES)
+		if form.is_valid():
+			with transaction.atomic():
+				ahora = timezone.localtime(timezone.now())
+				usuario_carga = getattr(request.user, 'usuario', '') or getattr(request.user, 'username', '') or 'sistema'
+				ultimo_registro = TransparenciaGo.objects.select_for_update().order_by('-id_file').first()
+				nuevo_id = (ultimo_registro.id_file if ultimo_registro else 0) + 1
+
+				# 1) Registro en BD con IdFile incremental (ultimo + 1)
+				registro = TransparenciaGo.objects.create(
+					id_file=nuevo_id,
+					file_nombre=form.cleaned_data['nombre'].strip(),
+					id_user=usuario_carga,
+					fecha=ahora.date(),
+					hora=ahora.time().replace(microsecond=0),
+					file_descripcion=form.cleaned_data.get('comentarios', '').strip(),
+				)
+
+				# 2) Renombrado dinamico usando el IdFile: Transparencia/Files/{IdFile}.pdf
+				ruta_pdf = f"Transparencia/Files/{registro.id_file}.pdf"
+				if default_storage.exists(ruta_pdf):
+					default_storage.delete(ruta_pdf)
+				default_storage.save(ruta_pdf, form.cleaned_data['archivo_pdf'])
+
+			messages.success(request, 'Archivo de transparencia cargado correctamente.')
+			return redirect('listar_archivos_transparencia')
+		messages.error(request, 'No fue posible cargar el archivo. Verifica los campos e intenta de nuevo.')
+	else:
+		form = TransparenciaArchivoUploadForm()
+
+	archivos_qs = TransparenciaGo.objects.all().order_by('-fecha', '-hora', '-id_file')
+	paginator = Paginator(archivos_qs, 10)
+	page_number = request.GET.get('page')
+	page_obj = paginator.get_page(page_number)
+
+	for archivo in page_obj.object_list:
+		fecha_hora_registro = datetime.combine(archivo.fecha, archivo.hora)
+		if timezone.is_naive(fecha_hora_registro):
+			fecha_hora_registro = timezone.make_aware(fecha_hora_registro, timezone.get_current_timezone())
+		tiempo_transcurrido = timezone.now() - fecha_hora_registro
+		archivo.puede_eliminar = tiempo_transcurrido < timedelta(hours=24)
+		limite_eliminacion = timedelta(hours=24)
+
+		if archivo.puede_eliminar:
+			tiempo_restante = limite_eliminacion - tiempo_transcurrido
+			segundos_restantes = max(0, int(tiempo_restante.total_seconds()))
+			horas_restantes = segundos_restantes // 3600
+			minutos_restantes = (segundos_restantes % 3600) // 60
+			archivo.tooltip_eliminar = (
+				f"Se puede eliminar. Tiempo restante: {horas_restantes:02d}h {minutos_restantes:02d}m"
+			)
+		else:
+			tiempo_bloqueado = tiempo_transcurrido - limite_eliminacion
+			segundos_bloqueado = max(0, int(tiempo_bloqueado.total_seconds()))
+			horas_bloqueado = segundos_bloqueado // 3600
+			minutos_bloqueado = (segundos_bloqueado % 3600) // 60
+			archivo.tooltip_eliminar = (
+				f"Eliminacion bloqueada (>=24h). Bloqueado desde hace {horas_bloqueado:02d}h {minutos_bloqueado:02d}m"
+			)
+
+		ruta_pdf = f"Transparencia/Files/{archivo.id_file}.pdf"
+		archivo.pdf_url = f"{settings.MEDIA_URL}{ruta_pdf}" if default_storage.exists(ruta_pdf) else ''
+		archivo.ruta_directa = ruta_pdf
+
+	context = {
+		'page_obj': page_obj,
+		'form_upload': form,
+		'total_archivos': archivos_qs.count(),
+	}
+	return render(request, 'desarrollo/Transparencia/listar_archivos.html', context)
+
+
+@login_required(login_url='login')
+def eliminar_archivo_transparencia(request, id_file):
+	"""Elimina archivo de transparencia solo si tiene menos de 24 horas desde su registro."""
+	if request.method != 'POST':
+		messages.error(request, 'Metodo no permitido para eliminar archivos.')
+		return redirect('listar_archivos_transparencia')
+
+	archivo = get_object_or_404(TransparenciaGo, id_file=id_file)
+	fecha_hora_registro = datetime.combine(archivo.fecha, archivo.hora)
+	if timezone.is_naive(fecha_hora_registro):
+		fecha_hora_registro = timezone.make_aware(fecha_hora_registro, timezone.get_current_timezone())
+
+	tiempo_transcurrido = timezone.now() - fecha_hora_registro
+	if tiempo_transcurrido >= timedelta(hours=24):
+		messages.warning(request, 'No se puede eliminar: el archivo tiene 24 horas o mas de antiguedad.')
+		return redirect('listar_archivos_transparencia')
+
+	ruta_pdf = f"Transparencia/Files/{archivo.id_file}.pdf"
+	with transaction.atomic():
+		archivo.delete()
+		if default_storage.exists(ruta_pdf):
+			default_storage.delete(ruta_pdf)
+
+	messages.success(request, 'Archivo eliminado correctamente.')
+	return redirect('listar_archivos_transparencia')
+
+
+# ============== MODULO DE VEHICULOS ==============
+
+@login_required(login_url='login')
+def listar_vehiculos(request):
+	from .models import Vehiculos
+
+	search = request.GET.get('search', '').strip()
+	estatus_filtro = request.GET.get('estatus', 'activos').strip().lower()
+	vehiculos = Vehiculos.objects.select_related(
+		'clave_marca',
+		'clave_color',
+		'idestatus',
+		'idpropietario',
+		'idareaadscripcion',
+		'idresguradante',
+	).all().order_by('num_economico')
+
+	# Por defecto se muestra el catalogo con unidades activas.
+	if estatus_filtro == 'activos':
+		vehiculos = vehiculos.filter(idestatus_id=0)
+	elif estatus_filtro == 'inactivos':
+		vehiculos = vehiculos.exclude(idestatus_id=0)
+
+	if search:
+		vehiculos = vehiculos.filter(
+			Q(num_economico__icontains=search) |
+			Q(tipo__icontains=search) |
+			Q(placas__icontains=search) |
+			Q(serie__icontains=search)
+		)
+
+	paginador = Paginator(vehiculos, 15)
+	page_obj = paginador.get_page(request.GET.get('page'))
+
+	return render(request, 'desarrollo/vehiculos/listar_vehiculos.html', {
+		'page_obj': page_obj,
+		'search': search,
+		'estatus_filtro': estatus_filtro,
+	})
+
+
+@login_required(login_url='login')
+def crear_vehiculo(request):
+	from .forms import VehiculosForm
+
+	if request.method == 'POST':
+		form = VehiculosForm(request.POST)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Vehiculo creado exitosamente.')
+			return redirect('listar_vehiculos')
+	else:
+		form = VehiculosForm()
+
+	return render(request, 'desarrollo/vehiculos/form_vehiculo.html', {'form': form, 'titulo': 'Nuevo Vehiculo', 'accion': 'Crear'})
+
+
+@login_required(login_url='login')
+def editar_vehiculo(request, num_economico):
+	from .models import Vehiculos, VehiculosBitacora, VehiculoFoto
+	from .forms import VehiculosForm, VehiculosBitacoraForm, VehiculoFotoForm
+
+	vehiculo = get_object_or_404(Vehiculos, num_economico=num_economico)
+	bitacoras_qs = VehiculosBitacora.objects.select_related('clave_tipo_mant', 'clave_proveedor').filter(
+		num_economico=vehiculo
+	).order_by('-clave_servicio')
+	fotos = VehiculoFoto.objects.filter(vehiculo=vehiculo).order_by('-es_principal', 'orden', '-fecha_captura')
+	paginador_bitacora = Paginator(bitacoras_qs, 10)
+	bitacoras = paginador_bitacora.get_page(request.GET.get('bitacora_page'))
+	open_bitacora_modal = False
+
+	if request.method == 'POST':
+		if request.POST.get('form_action') == 'crear_bitacora_modal':
+			bitacora_form = VehiculosBitacoraForm(request.POST, request.FILES, vehiculo=vehiculo)
+			if bitacora_form.is_valid():
+				nuevo = bitacora_form.save(commit=False)
+				identificador_empleado = (
+					getattr(request.user, 'numero_empleado', '')
+					or str(getattr(request.user, 'id_empleado', '') or '')
+					or getattr(request.user, 'usuario', '')
+					or str(request.user)
+				)
+				nuevo.act_user = str(identificador_empleado)[:50]
+				nuevo.act_fecha = timezone.localdate()
+				nuevo.act_hora = timezone.localtime().time().replace(microsecond=0)
+				nuevo.save()
+				messages.success(request, 'Bitacora agregada correctamente.')
+				return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+			open_bitacora_modal = True
+			form = VehiculosForm(instance=vehiculo)
+			foto_form = VehiculoFotoForm()
+		elif request.POST.get('form_action') == 'subir_foto_vehiculo':
+			foto_form = VehiculoFotoForm(request.POST, request.FILES)
+			if foto_form.is_valid():
+				nueva_foto = foto_form.save(commit=False)
+				nueva_foto.vehiculo = vehiculo
+				ultimo = VehiculoFoto.objects.filter(vehiculo=vehiculo).order_by('-orden').first()
+				nueva_foto.orden = (ultimo.orden + 1) if ultimo else 1
+				if not VehiculoFoto.objects.filter(vehiculo=vehiculo, es_principal=True).exists():
+					nueva_foto.es_principal = True
+				nueva_foto.save()
+				messages.success(request, 'Foto del vehiculo cargada correctamente.')
+				return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+			form = VehiculosForm(instance=vehiculo)
+			bitacora_form = VehiculosBitacoraForm(vehiculo=vehiculo)
+		elif request.POST.get('form_action') == 'reordenar_foto':
+			id_origen = request.POST.get('idfoto_origen')
+			id_destino = request.POST.get('idfoto_destino')
+			if id_origen and id_destino and id_origen != id_destino:
+				foto_origen = get_object_or_404(VehiculoFoto, idfoto=id_origen, vehiculo=vehiculo)
+				foto_destino = get_object_or_404(VehiculoFoto, idfoto=id_destino, vehiculo=vehiculo)
+				orden_origen = foto_origen.orden
+				foto_origen.orden = foto_destino.orden
+				foto_destino.orden = orden_origen
+				foto_origen.save(update_fields=['orden'])
+				foto_destino.save(update_fields=['orden'])
+				messages.success(request, 'Orden de fotos actualizado.')
+			return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+		elif request.POST.get('form_action') == 'marcar_foto_principal':
+			idfoto = request.POST.get('idfoto')
+			foto = get_object_or_404(VehiculoFoto, idfoto=idfoto, vehiculo=vehiculo)
+			VehiculoFoto.objects.filter(vehiculo=vehiculo, es_principal=True).update(es_principal=False)
+			foto.es_principal = True
+			foto.save(update_fields=['es_principal'])
+			messages.success(request, 'Foto principal actualizada.')
+			return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+		elif request.POST.get('form_action') == 'eliminar_foto_vehiculo':
+			idfoto = request.POST.get('idfoto')
+			foto = get_object_or_404(VehiculoFoto, idfoto=idfoto, vehiculo=vehiculo)
+			era_principal = foto.es_principal
+			if foto.imagen:
+				foto.imagen.delete(save=False)
+			foto.delete()
+			if era_principal:
+				siguiente = VehiculoFoto.objects.filter(vehiculo=vehiculo).order_by('-fecha_captura').first()
+				if siguiente:
+					siguiente.es_principal = True
+					siguiente.save(update_fields=['es_principal'])
+			messages.success(request, 'Foto eliminada correctamente.')
+			return redirect('editar_vehiculo', num_economico=vehiculo.num_economico)
+		else:
+			form = VehiculosForm(request.POST, instance=vehiculo)
+			if form.is_valid():
+				form.save()
+				messages.success(request, 'Vehiculo actualizado exitosamente.')
+				return redirect('listar_vehiculos')
+			bitacora_form = VehiculosBitacoraForm(vehiculo=vehiculo)
+			foto_form = VehiculoFotoForm()
+	else:
+		form = VehiculosForm(instance=vehiculo)
+		bitacora_form = VehiculosBitacoraForm(vehiculo=vehiculo)
+		foto_form = VehiculoFotoForm()
+
+	return render(request, 'desarrollo/vehiculos/form_vehiculo.html', {
+		'form': form,
+		'vehiculo': vehiculo,
+		'bitacoras': bitacoras,
+		'fotos': fotos,
+		'foto_form': foto_form,
+		'bitacora_form': bitacora_form,
+		'open_bitacora_modal': open_bitacora_modal,
+		'titulo': 'Editar Vehiculo',
+		'accion': 'Guardar cambios',
+	})
+
+
+@login_required(login_url='login')
+def imprimir_bitacoras_vehiculo(request, num_economico):
+	from .models import Vehiculos, VehiculosBitacora
+
+	vehiculo = get_object_or_404(Vehiculos, num_economico=num_economico)
+	registros = VehiculosBitacora.objects.select_related('clave_tipo_mant', 'clave_proveedor').filter(
+		num_economico=vehiculo
+	).order_by('-clave_servicio')
+
+	return render(request, 'desarrollo/vehiculos/imprimir_bitacoras_vehiculo.html', {
+		'vehiculo': vehiculo,
+		'registros': registros,
+	})
+
+
+@login_required(login_url='login')
+def imprimir_bitacora_detalle(request, clave_servicio):
+	from .models import VehiculosBitacora, PersonalEmpleados
+
+	registro = get_object_or_404(
+		VehiculosBitacora.objects.select_related('num_economico', 'clave_tipo_mant', 'clave_proveedor'),
+		clave_servicio=clave_servicio
+	)
+
+	capturista_nombre = 'Usuario del sistema'
+	act_user = (registro.act_user or '').strip()
+	if act_user:
+		empleado_capturista = PersonalEmpleados.objects.filter(numero_empleado=act_user).first()
+		if empleado_capturista is None and act_user.isdigit():
+			empleado_capturista = PersonalEmpleados.objects.filter(id_empleado=int(act_user)).first()
+		if empleado_capturista:
+			capturista_nombre = empleado_capturista.nombre_completo
+		else:
+			capturista_nombre = act_user
+
+	jefe_departamento = (
+		PersonalEmpleados.objects
+		.filter(
+			activo=True,
+			iddepartamento_id=53,
+			idpuesto__nombre__icontains='Jefe de Departamento',
+		)
+		.order_by('nombre_completo')
+		.first()
+	)
+	vobo_nombre = jefe_departamento.nombre_completo if jefe_departamento else '-'
+
+	return render(request, 'desarrollo/vehiculos/imprimir_bitacora_detalle.html', {
+		'registro': registro,
+		'capturista_nombre': capturista_nombre,
+		'vobo_nombre': vobo_nombre,
+	})
+
+
+@login_required(login_url='login')
+def listar_bitacora_vehiculos(request):
+	from .models import VehiculosBitacora, Vehiculos
+
+	search = request.GET.get('search', '').strip()
+	registros = VehiculosBitacora.objects.select_related('num_economico', 'clave_tipo_mant', 'clave_proveedor').all().order_by('-clave_servicio')
+	vehiculos_activos = Vehiculos.objects.filter(idestatus_id=0).order_by('num_economico')
+
+	if search:
+		registros = registros.filter(
+			Q(num_economico__num_economico__icontains=search) |
+			Q(num_factura__icontains=search) |
+			Q(descripcion__icontains=search)
+		)
+
+	paginador = Paginator(registros, 12)
+	page_obj = paginador.get_page(request.GET.get('page'))
+
+	return render(request, 'desarrollo/vehiculos/listar_bitacora.html', {
+		'page_obj': page_obj,
+		'search': search,
+		'vehiculos_activos': vehiculos_activos,
+	})
+
+
+@login_required(login_url='login')
+def crear_bitacora_vehiculo(request):
+	from .models import Vehiculos
+	from .forms import VehiculosBitacoraForm
+
+	vehiculo_id = request.GET.get('num_economico') or request.POST.get('num_economico')
+	if not vehiculo_id:
+		messages.warning(request, 'Selecciona primero el vehiculo al que deseas agregar la bitacora.')
+		return redirect('listar_bitacora_vehiculos')
+
+	vehiculo = get_object_or_404(Vehiculos, num_economico=vehiculo_id)
+
+	if vehiculo is None:
+		messages.error(request, 'No hay automoviles activos disponibles para generar bitacora.')
+		return redirect('listar_vehiculos')
+
+	if request.method == 'POST':
+		form = VehiculosBitacoraForm(request.POST, request.FILES, vehiculo=vehiculo)
+		if form.is_valid():
+			nuevo = form.save(commit=False)
+			identificador_empleado = (
+				getattr(request.user, 'numero_empleado', '')
+				or str(getattr(request.user, 'id_empleado', '') or '')
+				or getattr(request.user, 'usuario', '')
+				or str(request.user)
+			)
+			nuevo.act_user = str(identificador_empleado)[:50]
+			nuevo.act_fecha = timezone.localdate()
+			nuevo.act_hora = timezone.localtime().time().replace(microsecond=0)
+			nuevo.save()
+			messages.success(request, 'Registro de bitacora creado exitosamente.')
+			next_url = request.POST.get('next', '').strip()
+			if next_url:
+				return redirect(next_url)
+			return redirect('listar_bitacora_vehiculos')
+	else:
+		form = VehiculosBitacoraForm(vehiculo=vehiculo)
+
+	return render(request, 'desarrollo/vehiculos/form_bitacora.html', {
+		'form': form,
+		'vehiculo': vehiculo,
+		'titulo': 'Nueva Bitacora de Vehiculo',
+		'accion': 'Crear',
+	})
+
+
+@login_required(login_url='login')
+def editar_bitacora_vehiculo(request, clave_servicio):
+	from .models import VehiculosBitacora
+	from .forms import VehiculosBitacoraForm
+
+	registro = get_object_or_404(VehiculosBitacora, clave_servicio=clave_servicio)
+
+	if request.method == 'POST':
+		form = VehiculosBitacoraForm(request.POST, request.FILES, instance=registro, vehiculo=registro.num_economico)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Registro de bitacora actualizado exitosamente.')
+			return redirect('listar_bitacora_vehiculos')
+	else:
+		form = VehiculosBitacoraForm(instance=registro, vehiculo=registro.num_economico)
+
+	return render(request, 'desarrollo/vehiculos/form_bitacora.html', {
+		'form': form,
+		'registro': registro,
+		'vehiculo': registro.num_economico,
+		'titulo': 'Editar Bitacora de Vehiculo',
+		'accion': 'Guardar cambios',
+	})
+
+
+@login_required(login_url='login')
+def listar_proveedores_vehiculos(request):
+	from .models import VehiculosProveedores
+
+	search = request.GET.get('search', '').strip()
+	proveedores = VehiculosProveedores.objects.all().order_by('clave_proveedor')
+	if search:
+		proveedores = proveedores.filter(nombre_proveedor__icontains=search)
+
+	return render(request, 'desarrollo/vehiculos/listar_proveedores_vehiculos.html', {
+		'proveedores': proveedores,
+		'search': search,
+	})
+
+
+@login_required(login_url='login')
+def crear_proveedor_vehiculo(request):
+	from .models import VehiculosProveedores
+	from .forms import VehiculosProveedorForm
+
+	if request.method == 'POST':
+		form = VehiculosProveedorForm(request.POST)
+		if form.is_valid():
+			nuevo = form.save(commit=False)
+			ultimo = VehiculosProveedores.objects.order_by('-clave_proveedor').first()
+			nuevo.clave_proveedor = (ultimo.clave_proveedor + 1) if ultimo else 1
+			nuevo.save()
+			messages.success(request, 'Proveedor de vehiculo agregado correctamente.')
+			return redirect('listar_proveedores_vehiculos')
+	else:
+		form = VehiculosProveedorForm()
+
+	return render(request, 'desarrollo/vehiculos/form_proveedor_vehiculo.html', {
+		'form': form,
+		'titulo': 'Nuevo Proveedor de Vehiculo',
+		'accion': 'Crear',
+	})
+
+
+@login_required(login_url='login')
+def editar_proveedor_vehiculo(request, clave_proveedor):
+	from .models import VehiculosProveedores
+	from .forms import VehiculosProveedorForm
+
+	proveedor = get_object_or_404(VehiculosProveedores, clave_proveedor=clave_proveedor)
+
+	if request.method == 'POST':
+		form = VehiculosProveedorForm(request.POST, instance=proveedor)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Proveedor de vehiculo actualizado correctamente.')
+			return redirect('listar_proveedores_vehiculos')
+	else:
+		form = VehiculosProveedorForm(instance=proveedor)
+
+	return render(request, 'desarrollo/vehiculos/form_proveedor_vehiculo.html', {
+		'form': form,
+		'proveedor': proveedor,
+		'titulo': 'Editar Proveedor de Vehiculo',
+		'accion': 'Guardar cambios',
+	})
 
 
 def recuperar_contrasena(request):
@@ -332,6 +849,7 @@ from .forms import (
 	PersonalDepartamentoForm,
 	PersonalPuestosForm,
 	PersonalTipoDeContratacionForm,
+	TransparenciaArchivoUploadForm,
 )
 
 
@@ -1020,13 +1538,50 @@ def configuracion_sistema(request):
 	
 	# Obtener o crear configuración
 	config, created = ConfiguracionSistema.objects.get_or_create(pk=1)
+
+	def _aplicar_departamento_soporte_desde_post(configuracion, post_data):
+		"""Aplica y guarda el departamento de soporte desde POST de forma independiente."""
+		if 'departamento_soporte_mantenimiento' not in post_data:
+			return False
+
+		dept_id = (post_data.get('departamento_soporte_mantenimiento') or '').strip()
+
+		if dept_id == '':
+			if configuracion.departamento_soporte_mantenimiento_id is not None:
+				configuracion.departamento_soporte_mantenimiento = None
+				configuracion.save(update_fields=['departamento_soporte_mantenimiento', 'fecha_modificacion'])
+				return True
+			return False
+
+		try:
+			departamento = PersonalDepartamento.objects.get(iddepartamento=dept_id, activo=True)
+		except PersonalDepartamento.DoesNotExist:
+			return False
+
+		if configuracion.departamento_soporte_mantenimiento_id != departamento.iddepartamento:
+			configuracion.departamento_soporte_mantenimiento = departamento
+			configuracion.save(update_fields=['departamento_soporte_mantenimiento', 'fecha_modificacion'])
+			return True
+
+		return False
 	
 	if request.method == 'POST':
+		cambios_departamento_soporte = _aplicar_departamento_soporte_desde_post(config, request.POST)
+		# Asegurar que el form use la instancia más reciente (incluyendo guardado parcial)
+		if cambios_departamento_soporte:
+			config.refresh_from_db()
+
 		form = ConfiguracionSistemaForm(request.POST, request.FILES, instance=config)
 		if form.is_valid():
 			form.save()
 			messages.success(request, 'Configuración del sistema actualizada exitosamente.')
 			return redirect('configuracion_sistema')
+		else:
+			if cambios_departamento_soporte:
+				messages.warning(
+					request,
+					'Se guardó el Departamento de Soporte para Mantenimiento, pero hay otros campos con errores por corregir.'
+				)
 	else:
 		form = ConfiguracionSistemaForm(instance=config)
 
@@ -2442,3 +2997,694 @@ def importar_proveedores_excel(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+# ================================================================
+#  MÓDULO: TICKET DE SERVICIO
+# ================================================================
+
+from .models import TicketServicio, TicketServicioArchivo, TicketServicioComentario
+import mimetypes
+import os
+
+
+def _usuario_puede_ver_ticket(user, ticket):
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'id_empleado', None) == ticket.emisor_id:
+        return True
+    if ticket.departamento_destino_id and getattr(user, 'iddepartamento_id', None) == ticket.departamento_destino_id:
+        return True
+    # Compatibilidad con tickets antiguos dirigidos a un receptor específico
+    if ticket.receptor_id and getattr(user, 'id_empleado', None) == ticket.receptor_id:
+        return True
+    return _usuario_es_admin_sistema(user)
+
+
+def _usuario_en_departamento_destino(user, ticket):
+    return bool(
+        ticket.departamento_destino_id and
+        getattr(user, 'iddepartamento_id', None) == ticket.departamento_destino_id
+    )
+
+
+@login_required
+def listar_tickets(request):
+    """Lista tickets enviados por el usuario o recibidos por su departamento."""
+    tab = request.GET.get('tab', 'todos')
+    estado = request.GET.get('estado', '')
+    prioridad = request.GET.get('prioridad', '')
+    busqueda = request.GET.get('q', '').strip()
+
+    q_recibidos = Q(pk__in=[])
+    if request.user.iddepartamento_id:
+        q_recibidos = Q(departamento_destino_id=request.user.iddepartamento_id)
+
+    # Compatibilidad con registros legacy que aún usan receptor directo
+    q_recibidos = q_recibidos | Q(receptor=request.user)
+
+    qs_todos = TicketServicio.objects.select_related(
+        'emisor', 'receptor', 'departamento_destino', 'atendido_por'
+    ).filter(
+        Q(emisor=request.user) | q_recibidos
+    )
+
+    if tab == 'enviados':
+        qs = qs_todos.filter(emisor=request.user)
+    elif tab == 'recibidos':
+        qs = qs_todos.filter(q_recibidos)
+    else:
+        qs = qs_todos
+
+    if estado:
+        qs = qs.filter(estado=estado)
+    if prioridad:
+        qs = qs.filter(prioridad=prioridad)
+    if busqueda:
+        qs = qs.filter(
+            Q(asunto__icontains=busqueda) |
+            Q(descripcion__icontains=busqueda) |
+            Q(emisor__nombre_completo__icontains=busqueda) |
+            Q(receptor__nombre_completo__icontains=busqueda) |
+            Q(departamento_destino__departamento__icontains=busqueda)
+        )
+
+    # Contadores para las pestañas
+    conteo_todos      = qs_todos.count()
+    conteo_enviados   = qs_todos.filter(emisor=request.user).count()
+    conteo_recibidos  = qs_todos.filter(q_recibidos).count()
+    conteo_pendientes = qs_todos.filter(
+        q_recibidos, estado__in=['abierto', 'en_proceso', 'en_espera']
+    ).count()
+
+    return render(request, 'desarrollo/web/tickets/listar_tickets.html', {
+        'tickets': qs.order_by('-fecha_creacion'),
+        'tab': tab,
+        'estado': estado,
+        'prioridad': prioridad,
+        'busqueda': busqueda,
+        'conteo_todos': conteo_todos,
+        'conteo_enviados': conteo_enviados,
+        'conteo_recibidos': conteo_recibidos,
+        'conteo_pendientes': conteo_pendientes,
+        'estados': TicketServicio.ESTADO_CHOICES,
+        'prioridades': TicketServicio.PRIORIDAD_CHOICES,
+    })
+
+
+@login_required
+def crear_ticket(request):
+    """Crear un nuevo ticket dirigido a un departamento con archivos adjuntos."""
+    departamentos = PersonalDepartamento.objects.filter(activo=True).order_by('departamento')
+
+    if request.method == 'POST':
+        asunto          = request.POST.get('asunto', '').strip()
+        descripcion     = request.POST.get('descripcion', '').strip()
+        categoria       = request.POST.get('categoria', 'solicitud')
+        prioridad       = request.POST.get('prioridad', 'normal')
+        departamento_id = request.POST.get('departamento_destino')
+        fecha_venc      = request.POST.get('fecha_vencimiento') or None
+        archivos        = request.FILES.getlist('archivos')
+
+        errores = []
+        if not asunto:
+            errores.append('El asunto es obligatorio.')
+        if not descripcion:
+            errores.append('La descripción es obligatoria.')
+        if not departamento_id:
+            errores.append('Debes seleccionar un departamento destino.')
+
+        if not errores:
+            try:
+                departamento = PersonalDepartamento.objects.get(iddepartamento=departamento_id, activo=True)
+
+                ticket = TicketServicio.objects.create(
+                    asunto=asunto,
+                    descripcion=descripcion,
+                    categoria=categoria,
+                    prioridad=prioridad,
+                    emisor=request.user,
+                    departamento_destino=departamento,
+                    fecha_vencimiento=fecha_venc,
+                )
+
+                for f in archivos:
+                    mime_type, _ = mimetypes.guess_type(f.name)
+                    TicketServicioArchivo.objects.create(
+                        ticket=ticket,
+                        archivo=f,
+                        nombre_original=f.name,
+                        tamanio=f.size,
+                        tipo_mime=mime_type or '',
+                        subido_por=request.user,
+                    )
+
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje=f'Ticket creado y enviado al departamento {departamento.departamento}.',
+                    cambio_estado='abierto',
+                )
+
+                messages.success(request, f'Ticket #{ticket.id_ticket} creado exitosamente.')
+                return redirect('ver_ticket', id_ticket=ticket.id_ticket)
+
+            except PersonalDepartamento.DoesNotExist:
+                errores.append('El departamento seleccionado no existe o está inactivo.')
+            except Exception as e:
+                errores.append(f'Error al crear el ticket: {str(e)}')
+
+        for err in errores:
+            messages.error(request, err)
+
+    return render(request, 'desarrollo/web/tickets/crear_ticket.html', {
+        'departamentos': departamentos,
+        'categorias': TicketServicio.CATEGORIA_CHOICES,
+        'prioridades': TicketServicio.PRIORIDAD_CHOICES,
+        'today': timezone.localdate(),
+    })
+
+
+@login_required
+def ver_ticket(request, id_ticket):
+    """Detalle completo del ticket con actividad y archivos."""
+    ticket = get_object_or_404(
+        TicketServicio.objects.select_related('emisor', 'receptor', 'departamento_destino', 'atendido_por'),
+        id_ticket=id_ticket
+    )
+
+    if not _usuario_puede_ver_ticket(request.user, ticket):
+        messages.error(request, 'No tienes acceso a este ticket.')
+        return redirect('listar_tickets')
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+
+        if accion == 'comentar':
+            mensaje  = request.POST.get('mensaje', '').strip()
+            archivos = request.FILES.getlist('archivos')
+            if mensaje:
+                if _usuario_en_departamento_destino(request.user, ticket) and not ticket.atendido_por_id:
+                    ticket.atendido_por = request.user
+                    if ticket.estado == 'abierto':
+                        ticket.estado = 'en_proceso'
+                    ticket.save(update_fields=['atendido_por', 'estado', 'fecha_actualizacion'])
+
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje=mensaje,
+                )
+                for f in archivos:
+                    mime_type, _ = mimetypes.guess_type(f.name)
+                    TicketServicioArchivo.objects.create(
+                        ticket=ticket,
+                        archivo=f,
+                        nombre_original=f.name,
+                        tamanio=f.size,
+                        tipo_mime=mime_type or '',
+                        subido_por=request.user,
+                    )
+                messages.success(request, 'Comentario agregado.')
+            else:
+                messages.error(request, 'El comentario no puede estar vacío.')
+
+        elif accion == 'tomar_ticket':
+            if not _usuario_en_departamento_destino(request.user, ticket):
+                messages.error(request, 'Solo personal del departamento destino puede tomar el ticket.')
+            else:
+                ticket.atendido_por = request.user
+                if ticket.estado == 'abierto':
+                    ticket.estado = 'en_proceso'
+                ticket.save()
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje='Ticket tomado para atención.',
+                )
+                messages.success(request, 'Ticket asignado a tu atención.')
+
+        elif accion == 'cambiar_estado':
+            nuevo_estado    = request.POST.get('nuevo_estado')
+            estados_validos = [s[0] for s in TicketServicio.ESTADO_CHOICES]
+            if nuevo_estado in estados_validos:
+                estado_anterior = ticket.get_estado_display()
+                ticket.estado   = nuevo_estado
+                if nuevo_estado == 'resuelto':
+                    ticket.fecha_resolucion = timezone.now()
+                ticket.save()
+                nota = request.POST.get('nota_cambio', '').strip()
+                msg  = nota if nota else f'Estado cambiado a: {ticket.get_estado_display()}'
+                TicketServicioComentario.objects.create(
+                    ticket=ticket,
+                    autor=request.user,
+                    mensaje=msg,
+                    cambio_estado=estado_anterior,
+                )
+                messages.success(request, f'Estado actualizado a: {ticket.get_estado_display()}')
+            else:
+                messages.error(request, 'Estado no válido.')
+
+        return redirect('ver_ticket', id_ticket=id_ticket)
+
+    comentarios = ticket.comentarios.select_related('autor').order_by('fecha')
+    archivos    = ticket.archivos.select_related('subido_por').order_by('fecha_subida')
+
+    return render(request, 'desarrollo/web/tickets/ver_ticket.html', {
+        'ticket': ticket,
+        'comentarios': comentarios,
+        'archivos': archivos,
+        'estados': TicketServicio.ESTADO_CHOICES,
+        'es_emisor': request.user.id_empleado == ticket.emisor.id_empleado,
+        'es_receptor': _usuario_en_departamento_destino(request.user, ticket),
+        'puede_tomar_ticket': _usuario_en_departamento_destino(request.user, ticket),
+    })
+
+
+@login_required
+def descargar_archivo_ticket(request, id_archivo):
+    """Descarga un archivo adjunto de un ticket."""
+    archivo = get_object_or_404(TicketServicioArchivo, id_archivo=id_archivo)
+    ticket  = archivo.ticket
+
+    if not _usuario_puede_ver_ticket(request.user, ticket):
+        messages.error(request, 'No tienes permiso para descargar este archivo.')
+        return redirect('listar_tickets')
+
+    try:
+        response = FileResponse(
+            archivo.archivo.open('rb'),
+            as_attachment=True,
+            filename=archivo.nombre_original,
+        )
+        return response
+    except Exception:
+        messages.error(request, 'No se pudo descargar el archivo.')
+        return redirect('ver_ticket', id_ticket=ticket.id_ticket)
+
+
+@login_required
+def eliminar_archivo_ticket(request, id_archivo):
+    """Elimina un archivo adjunto (solo el que lo subió)."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    archivo = get_object_or_404(TicketServicioArchivo, id_archivo=id_archivo)
+
+    if archivo.subido_por and archivo.subido_por.id_empleado != request.user.id_empleado:
+        return JsonResponse({'success': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        if archivo.archivo and os.path.isfile(archivo.archivo.path):
+            os.remove(archivo.archivo.path)
+        archivo.delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ================================================================
+#  MÓDULO: SERVICIO DE MANTENIMIENTO
+# ================================================================
+
+from .models import ConfiguracionSistema, TicketMantenimiento, TicketMantenimientoArchivo, TicketMantenimientoSeguimiento
+from .forms import TicketMantenimientoCrearForm
+from .email_utils import enviar_notificacion_mantenimiento
+
+
+def _obtener_departamento_soporte_mantenimiento():
+	config = ConfiguracionSistema.objects.first()
+	departamento = getattr(config, 'departamento_soporte_mantenimiento', None)
+	if departamento and departamento.activo:
+		return departamento
+
+	return PersonalDepartamento.objects.filter(
+		activo=True,
+		departamento__icontains='soporte'
+	).order_by('departamento').first()
+
+
+def _usuario_puede_ver_ticket_mantenimiento(user, ticket):
+	if not getattr(user, 'is_authenticated', False):
+		return False
+	if getattr(user, 'id_empleado', None) == ticket.solicitante_id:
+		return True
+	if ticket.departamento_soporte_id and getattr(user, 'iddepartamento_id', None) == ticket.departamento_soporte_id:
+		return True
+	return _usuario_es_admin_sistema(user)
+
+
+def _usuario_es_soporte_mantenimiento(user, ticket):
+	return bool(
+		ticket.departamento_soporte_id and
+		getattr(user, 'iddepartamento_id', None) == ticket.departamento_soporte_id
+	)
+
+
+def _notificar_area_soporte(ticket, resumen):
+	soporte_qs = PersonalEmpleados.objects.filter(
+		activo=True,
+		iddepartamento=ticket.departamento_soporte,
+	).exclude(email='').values_list('email', 'id_empleado', 'nombre_completo')
+
+	for email, id_empleado, nombre_completo in soporte_qs:
+		enviar_notificacion_mantenimiento(
+			ticket,
+			email,
+			'Nuevo ticket recibido',
+			resumen,
+			id_empleado=id_empleado,
+			nombre_destinatario=nombre_completo,
+		)
+
+
+@login_required
+def listar_tickets_mantenimiento(request):
+	tab = request.GET.get('tab')
+	estado = request.GET.get('estado', '')
+	prioridad = request.GET.get('prioridad', '')
+	busqueda = request.GET.get('q', '').strip()
+	es_admin = _usuario_es_admin_sistema(request.user)
+
+	q_recibidos = Q(pk__in=[])
+	if es_admin:
+		q_recibidos = Q()
+		qs_todos = TicketMantenimiento.objects.select_related(
+			'solicitante', 'departamento_solicitante', 'departamento_soporte', 'atendido_por'
+		)
+	else:
+		if request.user.iddepartamento_id:
+			q_recibidos = Q(departamento_soporte_id=request.user.iddepartamento_id)
+		qs_todos = TicketMantenimiento.objects.select_related(
+			'solicitante', 'departamento_solicitante', 'departamento_soporte', 'atendido_por'
+		).filter(
+			Q(solicitante=request.user) | q_recibidos
+		)
+
+	if not tab:
+		es_soporte_con_tickets = bool(
+			request.user.iddepartamento_id and qs_todos.filter(departamento_soporte_id=request.user.iddepartamento_id).exists()
+		)
+		tab = 'recibidos' if (es_admin or es_soporte_con_tickets) else 'todos'
+
+	if tab == 'solicitados':
+		qs = qs_todos.filter(solicitante=request.user)
+	elif tab == 'recibidos':
+		qs = qs_todos.filter(q_recibidos)
+	else:
+		qs = qs_todos
+
+	if estado:
+		qs = qs.filter(estado=estado)
+	if prioridad:
+		qs = qs.filter(prioridad=prioridad)
+	if busqueda:
+		qs = qs.filter(
+			Q(asunto__icontains=busqueda) |
+			Q(descripcion__icontains=busqueda) |
+			Q(equipo__icontains=busqueda) |
+			Q(numero_inventario__icontains=busqueda) |
+			Q(solicitante__nombre_completo__icontains=busqueda) |
+			Q(departamento_solicitante__departamento__icontains=busqueda)
+		)
+
+	return render(request, 'desarrollo/web/mantenimiento/listar_tickets_mantenimiento.html', {
+		'tickets': qs.order_by('-fecha_creacion'),
+		'tab': tab,
+		'estado': estado,
+		'prioridad': prioridad,
+		'busqueda': busqueda,
+		'conteo_todos': qs_todos.count(),
+		'conteo_solicitados': qs_todos.filter(solicitante=request.user).count(),
+		'conteo_recibidos': qs_todos.filter(q_recibidos).count(),
+		'conteo_pendientes': qs_todos.filter(q_recibidos, estado__in=['abierto', 'asignado', 'en_revision', 'en_reparacion', 'espera_refaccion']).count(),
+		'estados': TicketMantenimiento.ESTADO_CHOICES,
+		'prioridades': TicketMantenimiento.PRIORIDAD_CHOICES,
+		'es_soporte': es_admin or bool(request.user.iddepartamento_id and qs_todos.filter(departamento_soporte_id=request.user.iddepartamento_id).exists()),
+	})
+
+
+@login_required
+def crear_ticket_mantenimiento(request):
+	departamento_soporte = _obtener_departamento_soporte_mantenimiento()
+	if not departamento_soporte:
+		messages.error(request, 'No hay un departamento de soporte configurado. Solicita al administrador definirlo en Configuración del Sistema.')
+		return redirect('listar_tickets_mantenimiento')
+
+	if request.method == 'POST':
+		form = TicketMantenimientoCrearForm(request.POST)
+		archivos = request.FILES.getlist('archivos')
+		if form.is_valid():
+			ticket = form.save(commit=False)
+			ticket.solicitante = request.user
+			ticket.departamento_solicitante = request.user.iddepartamento
+			ticket.departamento_soporte = departamento_soporte
+			ticket.sla_horas_objetivo = TicketMantenimiento.SLA_HORAS_POR_PRIORIDAD.get(ticket.prioridad, 48)
+			ticket.fecha_limite_sla = timezone.now() + timedelta(hours=ticket.sla_horas_objetivo)
+			ticket.save()
+
+			for f in archivos:
+				mime_type, _ = mimetypes.guess_type(f.name)
+				TicketMantenimientoArchivo.objects.create(
+					ticket=ticket,
+					archivo=f,
+					nombre_original=f.name,
+					tamanio=f.size,
+					tipo_mime=mime_type or '',
+					subido_por=request.user,
+				)
+
+			TicketMantenimientoSeguimiento.objects.create(
+				ticket=ticket,
+				autor=request.user,
+				tipo='notificacion',
+				mensaje=f'Ticket creado y enviado al departamento {departamento_soporte.departamento}.',
+			)
+
+			_notificar_area_soporte(ticket, 'Se registró una nueva solicitud de mantenimiento.')
+
+			messages.success(request, f'Ticket de mantenimiento #{ticket.id_ticket_mantenimiento} creado exitosamente.')
+			return redirect('ver_ticket_mantenimiento', id_ticket_mantenimiento=ticket.id_ticket_mantenimiento)
+	else:
+		form = TicketMantenimientoCrearForm()
+
+	return render(request, 'desarrollo/web/mantenimiento/crear_ticket_mantenimiento.html', {
+		'form': form,
+		'departamento_soporte': departamento_soporte,
+	})
+
+
+@login_required
+def ver_ticket_mantenimiento(request, id_ticket_mantenimiento):
+	ticket = get_object_or_404(
+		TicketMantenimiento.objects.select_related(
+			'solicitante', 'departamento_solicitante', 'departamento_soporte', 'atendido_por'
+		),
+		id_ticket_mantenimiento=id_ticket_mantenimiento,
+	)
+
+	if not _usuario_puede_ver_ticket_mantenimiento(request.user, ticket):
+		messages.error(request, 'No tienes acceso a este ticket de mantenimiento.')
+		return redirect('listar_tickets_mantenimiento')
+
+	es_admin = _usuario_es_admin_sistema(request.user)
+	es_soporte = _usuario_es_soporte_mantenimiento(request.user, ticket)
+
+	if request.method == 'POST':
+		accion = request.POST.get('accion')
+
+		if accion == 'comentar':
+			mensaje = request.POST.get('mensaje', '').strip()
+			archivos = request.FILES.getlist('archivos')
+			notificar_solicitante = request.POST.get('notificar_solicitante') == 'on'
+
+			if not mensaje:
+				messages.error(request, 'El comentario no puede estar vacío.')
+				return redirect('ver_ticket_mantenimiento', id_ticket_mantenimiento=id_ticket_mantenimiento)
+
+			if es_soporte and not ticket.atendido_por_id:
+				ticket.atendido_por = request.user
+				if ticket.estado == 'abierto':
+					ticket.estado = 'asignado'
+				ticket.save(update_fields=['atendido_por', 'estado', 'fecha_actualizacion'])
+
+			TicketMantenimientoSeguimiento.objects.create(
+				ticket=ticket,
+				autor=request.user,
+				tipo='comentario',
+				mensaje=mensaje,
+				notificar_solicitante=notificar_solicitante,
+			)
+
+			for f in archivos:
+				mime_type, _ = mimetypes.guess_type(f.name)
+				TicketMantenimientoArchivo.objects.create(
+					ticket=ticket,
+					archivo=f,
+					nombre_original=f.name,
+					tamanio=f.size,
+					tipo_mime=mime_type or '',
+					subido_por=request.user,
+				)
+
+			if es_soporte and notificar_solicitante:
+				enviar_notificacion_mantenimiento(ticket, ticket.solicitante.email, 'Nueva actualización', mensaje, id_empleado=ticket.solicitante_id)
+
+			messages.success(request, 'Actualización agregada al ticket.')
+
+		elif accion == 'tomar_ticket':
+			if not es_soporte:
+				messages.error(request, 'Solo el personal de soporte puede tomar este ticket.')
+			else:
+				ticket.atendido_por = request.user
+				if ticket.estado == 'abierto':
+					ticket.estado = 'asignado'
+				ticket.save()
+				TicketMantenimientoSeguimiento.objects.create(
+					ticket=ticket,
+					autor=request.user,
+					tipo='estado',
+					mensaje='El ticket fue tomado por personal de soporte.',
+				)
+				messages.success(request, 'Ticket asignado a tu atención.')
+
+		elif accion == 'registrar_intervencion':
+			if not es_soporte:
+				messages.error(request, 'Solo el personal de soporte puede registrar intervenciones.')
+			else:
+				trabajo_realizado = request.POST.get('trabajo_realizado', '').strip()
+				piezas_instaladas = request.POST.get('piezas_instaladas', '').strip()
+				nuevo_estado = request.POST.get('nuevo_estado', ticket.estado)
+				retirar_equipo = request.POST.get('equipo_retirado') == 'on'
+				notificar_solicitante = request.POST.get('notificar_solicitante') == 'on'
+
+				estado_anterior = ticket.get_estado_display()
+				hubo_cambio_estado = nuevo_estado in dict(TicketMantenimiento.ESTADO_CHOICES) and nuevo_estado != ticket.estado
+				ticket.atendido_por = request.user
+				ticket.trabajo_realizado = trabajo_realizado or ticket.trabajo_realizado
+				ticket.piezas_instaladas = piezas_instaladas or ticket.piezas_instaladas
+				ticket.equipo_retirado = retirar_equipo
+				if retirar_equipo:
+					ticket.fecha_retiro_equipo = ticket.fecha_retiro_equipo or timezone.now()
+				if nuevo_estado in dict(TicketMantenimiento.ESTADO_CHOICES):
+					ticket.estado = nuevo_estado
+				if nuevo_estado == 'resuelto':
+					ticket.fecha_resolucion = timezone.now()
+				if nuevo_estado in ['entregado', 'cerrado']:
+					ticket.fecha_entrega_equipo = timezone.now()
+					ticket.solucion_confirmada = True
+				ticket.save()
+
+				resumen = trabajo_realizado or 'Se registró una intervención técnica.'
+				TicketMantenimientoSeguimiento.objects.create(
+					ticket=ticket,
+					autor=request.user,
+					tipo='intervencion',
+					mensaje=resumen,
+					trabajo_realizado=trabajo_realizado,
+					piezas_instaladas=piezas_instaladas,
+					cambio_estado=estado_anterior if hubo_cambio_estado else '',
+					notificar_solicitante=notificar_solicitante,
+				)
+
+				if notificar_solicitante:
+					enviar_notificacion_mantenimiento(
+						ticket,
+						ticket.solicitante.email,
+						'Intervención registrada',
+						resumen,
+						id_empleado=ticket.solicitante_id,
+					)
+
+				messages.success(request, 'Intervención registrada correctamente.')
+
+		elif accion == 'cambiar_estado':
+			if not es_soporte:
+				messages.error(request, 'Solo el personal de soporte puede cambiar el estado del ticket.')
+				return redirect('ver_ticket_mantenimiento', id_ticket_mantenimiento=id_ticket_mantenimiento)
+
+			nuevo_estado = request.POST.get('nuevo_estado')
+			nota = request.POST.get('nota_cambio', '').strip()
+			notificar_solicitante = request.POST.get('notificar_solicitante') == 'on'
+
+			if nuevo_estado in dict(TicketMantenimiento.ESTADO_CHOICES):
+				estado_anterior = ticket.get_estado_display()
+				hubo_cambio_estado = nuevo_estado != ticket.estado
+				ticket.estado = nuevo_estado
+				if nuevo_estado == 'resuelto':
+					ticket.fecha_resolucion = timezone.now()
+				if nuevo_estado in ['entregado', 'cerrado']:
+					ticket.fecha_entrega_equipo = timezone.now()
+					ticket.solucion_confirmada = True
+				ticket.save()
+
+				mensaje = nota or f'Estado actualizado a {ticket.get_estado_display()}.'
+				TicketMantenimientoSeguimiento.objects.create(
+					ticket=ticket,
+					autor=request.user,
+					tipo='estado',
+					mensaje=mensaje,
+					cambio_estado=estado_anterior if hubo_cambio_estado else '',
+					notificar_solicitante=notificar_solicitante,
+				)
+
+				if notificar_solicitante and request.user.id_empleado != ticket.solicitante_id:
+					enviar_notificacion_mantenimiento(ticket, ticket.solicitante.email, 'Cambio de estado', mensaje, id_empleado=ticket.solicitante_id)
+
+				messages.success(request, f'Estado actualizado a {ticket.get_estado_display()}.')
+			else:
+				messages.error(request, 'Estado no válido.')
+
+		return redirect('ver_ticket_mantenimiento', id_ticket_mantenimiento=id_ticket_mantenimiento)
+
+	seguimientos = ticket.seguimientos.select_related('autor').order_by('fecha')
+	archivos = ticket.archivos.select_related('subido_por').order_by('fecha_subida')
+
+	return render(request, 'desarrollo/web/mantenimiento/ver_ticket_mantenimiento.html', {
+		'ticket': ticket,
+		'seguimientos': seguimientos,
+		'archivos': archivos,
+		'estados': TicketMantenimiento.ESTADO_CHOICES,
+		'es_solicitante': request.user.id_empleado == ticket.solicitante_id,
+		'es_soporte': es_soporte,
+		'es_admin': es_admin,
+		'puede_tomar_ticket': es_soporte and not ticket.atendido_por_id,
+	})
+
+
+@login_required
+def descargar_archivo_mantenimiento(request, id_archivo):
+	archivo = get_object_or_404(TicketMantenimientoArchivo, id_archivo=id_archivo)
+	ticket = archivo.ticket
+
+	if not _usuario_puede_ver_ticket_mantenimiento(request.user, ticket):
+		messages.error(request, 'No tienes permiso para descargar este archivo.')
+		return redirect('listar_tickets_mantenimiento')
+
+	try:
+		return FileResponse(
+			archivo.archivo.open('rb'),
+			as_attachment=True,
+			filename=archivo.nombre_original,
+		)
+	except Exception:
+		messages.error(request, 'No se pudo descargar el archivo.')
+		return redirect('ver_ticket_mantenimiento', id_ticket_mantenimiento=ticket.id_ticket_mantenimiento)
+
+
+@login_required
+def eliminar_archivo_mantenimiento(request, id_archivo):
+	if request.method != 'POST':
+		return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+	archivo = get_object_or_404(TicketMantenimientoArchivo, id_archivo=id_archivo)
+
+	if archivo.subido_por and archivo.subido_por.id_empleado != request.user.id_empleado and not _usuario_es_admin_sistema(request.user):
+		return JsonResponse({'success': False, 'error': 'Sin permiso'}, status=403)
+
+	try:
+		if archivo.archivo and os.path.isfile(archivo.archivo.path):
+			os.remove(archivo.archivo.path)
+		archivo.delete()
+		return JsonResponse({'success': True})
+	except Exception as e:
+		return JsonResponse({'success': False, 'error': str(e)})

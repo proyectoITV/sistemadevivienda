@@ -385,6 +385,14 @@ class ConfiguracionSistema(models.Model):
 		help_text='Duración de la pantalla de introducción en segundos (1-6)',
 		validators=[MinValueValidator(1), MaxValueValidator(6)]
 	)
+	departamento_soporte_mantenimiento = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='configuraciones_soporte_mantenimiento',
+		help_text='Departamento que atenderá los tickets de Servicio de Mantenimiento'
+	)
 	
 	fecha_creacion = models.DateTimeField(auto_now_add=True)
 	fecha_modificacion = models.DateTimeField(auto_now=True)
@@ -484,6 +492,25 @@ class ColaCorreos(models.Model):
 	
 	def __str__(self):
 		return f"{self.get_tipo_correo_display()} - {self.email_destino} ({self.get_estado_display()})"
+
+# ==================== MODELOS DE TRANSPARENCIA ====================
+class TransparenciaGo(models.Model):
+	"""Archivos publicados en el modulo de transparencia."""
+	id_file = models.AutoField(primary_key=True, db_column='IdFile')
+	file_nombre = models.CharField(max_length=255, db_column='FileNombre', help_text='Nombre del archivo original')
+	id_user = models.CharField(max_length=255, db_column='IdUser', help_text='Usuario que subio el archivo')
+	fecha = models.DateField(db_column='fecha')
+	hora = models.TimeField(db_column='hora')
+	file_descripcion = models.TextField(db_column='FileDescripcion', blank=True, help_text='Descripcion del archivo')
+
+	class Meta:
+		db_table = 'TransparenciaGo'
+		verbose_name = 'Archivo de Transparencia'
+		verbose_name_plural = 'Archivos de Transparencia'
+		ordering = ['fecha', 'hora', 'id_file']
+
+	def __str__(self):
+		return f"{self.file_nombre} ({self.fecha} {self.hora})"
 
 
 # ==================== MODELOS DE PATRIMONIO ====================
@@ -971,3 +998,599 @@ class FerInformacion(models.Model):
 	
 	def __str__(self):
 		return f"{self.nombre} - ${self.cantidad:,} ({self.ejercicio})" if self.nombre and self.cantidad else f"FER {self.nfer_id} ({self.ejercicio})"
+# ============================================================
+#  MÓDULO: TICKET DE SERVICIO
+# ============================================================
+
+class TicketServicio(models.Model):
+	"""Ticket de servicio inter-departamental para agilizar pendientes"""
+
+	PRIORIDAD_CHOICES = [
+		('baja',    'Baja'),
+		('normal',  'Normal'),
+		('alta',    'Alta'),
+		('urgente', 'Urgente'),
+	]
+
+	ESTADO_CHOICES = [
+		('abierto',     'Abierto'),
+		('en_proceso',  'En Proceso'),
+		('en_espera',   'En Espera'),
+		('resuelto',    'Resuelto'),
+		('cerrado',     'Cerrado'),
+	]
+
+	CATEGORIA_CHOICES = [
+		('solicitud',    'Solicitud'),
+		('informacion',  'Información'),
+		('soporte',      'Soporte Técnico'),
+		('tramite',      'Trámite'),
+		('otro',         'Otro'),
+	]
+
+	id_ticket       = models.AutoField(primary_key=True)
+	folio           = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+	asunto          = models.CharField(max_length=255, help_text='Título breve del ticket')
+	descripcion     = models.TextField(help_text='Descripción detallada del ticket')
+	categoria       = models.CharField(max_length=30, choices=CATEGORIA_CHOICES, default='solicitud')
+	prioridad       = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='normal')
+	estado          = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='abierto')
+
+	emisor          = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.PROTECT,
+		related_name='tickets_enviados', help_text='Quien crea el ticket'
+	)
+	departamento_destino = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.PROTECT,
+		related_name='tickets_recibidos_departamento',
+		help_text='Departamento destino del ticket',
+		null=True,
+		blank=True,
+	)
+	receptor        = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.PROTECT,
+		related_name='tickets_recibidos', help_text='A quien va dirigido el ticket',
+		null=True,
+		blank=True,
+	)
+	atendido_por    = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		related_name='tickets_atendidos',
+		help_text='Empleado del departamento que toma el ticket',
+		null=True,
+		blank=True,
+	)
+
+	fecha_creacion      = models.DateTimeField(auto_now_add=True)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+	fecha_vencimiento   = models.DateField(null=True, blank=True, help_text='Fecha límite esperada')
+	fecha_resolucion    = models.DateTimeField(null=True, blank=True)
+
+	observaciones = models.TextField(blank=True)
+
+	class Meta:
+		db_table    = 'tickets_servicio'
+		verbose_name = 'Ticket de Servicio'
+		verbose_name_plural = 'Tickets de Servicio'
+		ordering = ['-fecha_creacion']
+		indexes = [
+			models.Index(fields=['estado', 'prioridad']),
+			models.Index(fields=['emisor', 'departamento_destino']),
+		]
+
+	def __str__(self):
+		return f"#{self.id_ticket} – {self.asunto}"
+
+	@property
+	def folio_corto(self):
+		return str(self.folio).upper()[:8]
+
+	@property
+	def color_prioridad(self):
+		return {
+			'baja':    'secondary',
+			'normal':  'info',
+			'alta':    'warning',
+			'urgente': 'danger',
+		}.get(self.prioridad, 'secondary')
+
+	@property
+	def color_estado(self):
+		return {
+			'abierto':    'primary',
+			'en_proceso': 'warning',
+			'en_espera':  'secondary',
+			'resuelto':   'success',
+			'cerrado':    'dark',
+		}.get(self.estado, 'secondary')
+
+	@property
+	def icono_prioridad(self):
+		return {
+			'baja':    'fa-arrow-down',
+			'normal':  'fa-minus',
+			'alta':    'fa-arrow-up',
+			'urgente': 'fa-fire',
+		}.get(self.prioridad, 'fa-minus')
+
+
+class TicketServicioArchivo(models.Model):
+	"""Archivos adjuntos de un ticket"""
+
+	id_archivo    = models.AutoField(primary_key=True)
+	ticket        = models.ForeignKey(
+		TicketServicio, on_delete=models.CASCADE, related_name='archivos'
+	)
+	archivo       = models.FileField(upload_to='tickets/adjuntos/%Y/%m/')
+	nombre_original = models.CharField(max_length=255)
+	tamanio       = models.PositiveIntegerField(default=0, help_text='Tamaño en bytes')
+	tipo_mime     = models.CharField(max_length=100, blank=True)
+	subido_por    = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='archivos_tickets'
+	)
+	fecha_subida  = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_servicio_archivo'
+		verbose_name = 'Archivo de Ticket'
+		verbose_name_plural = 'Archivos de Tickets'
+		ordering = ['fecha_subida']
+
+	def __str__(self):
+		return self.nombre_original
+
+	@property
+	def tamanio_legible(self):
+		size = self.tamanio
+		for unit in ['B', 'KB', 'MB', 'GB']:
+			if size < 1024:
+				return f"{size:.1f} {unit}"
+			size /= 1024
+		return f"{size:.1f} TB"
+
+	@property
+	def es_imagen(self):
+		return self.tipo_mime.startswith('image/') if self.tipo_mime else False
+
+	@property
+	def icono(self):
+		mime = self.tipo_mime or ''
+		if 'pdf' in mime:             return 'fa-file-pdf text-danger'
+		if 'word' in mime or 'doc' in self.nombre_original.lower(): return 'fa-file-word text-primary'
+		if 'excel' in mime or 'xls' in self.nombre_original.lower(): return 'fa-file-excel text-success'
+		if mime.startswith('image/'): return 'fa-file-image text-warning'
+		if 'zip' in mime or 'rar' in mime: return 'fa-file-archive text-secondary'
+		return 'fa-file text-muted'
+
+
+class TicketServicioComentario(models.Model):
+	"""Comentarios y actualizaciones del ticket"""
+
+	id_comentario = models.AutoField(primary_key=True)
+	ticket        = models.ForeignKey(
+		TicketServicio, on_delete=models.CASCADE, related_name='comentarios'
+	)
+	autor         = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='comentarios_tickets'
+	)
+	mensaje       = models.TextField()
+	es_nota_interna = models.BooleanField(default=False, help_text='Solo visible para el emisor del ticket')
+	cambio_estado   = models.CharField(max_length=15, blank=True, help_text='Estado anterior si hubo cambio')
+	fecha           = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_servicio_comentario'
+		verbose_name = 'Comentario de Ticket'
+		verbose_name_plural = 'Comentarios de Tickets'
+		ordering = ['fecha']
+
+	def __str__(self):
+		return f"Ticket #{self.ticket.id_ticket} – {self.autor}"
+
+
+class TicketMantenimiento(models.Model):
+	"""Tickets para atención de equipo y soporte de mantenimiento."""
+
+	SLA_HORAS_POR_PRIORIDAD = {
+		'baja': 72,
+		'normal': 48,
+		'alta': 24,
+		'critica': 8,
+	}
+
+	TIPO_EQUIPO_CHOICES = [
+		('desktop', 'Computadora de escritorio'),
+		('laptop', 'Laptop'),
+		('impresora', 'Impresora'),
+		('scanner', 'Escáner'),
+		('red', 'Red / Internet'),
+		('periferico', 'Periférico'),
+		('otro', 'Otro'),
+	]
+
+	PRIORIDAD_CHOICES = [
+		('baja', 'Baja'),
+		('normal', 'Normal'),
+		('alta', 'Alta'),
+		('critica', 'Crítica'),
+	]
+
+	ESTADO_CHOICES = [
+		('abierto', 'Abierto'),
+		('asignado', 'Asignado'),
+		('en_revision', 'En revisión'),
+		('en_reparacion', 'En reparación'),
+		('espera_refaccion', 'En espera de refacción'),
+		('resuelto', 'Resuelto'),
+		('entregado', 'Entregado'),
+		('cerrado', 'Cerrado'),
+	]
+
+	id_ticket_mantenimiento = models.AutoField(primary_key=True)
+	folio = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+	asunto = models.CharField(max_length=255, help_text='Título breve de la incidencia')
+	descripcion = models.TextField(help_text='Descripción del problema reportado')
+	tipo_equipo = models.CharField(max_length=20, choices=TIPO_EQUIPO_CHOICES, default='desktop')
+	equipo = models.CharField(max_length=150, blank=True, help_text='Nombre o referencia del equipo')
+	numero_inventario = models.CharField(max_length=100, blank=True, help_text='Número de inventario o serie')
+	ubicacion = models.CharField(max_length=255, blank=True, help_text='Ubicación exacta del equipo o del solicitante')
+	prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='normal')
+	estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='abierto')
+
+	solicitante = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.PROTECT,
+		related_name='tickets_mantenimiento_solicitados',
+		help_text='Empleado que reporta la incidencia'
+	)
+	departamento_solicitante = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='tickets_mantenimiento_solicitados',
+		help_text='Departamento del empleado solicitante'
+	)
+	departamento_soporte = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.PROTECT,
+		related_name='tickets_mantenimiento_recibidos',
+		help_text='Departamento responsable de la atención'
+	)
+	atendido_por = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='tickets_mantenimiento_atendidos',
+		help_text='Empleado del área de soporte que atiende el ticket'
+	)
+
+	solicita_formateo = models.BooleanField(default=False)
+	equipo_retirado = models.BooleanField(default=False)
+	trabajo_realizado = models.TextField(blank=True)
+	piezas_instaladas = models.TextField(blank=True)
+	sla_horas_objetivo = models.PositiveIntegerField(default=48)
+	fecha_limite_sla = models.DateTimeField(null=True, blank=True)
+	fecha_retiro_equipo = models.DateTimeField(null=True, blank=True)
+	fecha_resolucion = models.DateTimeField(null=True, blank=True)
+	fecha_entrega_equipo = models.DateTimeField(null=True, blank=True)
+	solucion_confirmada = models.BooleanField(default=False)
+
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'tickets_mantenimiento'
+		verbose_name = 'Ticket de Mantenimiento'
+		verbose_name_plural = 'Tickets de Mantenimiento'
+		ordering = ['-fecha_creacion']
+		indexes = [
+			models.Index(fields=['estado', 'prioridad']),
+			models.Index(fields=['solicitante', 'departamento_soporte']),
+		]
+
+	def __str__(self):
+		return f"MTTO #{self.id_ticket_mantenimiento} – {self.asunto}"
+
+	@property
+	def folio_corto(self):
+		return str(self.folio).upper()[:8]
+
+	@property
+	def color_prioridad(self):
+		return {
+			'baja': 'secondary',
+			'normal': 'info',
+			'alta': 'warning',
+			'critica': 'danger',
+		}.get(self.prioridad, 'secondary')
+
+	@property
+	def color_estado(self):
+		return {
+			'abierto': 'primary',
+			'asignado': 'info',
+			'en_revision': 'warning',
+			'en_reparacion': 'warning',
+			'espera_refaccion': 'secondary',
+			'resuelto': 'success',
+			'entregado': 'success',
+			'cerrado': 'dark',
+		}.get(self.estado, 'secondary')
+
+	@property
+	def icono_prioridad(self):
+		return {
+			'baja': 'fa-arrow-down',
+			'normal': 'fa-minus',
+			'alta': 'fa-arrow-up',
+			'critica': 'fa-bolt',
+		}.get(self.prioridad, 'fa-minus')
+
+	@property
+	def esta_vencido(self):
+		if not self.fecha_limite_sla:
+			return False
+		if self.estado in ['resuelto', 'entregado', 'cerrado']:
+			return False
+		return timezone.now() > self.fecha_limite_sla
+
+	@property
+	def horas_restantes_sla(self):
+		if not self.fecha_limite_sla:
+			return None
+		delta = self.fecha_limite_sla - timezone.now()
+		return int(delta.total_seconds() // 3600)
+
+
+class TicketMantenimientoArchivo(models.Model):
+	"""Archivos adjuntos de tickets de mantenimiento."""
+
+	id_archivo = models.AutoField(primary_key=True)
+	ticket = models.ForeignKey(
+		TicketMantenimiento, on_delete=models.CASCADE, related_name='archivos'
+	)
+	archivo = models.FileField(upload_to='mantenimiento/adjuntos/%Y/%m/')
+	nombre_original = models.CharField(max_length=255)
+	tamanio = models.PositiveIntegerField(default=0)
+	tipo_mime = models.CharField(max_length=100, blank=True)
+	subido_por = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='archivos_tickets_mantenimiento'
+	)
+	fecha_subida = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_mantenimiento_archivo'
+		verbose_name = 'Archivo de Ticket de Mantenimiento'
+		verbose_name_plural = 'Archivos de Tickets de Mantenimiento'
+		ordering = ['fecha_subida']
+
+	def __str__(self):
+		return self.nombre_original
+
+	@property
+	def tamanio_legible(self):
+		size = self.tamanio
+		for unit in ['B', 'KB', 'MB', 'GB']:
+			if size < 1024:
+				return f"{size:.1f} {unit}"
+			size /= 1024
+		return f"{size:.1f} TB"
+
+	@property
+	def icono(self):
+		mime = self.tipo_mime or ''
+		if 'pdf' in mime:
+			return 'fa-file-pdf text-danger'
+		if 'word' in mime or 'doc' in self.nombre_original.lower():
+			return 'fa-file-word text-primary'
+		if 'excel' in mime or 'xls' in self.nombre_original.lower():
+			return 'fa-file-excel text-success'
+		if mime.startswith('image/'):
+			return 'fa-file-image text-warning'
+		if 'zip' in mime or 'rar' in mime:
+			return 'fa-file-archive text-secondary'
+		return 'fa-file text-muted'
+
+
+class TicketMantenimientoSeguimiento(models.Model):
+	"""Bitácora y comentarios de atención de mantenimiento."""
+
+	TIPO_CHOICES = [
+		('comentario', 'Comentario'),
+		('estado', 'Cambio de estado'),
+		('intervencion', 'Intervención técnica'),
+		('notificacion', 'Notificación'),
+	]
+
+	id_seguimiento = models.AutoField(primary_key=True)
+	ticket = models.ForeignKey(
+		TicketMantenimiento, on_delete=models.CASCADE, related_name='seguimientos'
+	)
+	autor = models.ForeignKey(
+		PersonalEmpleados, on_delete=models.SET_NULL, null=True,
+		related_name='seguimientos_tickets_mantenimiento'
+	)
+	tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='comentario')
+	mensaje = models.TextField()
+	trabajo_realizado = models.TextField(blank=True)
+	piezas_instaladas = models.TextField(blank=True)
+	cambio_estado = models.CharField(max_length=20, blank=True)
+	notificar_solicitante = models.BooleanField(default=False)
+	fecha = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'tickets_mantenimiento_seguimiento'
+		verbose_name = 'Seguimiento de Ticket de Mantenimiento'
+		verbose_name_plural = 'Seguimientos de Tickets de Mantenimiento'
+		ordering = ['fecha']
+
+	def __str__(self):
+		return f"MTTO #{self.ticket.id_ticket_mantenimiento} – {self.tipo}"
+
+
+# ==================== MODELOS DE VEHICULOS ====================
+
+class VehiculosMarcas(models.Model):
+	clave_marca = models.IntegerField(primary_key=True, db_column='Clave_Marca')
+	marca = models.CharField(max_length=255, db_column='Marca', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_marcas'
+		verbose_name = 'Marca de Vehiculo'
+		verbose_name_plural = 'Marcas de Vehiculos'
+		ordering = ['clave_marca']
+
+	def __str__(self):
+		return self.marca or str(self.clave_marca)
+
+
+class VehiculosColores(models.Model):
+	clave_color = models.IntegerField(primary_key=True, db_column='Clave_Color')
+	color = models.CharField(max_length=255, db_column='Color', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_colores'
+		verbose_name = 'Color de Vehiculo'
+		verbose_name_plural = 'Colores de Vehiculos'
+		ordering = ['clave_color']
+
+	def __str__(self):
+		return self.color or str(self.clave_color)
+
+
+class VehiculosEstatus(models.Model):
+	idestatus = models.IntegerField(primary_key=True, db_column='IdEstatus')
+	estatus = models.CharField(max_length=255, db_column='Estatus')
+
+	class Meta:
+		db_table = 'vehiculos_estatus'
+		verbose_name = 'Estatus de Vehiculo'
+		verbose_name_plural = 'Estatus de Vehiculos'
+		ordering = ['idestatus']
+
+	def __str__(self):
+		return self.estatus
+
+
+class VehiculoPropietario(models.Model):
+	idpropietario = models.IntegerField(primary_key=True, db_column='IdPropietario')
+	propietario = models.CharField(max_length=255, db_column='Propietario', blank=True)
+
+	class Meta:
+		db_table = 'vehiculo_propietario'
+		verbose_name = 'Propietario de Vehiculo'
+		verbose_name_plural = 'Propietarios de Vehiculos'
+		ordering = ['idpropietario']
+
+	def __str__(self):
+		return self.propietario or str(self.idpropietario)
+
+
+class VehiculosTiposDeMantenimiento(models.Model):
+	clave_tipo_mant = models.IntegerField(primary_key=True, db_column='clave_tipo_mant')
+	tipo_mantenimiento = models.CharField(max_length=255, db_column='Tipo_Mantenimiento', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_tiposdemantenimiento'
+		verbose_name = 'Tipo de Mantenimiento'
+		verbose_name_plural = 'Tipos de Mantenimiento'
+		ordering = ['clave_tipo_mant']
+
+	def __str__(self):
+		return self.tipo_mantenimiento or str(self.clave_tipo_mant)
+
+
+class VehiculosProveedores(models.Model):
+	clave_proveedor = models.IntegerField(primary_key=True, db_column='clave_proveedor')
+	nombre_proveedor = models.CharField(max_length=255, db_column='Nombre_proveedor', blank=True)
+
+	class Meta:
+		db_table = 'vehiculos_proveedores'
+		verbose_name = 'Proveedor de Vehiculos'
+		verbose_name_plural = 'Proveedores de Vehiculos'
+		ordering = ['clave_proveedor']
+
+	def __str__(self):
+		return self.nombre_proveedor or str(self.clave_proveedor)
+
+
+class Vehiculos(models.Model):
+	num_economico = models.CharField(max_length=255, primary_key=True, db_column='Num_economico')
+	clave_marca = models.ForeignKey(VehiculosMarcas, on_delete=models.SET_NULL, null=True, blank=True, db_column='Clave_marca')
+	tipo = models.CharField(max_length=255, db_column='Tipo', blank=True)
+	clave_color = models.ForeignKey(VehiculosColores, on_delete=models.SET_NULL, null=True, blank=True, db_column='Clave_Color')
+	modelo = models.IntegerField(db_column='Modelo', null=True, blank=True)
+	placas = models.CharField(max_length=255, db_column='Placas', blank=True)
+	serie = models.CharField(max_length=255, db_column='Serie', blank=True)
+	idestatus = models.ForeignKey(VehiculosEstatus, on_delete=models.RESTRICT, db_column='IdEstatus')
+	idareaadscripcion = models.ForeignKey(PersonalDepartamento, on_delete=models.SET_NULL, null=True, blank=True, db_column='IdAreaAdscripcion')
+	idresguradante = models.ForeignKey(PersonalEmpleados, on_delete=models.SET_NULL, null=True, blank=True, db_column='IdResguradante')
+	comentario = models.TextField(db_column='Comentario', blank=True)
+	cilindros = models.IntegerField(db_column='Cilindros')
+	idpropietario = models.ForeignKey(VehiculoPropietario, on_delete=models.SET_NULL, null=True, blank=True, db_column='IdPropietario')
+
+	class Meta:
+		db_table = 'vehiculos'
+		verbose_name = 'Vehiculo'
+		verbose_name_plural = 'Vehiculos'
+		ordering = ['num_economico']
+
+	def __str__(self):
+		return self.num_economico
+
+
+class VehiculosBitacora(models.Model):
+	clave_servicio = models.AutoField(primary_key=True, db_column='Clave_servicio')
+	num_economico = models.ForeignKey(Vehiculos, on_delete=models.RESTRICT, db_column='Num_economico')
+	fecha_solicitud = models.DateTimeField(db_column='Fecha_solicitud')
+	fecha_ejecucion = models.DateTimeField(db_column='Fecha_ejecucion')
+	clave_tipo_mant = models.ForeignKey(VehiculosTiposDeMantenimiento, on_delete=models.RESTRICT, db_column='clave_tipo_mant')
+	km_prog = models.IntegerField(db_column='Km_prog')
+	km_real = models.IntegerField(db_column='Km_real')
+	num_solicitud = models.IntegerField(db_column='num_solicitud')
+	num_factura = models.CharField(max_length=255, db_column='num_factura')
+	clave_proveedor = models.ForeignKey(VehiculosProveedores, on_delete=models.RESTRICT, db_column='clave_proveedor')
+	descripcion = models.CharField(max_length=1000, db_column='Descripcion')
+	costo_mano_obra = models.DecimalField(max_digits=19, decimal_places=4, db_column='Costo_mano_obra')
+	costo_refaccion = models.DecimalField(max_digits=19, decimal_places=4, db_column='Costo_refaccion')
+	importe_factura = models.DecimalField(max_digits=19, decimal_places=4, db_column='Importe_factura')
+	archivo_factura = models.FileField(upload_to='vehiculos/facturas/', db_column='Archivo_factura', null=True, blank=True)
+	cancelada = models.BooleanField(db_column='Cancelada', default=False)
+	act_fecha = models.DateField(db_column='act_fecha')
+	act_hora = models.TimeField(db_column='act_hora')
+	act_user = models.CharField(max_length=50, db_column='act_user')
+
+	class Meta:
+		db_table = 'vehiculos_bitacora'
+		verbose_name = 'Bitacora de Vehiculo'
+		verbose_name_plural = 'Bitacora de Vehiculos'
+		ordering = ['-clave_servicio']
+
+	def __str__(self):
+		return f"Servicio #{self.clave_servicio} - {self.num_economico_id}"
+
+
+class VehiculoFoto(models.Model):
+	idfoto = models.AutoField(primary_key=True)
+	vehiculo = models.ForeignKey(Vehiculos, on_delete=models.CASCADE, related_name='fotos')
+	imagen = models.ImageField(upload_to='vehiculos/fotos/')
+	descripcion = models.CharField(max_length=255, blank=True)
+	es_principal = models.BooleanField(default=False)
+	orden = models.PositiveIntegerField(default=0)
+	fecha_captura = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'vehiculo_fotos'
+		verbose_name = 'Foto de Vehiculo'
+		verbose_name_plural = 'Fotos de Vehiculos'
+		ordering = ['-es_principal', 'orden', '-fecha_captura']
+
+	def __str__(self):
+		return f"Foto {self.idfoto} - {self.vehiculo_id}"
