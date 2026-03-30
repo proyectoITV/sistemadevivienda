@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('anuncios', '0040_catalogos_administraciones'),
+        ('anuncios', '0048_catalogos_administraciones'),
     ]
 
     operations = [
