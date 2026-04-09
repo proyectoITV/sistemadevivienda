@@ -2,6 +2,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from django.db import DatabaseError
+from django.utils import timezone
 from datetime import datetime, time
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -27,6 +28,12 @@ from .models import (
 	VehiculoFoto,
 	VehiculosProveedores,
 	TicketMantenimiento,
+	ViaticosPresupuestoDireccion,
+	ViaticosSolicitud,
+	ViaticosZonaTarifa,
+	RequisicionesClasificacion,
+	RequisicionesCatalogoArticulos,
+	RequisicionesDocumento,
 )
 
 
@@ -268,6 +275,7 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.fields['departamento_soporte_mantenimiento'].queryset = PersonalDepartamento.objects.filter(activo=True).order_by('departamento')
+		self.fields['departamento_compras_requisiciones'].queryset = PersonalDepartamento.objects.filter(activo=True).order_by('departamento')
 
 	class Meta:
 		model = ConfiguracionSistema
@@ -288,6 +296,7 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'tiempo_sesion_minutos',
 			'duracion_intro_segundos',
 			'departamento_soporte_mantenimiento',
+			'departamento_compras_requisiciones',
 		]
 		widgets = {
 			'razon_social': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Razón social'}),
@@ -306,6 +315,7 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'tiempo_sesion_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '5', 'max': '1440', 'step': '1'}),
 			'duracion_intro_segundos': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'max': '6', 'step': '1'}),
 			'departamento_soporte_mantenimiento': forms.Select(attrs={'class': 'form-select'}),
+			'departamento_compras_requisiciones': forms.Select(attrs={'class': 'form-select'}),
 		}
 		labels = {
 			'razon_social': 'Razón Social',
@@ -324,7 +334,83 @@ class ConfiguracionSistemaForm(forms.ModelForm):
 			'tiempo_sesion_minutos': 'Tiempo de sesión (Inactividad) en minutos',
 			'duracion_intro_segundos': 'Duración de Intro (Dashboard) en segundos',
 			'departamento_soporte_mantenimiento': 'Departamento de Soporte para Mantenimiento',
+			'departamento_compras_requisiciones': 'Departamento de Adquisiciones para Requisiciones y Compras',
 		}
+
+
+class RequisicionesCatalogoArticulosForm(forms.ModelForm):
+	class Meta:
+		model = RequisicionesCatalogoArticulos
+		fields = [
+			'nombre',
+			'clasificacion',
+			'descripcion',
+			'unidad_medida',
+			'stock_actual',
+			'precio_referencia',
+			'imagen',
+			'activo',
+		]
+		widgets = {
+			'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del artículo'}),
+			'clasificacion': forms.Select(attrs={'class': 'form-select'}),
+			'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción o detalles del artículo'}),
+			'unidad_medida': forms.Select(attrs={'class': 'form-select'}),
+			'stock_actual': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '1'}),
+			'precio_referencia': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+			'imagen': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+			'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+		}
+		labels = {
+			'nombre': 'Artículo',
+			'clasificacion': 'Clasificación',
+			'descripcion': 'Descripción',
+			'unidad_medida': 'Unidad de medida',
+			'stock_actual': 'Stock disponible',
+			'precio_referencia': 'Precio de referencia',
+			'imagen': 'Imagen',
+			'activo': 'Activo',
+		}
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields['clasificacion'].queryset = RequisicionesClasificacion.objects.filter(activo=True).order_by('nombre')
+
+
+class RequisicionesDocumentoForm(forms.ModelForm):
+	class Meta:
+		model = RequisicionesDocumento
+		fields = ['tipo_documento', 'detalle', 'proveedor', 'descripcion', 'archivo']
+		widgets = {
+			'tipo_documento': forms.Select(attrs={'class': 'form-select'}),
+			'detalle': forms.Select(attrs={'class': 'form-select'}),
+			'proveedor': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Proveedor o razón social'}),
+			'descripcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descripción breve del documento'}),
+			'archivo': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf'}),
+		}
+		labels = {
+			'tipo_documento': 'Tipo de documento',
+			'detalle': 'Artículo relacionado',
+			'proveedor': 'Proveedor',
+			'descripcion': 'Descripción',
+			'archivo': 'Archivo PDF',
+		}
+
+	def __init__(self, *args, **kwargs):
+		detalles_queryset = kwargs.pop('detalles_queryset', None)
+		super().__init__(*args, **kwargs)
+		if detalles_queryset is not None:
+			self.fields['detalle'].queryset = detalles_queryset
+			self.fields['detalle'].required = False
+
+	def clean_archivo(self):
+		archivo = self.cleaned_data.get('archivo')
+		if archivo:
+			if not archivo.name.lower().endswith('.pdf'):
+				raise ValidationError('Solo se permiten archivos PDF para cotizaciones y facturas.')
+			if archivo.size > 15 * 1024 * 1024:
+				raise ValidationError('El archivo no debe superar 15 MB.')
+		return archivo
 
 
 class TicketMantenimientoCrearForm(forms.ModelForm):
@@ -800,6 +886,151 @@ class TransparenciaArchivoUploadForm(forms.Form):
 			raise ValidationError('El archivo no debe superar 20 MB.')
 
 		return archivo
+
+
+class ViaticosPresupuestoDireccionForm(forms.ModelForm):
+	class Meta:
+		model = ViaticosPresupuestoDireccion
+		fields = ['iddireccion', 'ejercicio', 'monto_asignado', 'activo', 'observaciones']
+		widgets = {
+			'iddireccion': forms.Select(attrs={'class': 'form-select'}),
+			'ejercicio': forms.NumberInput(attrs={'class': 'form-control', 'min': '2024'}),
+			'monto_asignado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+			'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+			'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Notas del presupuesto (opcional)'}),
+		}
+		labels = {
+			'iddireccion': 'Direccion',
+			'ejercicio': 'Ejercicio',
+			'monto_asignado': 'Monto asignado',
+			'activo': 'Activo',
+			'observaciones': 'Observaciones',
+		}
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields['iddireccion'].queryset = PersonalDireccion.objects.filter(activo=True).order_by('direccion')
+
+
+class ViaticosZonaTarifaForm(forms.ModelForm):
+	class Meta:
+		model = ViaticosZonaTarifa
+		fields = ['clave', 'nombre', 'hospedaje_noche', 'alimentacion_diaria', 'combustible_km', 'activo']
+		widgets = {
+			'clave': forms.Select(attrs={'class': 'form-select'}),
+			'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre visible de la zona'}),
+			'hospedaje_noche': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+			'alimentacion_diaria': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+			'combustible_km': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001', 'min': '0'}),
+			'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+		}
+		labels = {
+			'clave': 'Zona',
+			'nombre': 'Nombre',
+			'hospedaje_noche': 'Hospedaje por noche',
+			'alimentacion_diaria': 'Alimentacion diaria',
+			'combustible_km': 'Combustible por km',
+			'activo': 'Activo',
+		}
+
+
+class ViaticosSolicitudForm(forms.ModelForm):
+	class Meta:
+		model = ViaticosSolicitud
+		fields = [
+			'empleado',
+			'zona',
+			'motivo_comision',
+			'origen',
+			'destino',
+			'origen_latitud',
+			'origen_longitud',
+			'destino_latitud',
+			'destino_longitud',
+			'distancia_km',
+			'viaje_redondo',
+			'dias',
+			'transporte',
+			'pasajes_estimados',
+			'taxis_estimados',
+			'observaciones',
+		]
+		widgets = {
+			'empleado': forms.Select(attrs={'class': 'form-select select2-enhanced', 'data-placeholder': 'Buscar por numero, nombre o apellidos...'}),
+			'zona': forms.Select(attrs={'class': 'form-select'}),
+			'motivo_comision': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Objetivo, reunion, supervision o actividad a realizar'}),
+			'origen': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Ciudad Victoria, Tamaulipas'}),
+			'destino': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Reynosa, Tamaulipas'}),
+			'origen_latitud': forms.HiddenInput(),
+			'origen_longitud': forms.HiddenInput(),
+			'destino_latitud': forms.HiddenInput(),
+			'destino_longitud': forms.HiddenInput(),
+			'distancia_km': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'readonly': 'readonly'}),
+			'viaje_redondo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+			'dias': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+			'transporte': forms.Select(attrs={'class': 'form-select'}),
+			'pasajes_estimados': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+			'taxis_estimados': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+			'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Restricciones, agenda, numero de oficio o datos complementarios'}),
+		}
+		labels = {
+			'empleado': 'Empleado comisionado',
+			'zona': 'Zona tarifaria',
+			'motivo_comision': 'Motivo de la comision',
+			'origen': 'Origen',
+			'destino': 'Destino',
+			'distancia_km': 'Distancia referencial (km)',
+			'viaje_redondo': 'Considerar viaje redondo',
+			'dias': 'Dias de comision',
+			'transporte': 'Medio de transporte principal',
+			'pasajes_estimados': 'Pasajes estimados',
+			'taxis_estimados': 'Taxis estimados',
+			'observaciones': 'Observaciones',
+		}
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields['empleado'].queryset = (
+			PersonalEmpleados.objects
+			.filter(activo=True, iddepartamento__isnull=False, iddepartamento__iddireccion__isnull=False)
+			.select_related('iddepartamento', 'iddepartamento__iddireccion')
+			.order_by('numero_empleado', 'nombre_completo')
+		)
+		self.fields['empleado'].label_from_instance = self._label_empleado
+		self.fields['zona'].queryset = ViaticosZonaTarifa.objects.filter(activo=True).order_by('nombre')
+
+	def _label_empleado(self, empleado):
+		numero = empleado.numero_empleado or f"ID {empleado.id_empleado}"
+		departamento = empleado.iddepartamento.departamento if empleado.iddepartamento else 'Sin departamento'
+		return f"{numero} | {empleado.nombre_completo} | {departamento}"
+
+	def clean(self):
+		cleaned_data = super().clean()
+		empleado = cleaned_data.get('empleado')
+
+		if not empleado:
+			return cleaned_data
+
+		departamento = empleado.iddepartamento
+		if departamento is None or departamento.iddireccion is None:
+			raise ValidationError('El empleado seleccionado no tiene direccion configurada.')
+
+		ejercicio_actual = timezone.localdate().year
+		presupuesto = (
+			ViaticosPresupuestoDireccion.objects
+			.filter(iddireccion=departamento.iddireccion, ejercicio=ejercicio_actual, activo=True)
+			.order_by('-fecha_modificacion')
+			.first()
+		)
+		if presupuesto is None:
+			raise ValidationError(
+				f'No existe presupuesto activo de viaticos para {departamento.iddireccion.direccion} en {ejercicio_actual}.'
+			)
+
+		self.instance.empleado = empleado
+		self.instance.direccion = departamento.iddireccion
+		self.instance.presupuesto = presupuesto
+		return cleaned_data
 
 
 class VehiculosForm(forms.ModelForm):

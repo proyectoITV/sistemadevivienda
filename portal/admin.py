@@ -18,7 +18,13 @@ from .models import (
 	ColaCorreos,
 	TicketMantenimiento,
 	TicketMantenimientoArchivo,
-	TicketMantenimientoSeguimiento
+	TicketMantenimientoSeguimiento,
+	RequisicionesClasificacion,
+	RequisicionesCatalogoArticulos,
+	RequisicionesSolicitud,
+	RequisicionesSolicitudDetalle,
+	RequisicionesDocumento,
+	RequisicionesSeguimiento,
 )
 
 @admin.register(Anuncio)
@@ -272,6 +278,9 @@ class ConfiguracionSistemaAdmin(admin.ModelAdmin):
 		('Información de la Empresa', {
 			'fields': ('razon_social', 'nombre_corto', 'rfc', 'domicilio', 'telefono', 'sitio_web', 'logo')
 		}),
+		('Operación Interna', {
+			'fields': ('departamento_soporte_mantenimiento', 'departamento_compras_requisiciones')
+		}),
 		('Configuración SMTP', {
 			'fields': ('email_desde', 'smtp_host', 'smtp_port', 'smtp_usuario', 'smtp_contrasena', 'smtp_usar_tls'),
 			'classes': ('collapse',)
@@ -339,3 +348,46 @@ class ColaCorreosAdmin(admin.ModelAdmin):
 		return obj.estado
 	estado_badge.short_description = 'Estado'
 	estado_badge.allow_tags = True
+
+
+@admin.register(RequisicionesClasificacion)
+class RequisicionesClasificacionAdmin(admin.ModelAdmin):
+	list_display = ('id_clasificacion', 'nombre', 'activo', 'fecha_modificacion')
+	list_filter = ('activo',)
+	search_fields = ('nombre', 'descripcion')
+
+
+@admin.register(RequisicionesCatalogoArticulos)
+class RequisicionesCatalogoArticulosAdmin(admin.ModelAdmin):
+	list_display = ('id_articulo', 'nombre', 'clasificacion', 'unidad_medida', 'stock_actual', 'precio_referencia', 'activo')
+	list_filter = ('activo', 'clasificacion', 'unidad_medida')
+	search_fields = ('nombre', 'descripcion')
+
+
+class RequisicionesSolicitudDetalleInline(admin.TabularInline):
+	model = RequisicionesSolicitudDetalle
+	extra = 0
+	readonly_fields = ('subtotal', 'subtotal_entregado')
+
+
+@admin.register(RequisicionesSolicitud)
+class RequisicionesSolicitudAdmin(admin.ModelAdmin):
+	list_display = ('id_requisicion', 'solicitante', 'departamento_solicitante', 'estatus', 'atendido_por', 'fecha_creacion', 'fecha_entrega')
+	list_filter = ('estatus', 'departamento_solicitante', 'departamento_atencion')
+	search_fields = ('solicitante__nombre_completo', 'departamento_solicitante__departamento', 'comentarios_compra')
+	readonly_fields = ('folio', 'fecha_creacion', 'fecha_actualizacion', 'fecha_toma', 'fecha_para_entrega', 'fecha_entrega')
+	inlines = [RequisicionesSolicitudDetalleInline]
+
+
+@admin.register(RequisicionesDocumento)
+class RequisicionesDocumentoAdmin(admin.ModelAdmin):
+	list_display = ('id_documento', 'requisicion', 'tipo_documento', 'proveedor', 'subido_por', 'fecha_subida')
+	list_filter = ('tipo_documento', 'fecha_subida')
+	search_fields = ('nombre_original', 'proveedor', 'descripcion', 'requisicion__solicitante__nombre_completo')
+
+
+@admin.register(RequisicionesSeguimiento)
+class RequisicionesSeguimientoAdmin(admin.ModelAdmin):
+	list_display = ('id_seguimiento', 'requisicion', 'tipo', 'autor', 'fecha')
+	list_filter = ('tipo', 'fecha')
+	search_fields = ('mensaje', 'requisicion__solicitante__nombre_completo')

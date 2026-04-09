@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .articulo-miniatura {
+        cursor: zoom-in;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .articulo-miniatura:hover {
+        transform: scale(1.06);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .visor-imagen-articulo {
+        position: fixed;
+        z-index: 1085;
+        width: min(320px, 42vw);
+        padding: 0.75rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .visor-imagen-articulo.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .visor-imagen-articulo img {
+        width: 100%;
+        max-height: 260px;
+        object-fit: contain;
+        display: block;
+        border-radius: 0.8rem;
+        background: #f8f9fa;
+    }
+
+    .visor-imagen-articulo .visor-titulo {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #212529;
+        margin-top: 0.65rem;
+        line-height: 1.25;
+    }
+
+    .visor-imagen-articulo .visor-ayuda {
+        font-size: 0.78rem;
+        color: #6c757d;
+    }
+
+    @media (max-width: 991.98px) {
+        .visor-imagen-articulo {
+            width: min(260px, calc(100vw - 2rem));
+        }
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-plus-circle text-danger"></i> Nueva requisición</h1>
+            <p class="text-muted mb-0">Busca artículos del catálogo, agrega tantos renglones como necesites y justifica cada solicitud.</p>
+        </div>
+        <a href="{% url 'listar_requisiciones' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al historial
+        </a>
+    </div>
+
+    <form method="post" class="row g-4">
+        {% csrf_token %}
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Buscador de artículos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="busquedaArticulo" class="form-control" placeholder="Escribe nombre, descripción o clasificación">
+                    </div>
+                    <div id="resultadosArticulos" class="row g-3"></div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Partidas de la requisición</h5>
+                    <span class="small text-muted">Agrega artículos desde el buscador o desde la lista reciente.</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0" id="tablaArticulos">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Artículo</th>
+                                    <th style="width: 120px;">Cantidad</th>
+                                    <th style="width: 150px;">Unidad</th>
+                                    <th>Motivo</th>
+                                    <th>Observación</th>
+                                    <th style="width: 70px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaArticulosBody">
+                                <tr class="fila-vacia">
+                                    <td colspan="6" class="text-center text-muted py-4">Agrega artículos desde el buscador o crea una fila manual.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            {% if requiere_departamento_manual %}
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Departamento solicitante</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        Tu usuario no tiene departamento asignado. Selecciona el departamento al que se cargará la requisición.
+                    </div>
+                    <label class="form-label fw-semibold">Departamento</label>
+                    <select name="departamento_solicitante" class="form-select" required>
+                        <option value="">Selecciona un departamento</option>
+                        {% for departamento in departamentos_disponibles %}
+                        <option value="{{ departamento.iddepartamento }}" {% if departamento_solicitante_id|stringformat:'s' == departamento.iddepartamento|stringformat:'s' %}selected{% endif %}>{{ departamento.departamento }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Artículos recientes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for articulo in articulos_recientes %}
+                        <button type="button" class="list-group-item list-group-item-action articulo-rapido"
+                                data-id="{{ articulo.id_articulo }}"
+                                data-nombre="{{ articulo.nombre }}"
+                                data-unidad="{{ articulo.unidad_medida }}"
+                                data-clasificacion="{{ articulo.clasificacion.nombre|default:'' }}"
+                                data-imagen="{% if articulo.imagen %}{{ articulo.imagen.url }}{% endif %}">
+                            <div class="d-flex align-items-center gap-3">
+                                {% if articulo.imagen %}
+                                <img src="{{ articulo.imagen.url }}" alt="{{ articulo.nombre }}" width="52" height="52" class="rounded articulo-miniatura js-preview-imagen" data-preview-src="{{ articulo.imagen.url }}" data-preview-title="{{ articulo.nombre }}" style="object-fit: cover;">
+                                {% else %}
+                                <div class="rounded d-flex align-items-center justify-content-center bg-light" style="width: 52px; height: 52px;">
+                                    <i class="fas fa-box-open text-muted"></i>
+                                </div>
+                                {% endif %}
+                                <div class="text-start">
+                                    <div class="fw-semibold">{{ articulo.nombre }}</div>
+                                    <small class="text-muted">{{ articulo.clasificacion.nombre|default:'Sin clasificación' }} · {{ articulo.get_unidad_medida_display }}</small>
+                                </div>
+                            </div>
+                        </button>
+                        {% empty %}
+                        <p class="text-muted mb-0">No hay artículos recientes disponibles.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Comentarios generales</h5>
+                </div>
+                <div class="card-body">
+                    <textarea name="comentarios" class="form-control" rows="6" placeholder="Notas adicionales para el área de compras">{{ comentarios }}</textarea>
+                    <div class="d-grid mt-3">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="fas fa-paper-plane"></i> Enviar requisición
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div id="visorImagenArticulo" class="visor-imagen-articulo" aria-hidden="true">
+    <img id="visorImagenArticuloImg" src="" alt="Vista previa del artículo">
+    <div id="visorImagenArticuloTitulo" class="visor-titulo"></div>
+    <div class="visor-ayuda">Vista ampliada del artículo</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const endpoint = "{% url 'buscar_articulos_requisiciones' %}";
+    const inputBusqueda = document.getElementById('busquedaArticulo');
+    const resultados = document.getElementById('resultadosArticulos');
+    const tbody = document.getElementById('tablaArticulosBody');
+    const visor = document.getElementById('visorImagenArticulo');
+    const visorImg = document.getElementById('visorImagenArticuloImg');
+    const visorTitulo = document.getElementById('visorImagenArticuloTitulo');
+    let debounceTimer = null;
+    let previewTimer = null;
+    let previewTarget = null;
+
+    function escaparHtml(texto) {
+        return String(texto || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function posicionarPreview(target) {
+        const rect = target.getBoundingClientRect();
+        const visorRect = visor.getBoundingClientRect();
+        const margen = 18;
+        let top = rect.top + window.scrollY + (rect.height / 2) - (visorRect.height / 2);
+        let left = rect.right + window.scrollX + margen;
+
+        const maxLeft = window.scrollX + window.innerWidth - visorRect.width - margen;
+        const minLeft = window.scrollX + margen;
+        const maxTop = window.scrollY + window.innerHeight - visorRect.height - margen;
+        const minTop = window.scrollY + margen;
+
+        if (left > maxLeft) {
+            left = rect.left + window.scrollX - visorRect.width - margen;
+        }
+
+        visor.style.left = Math.max(minLeft, Math.min(left, maxLeft)) + 'px';
+        visor.style.top = Math.max(minTop, Math.min(top, maxTop)) + 'px';
+    }
+
+    function ocultarPreview() {
+        window.clearTimeout(previewTimer);
+        previewTarget = null;
+        visor.classList.remove('visible');
+        visor.setAttribute('aria-hidden', 'true');
+    }
+
+    function mostrarPreview(target) {
+        const src = target.dataset.previewSrc || target.getAttribute('src');
+        if (!src) {
+            return;
+        }
+
+        previewTarget = target;
+        visorImg.src = src;
+        visorTitulo.textContent = target.dataset.previewTitle || target.getAttribute('alt') || 'Artículo';
+        visor.setAttribute('aria-hidden', 'false');
+        visor.classList.add('visible');
+        posicionarPreview(target);
+    }
+
+    function prepararPreview(target) {
+        if (!target) {
+            return;
+        }
+        window.clearTimeout(previewTimer);
+        previewTimer = window.setTimeout(function() {
+            mostrarPreview(target);
+        }, 700);
+    }
+
+    function unidadOptions(unidadSeleccionada) {
+        return [
+            ['pieza', 'Pieza'],
+            ['caja', 'Caja'],
+            ['paquete', 'Paquete']
+        ].map(function(opcion) {
+            const selected = opcion[0] === unidadSeleccionada ? 'selected' : '';
+            return `<option value="${opcion[0]}" ${selected}>${opcion[1]}</option>`;
+        }).join('');
+    }
+
+    function limpiarFilaVacia() {
+        const vacia = tbody.querySelector('.fila-vacia');
+        if (vacia) {
+            vacia.remove();
+        }
+    }
+
+    function agregarFila(articulo) {
+        limpiarFilaVacia();
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <input type="hidden" name="articulo_id[]" value="${articulo.id || ''}">
+                <div class="d-flex align-items-center gap-3">
+                    ${articulo.imagen_url || articulo.imagen ? `<img src="${articulo.imagen_url || articulo.imagen}" alt="${escaparHtml(articulo.nombre)}" width="56" height="56" class="rounded articulo-miniatura js-preview-imagen" data-preview-src="${articulo.imagen_url || articulo.imagen}" data-preview-title="${escaparHtml(articulo.nombre)}" style="object-fit: cover;">` : `<div class="rounded d-flex align-items-center justify-content-center bg-light" style="width: 56px; height: 56px;"><i class="fas fa-box text-muted"></i></div>`}
+                    <div>
+                        <div class="fw-semibold">${escaparHtml(articulo.nombre || 'Artículo manual')}</div>
+                        <small class="text-muted">${escaparHtml(articulo.clasificacion || 'Sin clasificación')}</small>
+                    </div>
+                </div>
+            </td>
+            <td><input type="number" min="1" name="cantidad[]" value="1" class="form-control" required></td>
+            <td>
+                <select name="unidad_medida[]" class="form-select">
+                    ${unidadOptions(articulo.unidad_medida || articulo.unidad || 'pieza')}
+                </select>
+            </td>
+            <td><textarea name="motivo[]" class="form-control" rows="2" placeholder="Justificación" required></textarea></td>
+            <td><textarea name="observacion[]" class="form-control" rows="2" placeholder="Observaciones opcionales"></textarea></td>
+            <td class="text-end"><button type="button" class="btn btn-outline-danger btn-sm eliminar-fila"><i class="fas fa-trash"></i></button></td>
+        `;
+        tbody.appendChild(row);
+    }
+
+    function renderResultados(items) {
+        resultados.innerHTML = '';
+        if (!items.length) {
+            resultados.innerHTML = '<div class="col-12 text-muted">No se encontraron artículos.</div>';
+            return;
+        }
+
+        items.forEach(function(item) {
+            const col = document.createElement('div');
+            col.className = 'col-md-6';
+            col.innerHTML = `
+                <button type="button" class="btn btn-outline-secondary w-100 text-start h-100 resultado-articulo">
+                    <div class="d-flex gap-3 align-items-center">
+                        ${item.imagen_url ? `<img src="${item.imagen_url}" alt="${escaparHtml(item.nombre)}" width="64" height="64" class="rounded articulo-miniatura js-preview-imagen" data-preview-src="${item.imagen_url}" data-preview-title="${escaparHtml(item.nombre)}" style="object-fit: cover;">` : `<div class="rounded d-flex align-items-center justify-content-center bg-light" style="width: 64px; height: 64px;"><i class="fas fa-image text-muted"></i></div>`}
+                        <div>
+                            <div class="fw-semibold">${escaparHtml(item.nombre)}</div>
+                            <div class="small text-muted">${escaparHtml(item.clasificacion || 'Sin clasificación')}</div>
+                            <div class="small text-muted">Stock: ${escaparHtml(item.stock_actual)} · Unidad: ${escaparHtml(item.unidad_medida)}</div>
+                        </div>
+                    </div>
+                </button>
+            `;
+            col.querySelector('button').addEventListener('click', function() {
+                agregarFila(item);
+            });
+            resultados.appendChild(col);
+        });
+    }
+
+    function buscarArticulos() {
+        const termino = inputBusqueda.value.trim();
+        if (!termino) {
+            resultados.innerHTML = '';
+            return;
+        }
+
+        fetch(`${endpoint}?q=${encodeURIComponent(termino)}`)
+            .then(function(response) { return response.json(); })
+            .then(function(data) { renderResultados(data.results || []); });
+    }
+
+    inputBusqueda.addEventListener('input', function() {
+        window.clearTimeout(debounceTimer);
+        debounceTimer = window.setTimeout(buscarArticulos, 250);
+    });
+
+    document.addEventListener('mouseover', function(event) {
+        const imagen = event.target.closest('.js-preview-imagen');
+        if (!imagen) {
+            return;
+        }
+        prepararPreview(imagen);
+    });
+
+    document.addEventListener('mouseout', function(event) {
+        const imagen = event.target.closest('.js-preview-imagen');
+        if (!imagen) {
+            return;
+        }
+        if (event.relatedTarget && imagen.contains(event.relatedTarget)) {
+            return;
+        }
+        ocultarPreview();
+    });
+
+    document.addEventListener('mousemove', function(event) {
+        if (!previewTarget || !visor.classList.contains('visible')) {
+            return;
+        }
+        const rect = previewTarget.getBoundingClientRect();
+        const fueraHorizontal = event.clientX < rect.left - 8 || event.clientX > rect.right + 8;
+        const fueraVertical = event.clientY < rect.top - 8 || event.clientY > rect.bottom + 8;
+        if (fueraHorizontal || fueraVertical) {
+            ocultarPreview();
+            return;
+        }
+        posicionarPreview(previewTarget);
+    });
+
+    window.addEventListener('scroll', function() {
+        if (previewTarget && visor.classList.contains('visible')) {
+            posicionarPreview(previewTarget);
+        }
+    }, true);
+
+    window.addEventListener('resize', function() {
+        if (previewTarget && visor.classList.contains('visible')) {
+            posicionarPreview(previewTarget);
+        }
+    });
+
+    document.querySelectorAll('.articulo-rapido').forEach(function(button) {
+        button.addEventListener('click', function() {
+            agregarFila({
+                id: button.dataset.id,
+                nombre: button.dataset.nombre,
+                unidad_medida: button.dataset.unidad,
+                clasificacion: button.dataset.clasificacion,
+                imagen: button.dataset.imagen
+            });
+        });
+    });
+
+    tbody.addEventListener('click', function(event) {
+        const button = event.target.closest('.eliminar-fila');
+        if (!button) {
+            return;
+        }
+        button.closest('tr').remove();
+        if (!tbody.children.length) {
+            tbody.innerHTML = '<tr class="fila-vacia"><td colspan="6" class="text-center text-muted py-4">Agrega artículos desde el buscador o crea una fila manual.</td></tr>';
+        }
+    });
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            ocultarPreview();
+        }
+    });
+});
+</script>
+{% endblock %}

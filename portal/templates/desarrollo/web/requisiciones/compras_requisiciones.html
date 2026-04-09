@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-file-invoice-dollar text-danger"></i> Compras</h1>
+            <p class="text-muted mb-0">Administra requisiciones pendientes, en proceso, para entrega y revisa el comportamiento trimestral por departamento.</p>
+        </div>
+        <a href="{% url 'catalogo_requisiciones' %}" class="btn btn-outline-danger">
+            <i class="fas fa-box-open"></i> Catálogo de artículos
+        </a>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Buscar</label>
+                            <input type="text" class="form-control" name="q" value="{{ busqueda }}" placeholder="Folio, solicitante o departamento">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Estatus</label>
+                            <select name="estatus" class="form-select">
+                                <option value="">Activas</option>
+                                {% for valor, etiqueta in estados %}
+                                <option value="{{ valor }}" {% if filtro_estatus == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Año</label>
+                            <input type="number" class="form-control" name="anio" value="{{ anio }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label fw-semibold">Trim.</label>
+                            <select name="trimestre" class="form-select">
+                                {% for numero in '1234' %}
+                                <option value="{{ numero }}" {% if trimestre|stringformat:'s' == numero %}selected{% endif %}>{{ numero }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1 d-grid">
+                            <button type="submit" class="btn btn-outline-secondary"><i class="fas fa-search"></i></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <small class="text-muted">Periodo analizado</small>
+                    <strong class="fs-5">{{ fecha_inicio|date:'d/m/Y' }} al {{ fecha_fin|date:'d/m/Y' }}</strong>
+                    <small class="text-muted mt-3">Monto autorizado trimestral</small>
+                    <strong class="display-6 text-danger">${{ total_trimestral|floatformat:2 }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Cola de requisiciones</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if requisiciones %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Solicitante</th>
+                                    <th>Departamento</th>
+                                    <th>Estatus</th>
+                                    <th>Atiende</th>
+                                    <th>Fecha</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for requisicion in requisiciones %}
+                                <tr>
+                                    <td>{{ requisicion.folio_corto }}</td>
+                                    <td>{{ requisicion.solicitante.nombre_completo }}</td>
+                                    <td>{{ requisicion.departamento_solicitante.departamento }}</td>
+                                    <td><span class="badge bg-secondary">{{ requisicion.get_estatus_display }}</span></td>
+                                    <td>{{ requisicion.atendido_por.nombre_completo|default:'Sin asignar' }}</td>
+                                    <td>{{ requisicion.fecha_creacion|date:'d/m/Y H:i' }}</td>
+                                    <td class="text-end"><a href="{% url 'ver_requisicion' requisicion.id_requisicion %}" class="btn btn-sm btn-outline-danger">Abrir</a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-5 text-center text-muted">No hay requisiciones en la cola actual.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Comportamiento trimestral</h5>
+                </div>
+                <div class="card-body">
+                    {% for fila in resumen_trimestral %}
+                    <div class="border rounded p-3 mb-3">
+                        <div class="fw-semibold">{{ fila.requisicion__departamento_solicitante__departamento }}</div>
+                        <div class="small text-muted">Artículos autorizados: {{ fila.articulos|default:0 }}</div>
+                        <div class="small text-muted">Monto acumulado</div>
+                        <strong class="text-danger">${{ fila.total|floatformat:2 }}</strong>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">No hay movimientos trimestrales para el periodo seleccionado.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

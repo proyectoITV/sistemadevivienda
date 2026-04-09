@@ -1,21 +1,26 @@
 # -*- coding: utf-8 -*-
 import json
+import os
 import time
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, date
+from decimal import Decimal, InvalidOperation
 from urllib import parse, request as urllib_request
 
 from django.contrib import messages
 from django.conf import settings
 from django.shortcuts import redirect, render, get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from django.db import ProgrammingError, OperationalError, transaction, IntegrityError
-from django.db.models import Q
+from django.db.models import Q, Sum, F, DecimalField, ExpressionWrapper, Count
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, FileResponse
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.http import require_POST
 from .models import Anuncio, SeguridadContactanos, CatalogosDelegaciones
 from .email_utils import enviar_correo_contacto
 
@@ -255,11 +260,32 @@ def dashboard(request):
 		fecha_limite_sla__lt=timezone.now()
 	).count()
 
+	# Validación de cumpleaños
+	mostrar_cumpleanos = False
+	if hasattr(request.user, 'fecha_nacimiento') and request.user.fecha_nacimiento:
+		hoy = timezone.localdate()
+		if request.user.fecha_nacimiento.month == hoy.month and request.user.fecha_nacimiento.day == hoy.day:
+			current_year = hoy.year
+			if request.session.get('birthday_shown_year') != current_year:
+				mostrar_cumpleanos = True
+				request.session['birthday_shown_year'] = current_year
+
+	mostrar_menu_adquisiciones = False
+	try:
+		configuracion = ConfiguracionSistema.objects.first()
+		departamento_compras = getattr(configuracion, 'departamento_compras_requisiciones', None)
+		if departamento_compras:
+			mostrar_menu_adquisiciones = request.user.iddepartamento_id == departamento_compras.iddepartamento
+	except (ProgrammingError, OperationalError):
+		mostrar_menu_adquisiciones = False
+
 	context = {
 		'total_empleados': total_empleados,
 		'conteo_mantenimiento_total': conteo_mantenimiento_total,
 		'conteo_mantenimiento_pendiente': conteo_mantenimiento_pendiente,
 		'conteo_mantenimiento_vencido': conteo_mantenimiento_vencido,
+		'mostrar_cumpleanos': mostrar_cumpleanos,
+		'mostrar_menu_adquisiciones': mostrar_menu_adquisiciones,
 	}
 	return render(request, 'desarrollo/web/dashboard.html', context)
 
@@ -744,6 +770,392 @@ def editar_proveedor_vehiculo(request, clave_proveedor):
 		'titulo': 'Editar Proveedor de Vehiculo',
 		'accion': 'Guardar cambios',
 	})
+
+
+def _obtener_presupuesto_viaticos_por_direccion(direccion, ejercicio=None):
+	from .models import ViaticosPresupuestoDireccion
+
+	if direccion is None:
+		return None
+
+	ejercicio = ejercicio or timezone.localdate().year
+	return (
+		ViaticosPresupuestoDireccion.objects
+		.filter(iddireccion=direccion, ejercicio=ejercicio, activo=True)
+		.order_by('-fecha_modificacion')
+		.first()
+	)
+
+
+@login_required(login_url='login')
+def listar_viaticos(request):
+	from .forms import ViaticosPresupuestoDireccionForm, ViaticosSolicitudForm, ViaticosZonaTarifaForm
+	from .models import PersonalDireccion, ViaticosPresupuestoDireccion, ViaticosSolicitud, ViaticosZonaTarifa
+
+	solicitud_form = ViaticosSolicitudForm(prefix='solicitud')
+	presupuesto_form = ViaticosPresupuestoDireccionForm(prefix='presupuesto')
+	zona_form = ViaticosZonaTarifaForm(prefix='zona')
+
+	if request.method == 'POST':
+		action = request.POST.get('action', '').strip()
+
+		if action == 'crear_solicitud':
+			solicitud_form = ViaticosSolicitudForm(request.POST, prefix='solicitud')
+			if solicitud_form.is_valid():
+				solicitud = solicitud_form.save(commit=False)
+				solicitud.creado_por = request.user if getattr(request.user, 'is_authenticated', False) else None
+				solicitud.save()
+				messages.success(request, f'Solicitud de viaticos {solicitud.folio} creada correctamente.')
+				return redirect('listar_viaticos')
+			messages.error(request, 'No fue posible guardar la solicitud de viaticos. Revisa los campos marcados.')
+
+		elif action == 'crear_presupuesto':
+			presupuesto_form = ViaticosPresupuestoDireccionForm(request.POST, prefix='presupuesto')
+			if presupuesto_form.is_valid():
+				presupuesto = presupuesto_form.save()
+				messages.success(request, f'Presupuesto actualizado para {presupuesto.iddireccion.direccion}.')
+				return redirect('listar_viaticos')
+			messages.error(request, 'No fue posible guardar el presupuesto de viaticos.')
+
+		elif action == 'crear_zona':
+			zona_form = ViaticosZonaTarifaForm(request.POST, prefix='zona')
+			if zona_form.is_valid():
+				zona = zona_form.save()
+				messages.success(request, f'Tarifa de zona {zona.nombre} guardada correctamente.')
+				return redirect('listar_viaticos')
+			messages.error(request, 'No fue posible guardar la tarifa de zona.')
+
+	search = request.GET.get('search', '').strip()
+	direccion_filtro = request.GET.get('direccion', '').strip()
+	solicitudes = (
+		ViaticosSolicitud.objects
+		.select_related('empleado', 'direccion', 'zona', 'presupuesto')
+		.all()
+	)
+
+	if search:
+		solicitudes = solicitudes.filter(
+			Q(folio__icontains=search)
+			| Q(empleado__numero_empleado__icontains=search)
+			| Q(empleado__nombre_completo__icontains=search)
+			| Q(empleado__apellido_paterno__icontains=search)
+			| Q(empleado__apellido_materno__icontains=search)
+			| Q(destino__icontains=search)
+			| Q(origen__icontains=search)
+		)
+
+	if direccion_filtro.isdigit():
+		solicitudes = solicitudes.filter(direccion_id=int(direccion_filtro))
+
+	page_obj = Paginator(solicitudes, 10).get_page(request.GET.get('page'))
+	ejercicio_actual = timezone.localdate().year
+	presupuestos = (
+		ViaticosPresupuestoDireccion.objects
+		.select_related('iddireccion')
+		.filter(ejercicio=ejercicio_actual)
+		.order_by('iddireccion__direccion')
+	)
+	zonas = ViaticosZonaTarifa.objects.all().order_by('clave')
+
+	resumen_presupuestos = []
+	for presupuesto in presupuestos:
+		comprometido = presupuesto.monto_comprometido()
+		disponible = presupuesto.monto_disponible()
+		porcentaje = 0
+		if presupuesto.monto_asignado:
+			porcentaje = min(100, round((comprometido / presupuesto.monto_asignado) * 100, 2))
+		resumen_presupuestos.append({
+			'obj': presupuesto,
+			'comprometido': comprometido,
+			'disponible': disponible,
+			'porcentaje': porcentaje,
+		})
+
+	empleados = (
+		PersonalEmpleados.objects
+		.filter(activo=True, iddepartamento__isnull=False, iddepartamento__iddireccion__isnull=False)
+		.select_related('iddepartamento', 'iddepartamento__iddireccion')
+		.order_by('numero_empleado', 'nombre_completo')
+	)
+	empleados_data = {}
+	for empleado in empleados:
+		presupuesto = _obtener_presupuesto_viaticos_por_direccion(empleado.iddepartamento.iddireccion, ejercicio_actual)
+		empleados_data[str(empleado.pk)] = {
+			'numero': empleado.numero_empleado or str(empleado.id_empleado),
+			'nombre': empleado.nombre_completo,
+			'departamento': empleado.iddepartamento.departamento,
+			'direccion': empleado.iddepartamento.iddireccion.direccion,
+			'presupuesto': {
+				'asignado': float(presupuesto.monto_asignado) if presupuesto else 0,
+				'disponible': float(presupuesto.monto_disponible()) if presupuesto else 0,
+				'existe': bool(presupuesto),
+				'ejercicio': presupuesto.ejercicio if presupuesto else ejercicio_actual,
+			} if presupuesto else None,
+		}
+
+	zonas_data = {
+		str(zona.pk): {
+			'nombre': zona.nombre,
+			'hospedaje_noche': float(zona.hospedaje_noche),
+			'alimentacion_diaria': float(zona.alimentacion_diaria),
+			'combustible_km': float(zona.combustible_km),
+		}
+		for zona in zonas if zona.activo
+	}
+
+	monitoreo_qs = (
+		ViaticosSolicitud.objects
+		.select_related('empleado', 'direccion', 'zona')
+		.filter(
+			seguimiento_activo=True,
+			ultima_latitud__isnull=False,
+			ultima_longitud__isnull=False,
+		)
+		.exclude(estatus=ViaticosSolicitud.ESTATUS_CANCELADO)
+		.order_by('-ultima_actualizacion_ubicacion')
+	)
+	monitoreo_inicial = []
+	for viatico in monitoreo_qs:
+		monitoreo_inicial.append({
+			'id': viatico.id,
+			'folio': viatico.folio,
+			'empleado': viatico.empleado.nombre_completo,
+			'numero_empleado': viatico.empleado.numero_empleado or str(viatico.empleado.id_empleado),
+			'direccion': viatico.direccion.direccion,
+			'zona': viatico.zona.nombre,
+			'destino': viatico.destino,
+			'origen': viatico.origen,
+			'latitud': float(viatico.ultima_latitud),
+			'longitud': float(viatico.ultima_longitud),
+			'precision_metros': float(viatico.ultima_precision_metros) if viatico.ultima_precision_metros is not None else None,
+			'velocidad_kmh': float(viatico.ultima_velocidad_kmh) if viatico.ultima_velocidad_kmh is not None else None,
+			'ultima_actualizacion': timezone.localtime(viatico.ultima_actualizacion_ubicacion).isoformat() if viatico.ultima_actualizacion_ubicacion else None,
+			'google_maps_url': f'https://www.google.com/maps?q={viatico.ultima_latitud},{viatico.ultima_longitud}',
+			'google_embed_url': f'https://www.google.com/maps?q={viatico.ultima_latitud},{viatico.ultima_longitud}&z=15&output=embed',
+			'rastreo_url': request.build_absolute_uri(reverse('seguimiento_viatico', args=[viatico.id])),
+		})
+
+	context = {
+		'page_obj': page_obj,
+		'search': search,
+		'direccion_filtro': direccion_filtro,
+		'direcciones': PersonalDireccion.objects.filter(activo=True).order_by('direccion'),
+		'solicitud_form': solicitud_form,
+		'presupuesto_form': presupuesto_form,
+		'zona_form': zona_form,
+		'resumen_presupuestos': resumen_presupuestos,
+		'zonas': zonas,
+		'empleados_data_json': json.dumps(empleados_data),
+		'zonas_data_json': json.dumps(zonas_data),
+		'monitoreo_inicial_json': json.dumps(monitoreo_inicial),
+		'ejercicio_actual': ejercicio_actual,
+	}
+	return render(request, 'desarrollo/viaticos/listar_viaticos.html', context)
+
+
+@login_required(login_url='login')
+def actualizar_estatus_viatico(request, id_viatico):
+	from .models import ViaticosSolicitud
+
+	if request.method != 'POST':
+		return redirect('listar_viaticos')
+
+	viatico = get_object_or_404(ViaticosSolicitud, pk=id_viatico)
+	nuevo_estatus = request.POST.get('estatus', '').strip()
+	permitidos = dict(ViaticosSolicitud.ESTATUS_CHOICES)
+	if nuevo_estatus not in permitidos:
+		messages.error(request, 'Estatus de viatico no valido.')
+		return redirect('listar_viaticos')
+
+	viatico.estatus = nuevo_estatus
+	try:
+		viatico.save()
+		messages.success(request, f'Estatus actualizado a {permitidos[nuevo_estatus]}.')
+	except Exception as exc:
+		messages.error(request, f'No fue posible actualizar el estatus: {exc}')
+
+	return redirect('listar_viaticos')
+
+
+@login_required(login_url='login')
+def seguimiento_viatico(request, id_viatico):
+	from .models import ViaticosSolicitud, ViaticosUbicacion
+
+	viatico = get_object_or_404(
+		ViaticosSolicitud.objects.select_related('empleado', 'direccion', 'zona'),
+		pk=id_viatico,
+	)
+
+	es_dueno = viatico.empleado_id == getattr(request.user, 'id_empleado', None)
+	if not es_dueno and not _usuario_es_admin_sistema(request.user):
+		messages.error(request, 'No tienes permisos para ver el seguimiento de este viatico.')
+		return redirect('listar_viaticos')
+
+	google_embed_url = None
+	if viatico.ultima_latitud is not None and viatico.ultima_longitud is not None:
+		google_embed_url = f'https://www.google.com/maps?q={viatico.ultima_latitud},{viatico.ultima_longitud}&z=15&output=embed'
+
+	ubicaciones = list(
+		ViaticosUbicacion.objects
+		.filter(viatico=viatico)
+		.select_related('empleado')
+		.order_by('fecha_reporte', 'id')[:600]
+	)
+	recorrido_inicial = []
+	for ubicacion in ubicaciones:
+		recorrido_inicial.append({
+			'id': ubicacion.id,
+			'latitud': float(ubicacion.latitud),
+			'longitud': float(ubicacion.longitud),
+			'precision_metros': float(ubicacion.precision_metros) if ubicacion.precision_metros is not None else None,
+			'velocidad_kmh': float(ubicacion.velocidad_kmh) if ubicacion.velocidad_kmh is not None else None,
+			'fecha_reporte': timezone.localtime(ubicacion.fecha_reporte).isoformat(),
+			'fuente': ubicacion.fuente,
+			'google_maps_url': f'https://www.google.com/maps?q={ubicacion.latitud},{ubicacion.longitud}',
+		})
+
+	context = {
+		'viatico': viatico,
+		'es_dueno': es_dueno,
+		'google_embed_url': google_embed_url,
+		'recorrido_inicial_json': json.dumps(recorrido_inicial),
+	}
+	return render(request, 'desarrollo/viaticos/seguimiento_viatico.html', context)
+
+
+@login_required(login_url='login')
+def api_recorrido_viatico(request, id_viatico):
+	from .models import ViaticosSolicitud, ViaticosUbicacion
+
+	viatico = get_object_or_404(
+		ViaticosSolicitud.objects.select_related('empleado', 'direccion', 'zona'),
+		pk=id_viatico,
+	)
+
+	es_dueno = viatico.empleado_id == getattr(request.user, 'id_empleado', None)
+	if not es_dueno and not _usuario_es_admin_sistema(request.user):
+		return JsonResponse({'success': False, 'message': 'No tienes permisos.'}, status=403)
+
+	ubicaciones = (
+		ViaticosUbicacion.objects
+		.filter(viatico=viatico)
+		.order_by('fecha_reporte', 'id')[:1200]
+	)
+
+	items = []
+	for ubicacion in ubicaciones:
+		items.append({
+			'id': ubicacion.id,
+			'latitud': float(ubicacion.latitud),
+			'longitud': float(ubicacion.longitud),
+			'precision_metros': float(ubicacion.precision_metros) if ubicacion.precision_metros is not None else None,
+			'velocidad_kmh': float(ubicacion.velocidad_kmh) if ubicacion.velocidad_kmh is not None else None,
+			'fecha_reporte': timezone.localtime(ubicacion.fecha_reporte).isoformat(),
+			'fuente': ubicacion.fuente,
+			'google_maps_url': f'https://www.google.com/maps?q={ubicacion.latitud},{ubicacion.longitud}',
+		})
+
+	return JsonResponse({
+		'success': True,
+		'viatico': {
+			'id': viatico.id,
+			'folio': viatico.folio,
+			'origen': viatico.origen,
+			'destino': viatico.destino,
+		},
+		'items': items,
+	})
+
+
+@login_required(login_url='login')
+def api_posiciones_viaticos(request):
+	from .models import ViaticosSolicitud
+
+	viaticos = (
+		ViaticosSolicitud.objects
+		.select_related('empleado', 'direccion', 'zona')
+		.filter(
+			seguimiento_activo=True,
+			ultima_latitud__isnull=False,
+			ultima_longitud__isnull=False,
+		)
+		.exclude(estatus=ViaticosSolicitud.ESTATUS_CANCELADO)
+		.order_by('-ultima_actualizacion_ubicacion')
+	)
+
+	data = []
+	for viatico in viaticos:
+		data.append({
+			'id': viatico.id,
+			'folio': viatico.folio,
+			'empleado': viatico.empleado.nombre_completo,
+			'numero_empleado': viatico.empleado.numero_empleado or str(viatico.empleado.id_empleado),
+			'direccion': viatico.direccion.direccion,
+			'destino': viatico.destino,
+			'zona': viatico.zona.nombre,
+			'latitud': float(viatico.ultima_latitud),
+			'longitud': float(viatico.ultima_longitud),
+			'precision_metros': float(viatico.ultima_precision_metros) if viatico.ultima_precision_metros is not None else None,
+			'velocidad_kmh': float(viatico.ultima_velocidad_kmh) if viatico.ultima_velocidad_kmh is not None else None,
+			'ultima_actualizacion': timezone.localtime(viatico.ultima_actualizacion_ubicacion).isoformat() if viatico.ultima_actualizacion_ubicacion else None,
+			'google_maps_url': f'https://www.google.com/maps?q={viatico.ultima_latitud},{viatico.ultima_longitud}',
+			'google_embed_url': f'https://www.google.com/maps?q={viatico.ultima_latitud},{viatico.ultima_longitud}&z=15&output=embed',
+			'rastreo_url': reverse('seguimiento_viatico', args=[viatico.id]),
+		})
+
+	return JsonResponse({'items': data, 'server_time': timezone.localtime().isoformat()})
+
+
+@login_required(login_url='login')
+@require_POST
+def actualizar_ubicacion_viatico(request, id_viatico):
+	from .models import ViaticosSolicitud
+
+	viatico = get_object_or_404(ViaticosSolicitud, pk=id_viatico)
+	es_dueno = viatico.empleado_id == getattr(request.user, 'id_empleado', None)
+	if not es_dueno and not _usuario_es_admin_sistema(request.user):
+		return JsonResponse({'success': False, 'message': 'No tienes permisos.'}, status=403)
+
+	latitud = request.POST.get('latitud')
+	longitud = request.POST.get('longitud')
+	precision_metros = request.POST.get('precision_metros') or None
+	velocidad_kmh = request.POST.get('velocidad_kmh') or None
+
+	if not latitud or not longitud:
+		return JsonResponse({'success': False, 'message': 'Latitud y longitud son requeridas.'}, status=400)
+
+	try:
+		ubicacion = viatico.registrar_ubicacion(
+			empleado=request.user,
+			latitud=Decimal(latitud),
+			longitud=Decimal(longitud),
+			precision_metros=Decimal(precision_metros) if precision_metros is not None else None,
+			velocidad_kmh=Decimal(velocidad_kmh) if velocidad_kmh is not None else None,
+		)
+	except (InvalidOperation, ValidationError) as exc:
+		return JsonResponse({'success': False, 'message': str(exc)}, status=400)
+
+	return JsonResponse({
+		'success': True,
+		'fecha_reporte': timezone.localtime(ubicacion.fecha_reporte).isoformat(),
+		'google_maps_url': f'https://www.google.com/maps?q={ubicacion.latitud},{ubicacion.longitud}',
+	})
+
+
+@login_required(login_url='login')
+@require_POST
+def cambiar_seguimiento_viatico(request, id_viatico):
+	from .models import ViaticosSolicitud
+
+	viatico = get_object_or_404(ViaticosSolicitud, pk=id_viatico)
+	es_dueno = viatico.empleado_id == getattr(request.user, 'id_empleado', None)
+	if not es_dueno and not _usuario_es_admin_sistema(request.user):
+		return JsonResponse({'success': False, 'message': 'No tienes permisos.'}, status=403)
+
+	activo = request.POST.get('activo', '').strip().lower() == 'true'
+	viatico.seguimiento_activo = activo
+	viatico.save(update_fields=['seguimiento_activo', 'fecha_modificacion'])
+	return JsonResponse({'success': True, 'activo': viatico.seguimiento_activo})
 
 
 def recuperar_contrasena(request):
@@ -1539,17 +1951,18 @@ def configuracion_sistema(request):
 	# Obtener o crear configuración
 	config, created = ConfiguracionSistema.objects.get_or_create(pk=1)
 
-	def _aplicar_departamento_soporte_desde_post(configuracion, post_data):
-		"""Aplica y guarda el departamento de soporte desde POST de forma independiente."""
-		if 'departamento_soporte_mantenimiento' not in post_data:
+	def _aplicar_departamento_desde_post(configuracion, post_data, campo_modelo):
+		"""Aplica y guarda departamentos configurables desde POST de forma independiente."""
+		if campo_modelo not in post_data:
 			return False
 
-		dept_id = (post_data.get('departamento_soporte_mantenimiento') or '').strip()
+		dept_id = (post_data.get(campo_modelo) or '').strip()
+		campo_id = f'{campo_modelo}_id'
 
 		if dept_id == '':
-			if configuracion.departamento_soporte_mantenimiento_id is not None:
-				configuracion.departamento_soporte_mantenimiento = None
-				configuracion.save(update_fields=['departamento_soporte_mantenimiento', 'fecha_modificacion'])
+			if getattr(configuracion, campo_id) is not None:
+				setattr(configuracion, campo_modelo, None)
+				configuracion.save(update_fields=[campo_modelo, 'fecha_modificacion'])
 				return True
 			return False
 
@@ -1558,17 +1971,18 @@ def configuracion_sistema(request):
 		except PersonalDepartamento.DoesNotExist:
 			return False
 
-		if configuracion.departamento_soporte_mantenimiento_id != departamento.iddepartamento:
-			configuracion.departamento_soporte_mantenimiento = departamento
-			configuracion.save(update_fields=['departamento_soporte_mantenimiento', 'fecha_modificacion'])
+		if getattr(configuracion, campo_id) != departamento.iddepartamento:
+			setattr(configuracion, campo_modelo, departamento)
+			configuracion.save(update_fields=[campo_modelo, 'fecha_modificacion'])
 			return True
 
 		return False
 	
 	if request.method == 'POST':
-		cambios_departamento_soporte = _aplicar_departamento_soporte_desde_post(config, request.POST)
+		cambios_departamento_soporte = _aplicar_departamento_desde_post(config, request.POST, 'departamento_soporte_mantenimiento')
+		cambios_departamento_compras = _aplicar_departamento_desde_post(config, request.POST, 'departamento_compras_requisiciones')
 		# Asegurar que el form use la instancia más reciente (incluyendo guardado parcial)
-		if cambios_departamento_soporte:
+		if cambios_departamento_soporte or cambios_departamento_compras:
 			config.refresh_from_db()
 
 		form = ConfiguracionSistemaForm(request.POST, request.FILES, instance=config)
@@ -1577,10 +1991,10 @@ def configuracion_sistema(request):
 			messages.success(request, 'Configuración del sistema actualizada exitosamente.')
 			return redirect('configuracion_sistema')
 		else:
-			if cambios_departamento_soporte:
+			if cambios_departamento_soporte or cambios_departamento_compras:
 				messages.warning(
 					request,
-					'Se guardó el Departamento de Soporte para Mantenimiento, pero hay otros campos con errores por corregir.'
+					'Se guardaron cambios de departamentos operativos, pero hay otros campos con errores por corregir.'
 				)
 	else:
 		form = ConfiguracionSistemaForm(instance=config)
@@ -3688,3 +4102,820 @@ def eliminar_archivo_mantenimiento(request, id_archivo):
 		return JsonResponse({'success': True})
 	except Exception as e:
 		return JsonResponse({'success': False, 'error': str(e)})
+
+
+from .models import (
+	ConfiguracionSistema,
+	RequisicionesClasificacion,
+	RequisicionesCatalogoArticulos,
+	RequisicionesSolicitud,
+	RequisicionesSolicitudDetalle,
+	RequisicionesDocumento,
+	RequisicionesSeguimiento,
+)
+from .forms import RequisicionesCatalogoArticulosForm, RequisicionesDocumentoForm
+
+
+def _obtener_departamento_compras_requisiciones():
+	try:
+		configuracion = ConfiguracionSistema.objects.first()
+		departamento = getattr(configuracion, 'departamento_compras_requisiciones', None)
+		if departamento and departamento.activo:
+			return departamento
+	except (ProgrammingError, OperationalError):
+		return None
+
+	return PersonalDepartamento.objects.filter(
+		activo=True,
+	).filter(
+		Q(departamento__icontains='adquisiciones') |
+		Q(departamento__icontains='compras')
+	).order_by('departamento').first()
+
+
+def _usuario_es_compras_requisiciones(user):
+	if not getattr(user, 'is_authenticated', False):
+		return False
+	departamento = _obtener_departamento_compras_requisiciones()
+	return bool(departamento and user.iddepartamento_id == departamento.iddepartamento)
+
+
+def _usuario_puede_ver_requisicion(user, requisicion):
+	if not getattr(user, 'is_authenticated', False):
+		return False
+	if _usuario_es_admin_sistema(user) or _usuario_es_compras_requisiciones(user):
+		return True
+	if getattr(user, 'id_empleado', None) == requisicion.solicitante_id:
+		return True
+	return bool(user.iddepartamento_id and user.iddepartamento_id == requisicion.departamento_solicitante_id)
+
+
+def _registrar_seguimiento_requisicion(requisicion, autor, tipo, mensaje, estatus_anterior='', estatus_nuevo=''):
+	return RequisicionesSeguimiento.objects.create(
+		requisicion=requisicion,
+		autor=autor,
+		tipo=tipo,
+		mensaje=mensaje,
+		estatus_anterior=estatus_anterior,
+		estatus_nuevo=estatus_nuevo,
+	)
+
+
+def _parsear_entero(valor, default=0):
+	try:
+		return int(str(valor).strip())
+	except (TypeError, ValueError, AttributeError):
+		return default
+
+
+def _parsear_decimal(valor, default=Decimal('0.00')):
+	try:
+		texto = str(valor).strip().replace(',', '')
+		if not texto:
+			return default
+		return Decimal(texto)
+	except (InvalidOperation, TypeError, ValueError):
+		return default
+
+
+def _obtener_rango_trimestre(anio, trimestre):
+	mes_inicial = ((trimestre - 1) * 3) + 1
+	inicio = date(anio, mes_inicial, 1)
+	if trimestre == 4:
+		fin = date(anio + 1, 1, 1) - timedelta(days=1)
+	else:
+		fin = date(anio, mes_inicial + 3, 1) - timedelta(days=1)
+	return inicio, fin
+
+
+def _obtener_resumen_trimestral_requisiciones(anio, trimestre):
+	inicio, fin = _obtener_rango_trimestre(anio, trimestre)
+	importe_expr = ExpressionWrapper(
+		F('cantidad_autorizada') * F('costo_unitario'),
+		output_field=DecimalField(max_digits=14, decimal_places=2),
+	)
+
+	resumen = list(
+		RequisicionesSolicitudDetalle.objects.filter(
+			requisicion__estatus__in=['en_proceso', 'para_entrega', 'entregado'],
+			requisicion__fecha_actualizacion__date__gte=inicio,
+			requisicion__fecha_actualizacion__date__lte=fin,
+			cantidad_autorizada__gt=0,
+		).values(
+			'requisicion__departamento_solicitante__iddepartamento',
+			'requisicion__departamento_solicitante__departamento',
+		).annotate(
+			total=Sum(importe_expr),
+			articulos=Sum('cantidad_autorizada'),
+			requisiciones=Count('requisicion', distinct=True),
+		).order_by('-total')
+	)
+
+	total_general = sum((fila['total'] or Decimal('0.00')) for fila in resumen)
+	return resumen, total_general, inicio, fin
+
+
+def _normalizar_estatus_requisicion(requisicion):
+	detalles = list(requisicion.detalles.all())
+	if not detalles:
+		return requisicion.estatus
+
+	estados = {detalle.estatus_detalle for detalle in detalles}
+	if estados == {'no_autorizado'}:
+		return 'no_autorizado'
+	if estados == {'entregado'}:
+		return 'entregado'
+	if estados.issubset({'para_entrega', 'entregado', 'no_autorizado'}) and 'para_entrega' in estados:
+		return 'para_entrega'
+	if requisicion.atendido_por_id or estados.intersection({'parcial', 'para_entrega', 'no_autorizado', 'entregado'}):
+		return 'en_proceso'
+	return 'pendiente'
+
+
+def _redirigir_si_requisiciones_no_disponibles(request):
+	messages.error(
+		request,
+		'El módulo de requisiciones aún no está disponible en esta base de datos. Ejecuta la migración pendiente del sistema.'
+	)
+	return redirect('dashboard')
+
+def _render_acceso_denegado_adquisiciones(request, seccion):
+	departamento_configurado = _obtener_departamento_compras_requisiciones()
+	departamento_usuario = getattr(getattr(request.user, 'iddepartamento', None), 'departamento', '') or 'Sin departamento asignado'
+
+	return render(
+		request,
+		'desarrollo/web/requisiciones/acceso_denegado_adquisiciones.html',
+		{
+			'seccion': seccion,
+			'departamento_configurado': getattr(departamento_configurado, 'departamento', 'No configurado'),
+			'departamento_usuario': departamento_usuario,
+		},
+		status=403,
+	)
+
+
+@login_required
+def listar_requisiciones(request):
+	try:
+		qs = RequisicionesSolicitud.objects.select_related(
+			'solicitante', 'departamento_solicitante', 'departamento_atencion', 'atendido_por', 'recibido_por'
+		).prefetch_related('detalles__articulo').order_by('-fecha_creacion')
+
+		es_admin = _usuario_es_admin_sistema(request.user)
+		es_compras = _usuario_es_compras_requisiciones(request.user)
+		if not (es_admin or es_compras):
+			if not request.user.iddepartamento_id:
+				qs = qs.filter(solicitante_id=request.user.id_empleado)
+			else:
+				qs = qs.filter(departamento_solicitante_id=request.user.iddepartamento_id)
+		elif request.user.iddepartamento_id and request.GET.get('scope') != 'todas':
+			qs = qs.filter(departamento_solicitante_id=request.user.iddepartamento_id)
+
+		busqueda = (request.GET.get('q') or '').strip()
+		estatus = (request.GET.get('estatus') or '').strip()
+		if busqueda:
+			qs = qs.filter(
+				Q(folio__icontains=busqueda) |
+				Q(solicitante__nombre_completo__icontains=busqueda) |
+				Q(detalles__articulo__nombre__icontains=busqueda) |
+				Q(detalles__motivo__icontains=busqueda)
+			).distinct()
+		if estatus:
+			qs = qs.filter(estatus=estatus)
+
+		requisiciones = list(qs)
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	return render(request, 'desarrollo/web/requisiciones/listar_requisiciones.html', {
+		'requisiciones': requisiciones,
+		'estados': RequisicionesSolicitud.ESTATUS_CHOICES,
+		'es_admin': es_admin,
+		'es_compras': es_compras,
+		'filtro_estatus': estatus,
+		'busqueda': busqueda,
+	})
+
+
+@login_required
+def crear_requisicion(request):
+	try:
+		RequisicionesCatalogoArticulos.objects.exists()
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	departamento_compras = _obtener_departamento_compras_requisiciones()
+	if not departamento_compras:
+		messages.error(request, 'No hay un departamento de adquisiciones configurado. Actualiza la configuración del sistema.')
+		return redirect('dashboard')
+
+	departamentos_disponibles = list(PersonalDepartamento.objects.filter(activo=True).order_by('departamento'))
+	requiere_departamento_manual = not bool(request.user.iddepartamento_id)
+
+	try:
+		articulos_recientes = list(
+			RequisicionesCatalogoArticulos.objects.filter(activo=True).select_related('clasificacion').order_by('-fecha_modificacion')[:12]
+		)
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if request.method == 'POST':
+		articulo_ids = request.POST.getlist('articulo_id[]')
+		cantidades = request.POST.getlist('cantidad[]')
+		unidades = request.POST.getlist('unidad_medida[]')
+		motivos = request.POST.getlist('motivo[]')
+		observaciones = request.POST.getlist('observacion[]')
+		comentarios = (request.POST.get('comentarios') or '').strip()
+		departamento_manual_id = (request.POST.get('departamento_solicitante') or '').strip()
+
+		departamento_solicitante = request.user.iddepartamento
+		if requiere_departamento_manual:
+			if not departamento_manual_id:
+				messages.error(request, 'Selecciona el departamento al que se cargará la requisición.')
+				return render(request, 'desarrollo/web/requisiciones/crear_requisicion.html', {
+					'articulos_recientes': articulos_recientes,
+					'unidades_medida': RequisicionesCatalogoArticulos.UNIDAD_MEDIDA_CHOICES,
+					'comentarios': comentarios,
+					'departamentos_disponibles': departamentos_disponibles,
+					'requiere_departamento_manual': requiere_departamento_manual,
+					'departamento_solicitante_id': departamento_manual_id,
+				})
+			try:
+				departamento_solicitante = PersonalDepartamento.objects.get(iddepartamento=departamento_manual_id, activo=True)
+			except PersonalDepartamento.DoesNotExist:
+				messages.error(request, 'El departamento seleccionado no es válido.')
+				return render(request, 'desarrollo/web/requisiciones/crear_requisicion.html', {
+					'articulos_recientes': articulos_recientes,
+					'unidades_medida': RequisicionesCatalogoArticulos.UNIDAD_MEDIDA_CHOICES,
+					'comentarios': comentarios,
+					'departamentos_disponibles': departamentos_disponibles,
+					'requiere_departamento_manual': requiere_departamento_manual,
+					'departamento_solicitante_id': departamento_manual_id,
+				})
+
+		items = []
+		errores = []
+		for indice, articulo_id in enumerate(articulo_ids):
+			articulo_id = (articulo_id or '').strip()
+			if not articulo_id:
+				continue
+
+			try:
+				articulo = RequisicionesCatalogoArticulos.objects.get(id_articulo=articulo_id, activo=True)
+			except RequisicionesCatalogoArticulos.DoesNotExist:
+				errores.append(f'El artículo en la fila {indice + 1} ya no está disponible.')
+				continue
+
+			cantidad = _parsear_entero(cantidades[indice] if indice < len(cantidades) else None)
+			unidad = (unidades[indice] if indice < len(unidades) else articulo.unidad_medida or '').strip() or articulo.unidad_medida
+			motivo = (motivos[indice] if indice < len(motivos) else '').strip()
+			observacion = (observaciones[indice] if indice < len(observaciones) else '').strip()
+
+			if cantidad <= 0:
+				errores.append(f'La cantidad del artículo "{articulo.nombre}" debe ser mayor a cero.')
+			if not motivo:
+				errores.append(f'Debes capturar el motivo del artículo "{articulo.nombre}".')
+
+			items.append({
+				'articulo': articulo,
+				'cantidad': cantidad,
+				'unidad': unidad,
+				'motivo': motivo,
+				'observacion': observacion,
+			})
+
+		if not items:
+			errores.append('Agrega al menos un artículo a la requisición.')
+
+		if errores:
+			for error in errores:
+				messages.error(request, error)
+			return render(request, 'desarrollo/web/requisiciones/crear_requisicion.html', {
+				'articulos_recientes': articulos_recientes,
+				'unidades_medida': RequisicionesCatalogoArticulos.UNIDAD_MEDIDA_CHOICES,
+				'comentarios': comentarios,
+				'departamentos_disponibles': departamentos_disponibles,
+				'requiere_departamento_manual': requiere_departamento_manual,
+				'departamento_solicitante_id': departamento_manual_id,
+			})
+
+		with transaction.atomic():
+			requisicion = RequisicionesSolicitud.objects.create(
+				solicitante=request.user,
+				departamento_solicitante=departamento_solicitante,
+				departamento_atencion=departamento_compras,
+				comentarios_compra=comentarios,
+			)
+
+			for item in items:
+				RequisicionesSolicitudDetalle.objects.create(
+					requisicion=requisicion,
+					articulo=item['articulo'],
+					motivo=item['motivo'],
+					observaciones_compra=item['observacion'],
+					cantidad_solicitada=item['cantidad'],
+					unidad_medida=item['unidad'],
+				)
+
+			_registrar_seguimiento_requisicion(
+				requisicion,
+				request.user,
+				'estado',
+				'Requisición registrada y enviada al área de compras.',
+				'',
+				requisicion.estatus,
+			)
+
+		messages.success(request, f'Requisición {requisicion.folio_corto} registrada correctamente.')
+		return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+	return render(request, 'desarrollo/web/requisiciones/crear_requisicion.html', {
+		'articulos_recientes': articulos_recientes,
+		'unidades_medida': RequisicionesCatalogoArticulos.UNIDAD_MEDIDA_CHOICES,
+		'departamentos_disponibles': departamentos_disponibles,
+		'requiere_departamento_manual': requiere_departamento_manual,
+		'departamento_solicitante_id': request.user.iddepartamento_id,
+	})
+
+
+@login_required
+def ver_requisicion_historial(request, id_requisicion):
+	try:
+		requisicion = get_object_or_404(
+			RequisicionesSolicitud.objects.select_related(
+				'solicitante', 'departamento_solicitante', 'departamento_atencion', 'atendido_por', 'recibido_por'
+			).prefetch_related(
+				'detalles__articulo__clasificacion'
+			),
+			id_requisicion=id_requisicion,
+		)
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if not _usuario_puede_ver_requisicion(request.user, requisicion):
+		messages.error(request, 'No tienes permiso para ver esta requisición.')
+		return redirect('listar_requisiciones')
+
+	detalles = list(requisicion.detalles.select_related('articulo').order_by('id_detalle'))
+
+	return render(request, 'desarrollo/web/requisiciones/ver_requisicion_historial.html', {
+		'requisicion': requisicion,
+		'detalles': detalles,
+	})
+
+
+@login_required
+def ver_requisicion(request, id_requisicion):
+	try:
+		requisicion = get_object_or_404(
+			RequisicionesSolicitud.objects.select_related(
+				'solicitante', 'departamento_solicitante', 'departamento_atencion', 'atendido_por', 'recibido_por'
+			).prefetch_related(
+				'detalles__articulo__clasificacion', 'documentos__subido_por', 'documentos__detalle__articulo', 'seguimientos__autor'
+			),
+			id_requisicion=id_requisicion,
+		)
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if not _usuario_puede_ver_requisicion(request.user, requisicion):
+		messages.error(request, 'No tienes permiso para ver esta requisición.')
+		return redirect('listar_requisiciones')
+
+	es_admin = _usuario_es_admin_sistema(request.user)
+	es_compras = _usuario_es_compras_requisiciones(request.user)
+	puede_editar_compra = es_admin or es_compras
+	detalles_qs = requisicion.detalles.select_related('articulo').order_by('id_detalle')
+	documento_form = RequisicionesDocumentoForm(detalles_queryset=detalles_qs)
+
+	if request.method == 'POST':
+		accion = (request.POST.get('accion') or '').strip()
+
+		if accion == 'tomar':
+			if not puede_editar_compra:
+				messages.error(request, 'No tienes permiso para tomar esta requisición.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+			estatus_anterior = requisicion.estatus
+			if not requisicion.atendido_por_id:
+				requisicion.atendido_por = request.user
+				requisicion.fecha_toma = timezone.now()
+			requisicion.estatus = 'en_proceso'
+			requisicion.save(update_fields=['atendido_por', 'fecha_toma', 'estatus', 'fecha_actualizacion'])
+			_registrar_seguimiento_requisicion(
+				requisicion,
+				request.user,
+				'estado',
+				'Requisición tomada por el área de compras.',
+				estatus_anterior,
+				requisicion.estatus,
+			)
+			messages.success(request, 'La requisición se marcó en proceso.')
+			return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+		if accion == 'guardar_compra':
+			if not puede_editar_compra:
+				messages.error(request, 'No tienes permiso para actualizar esta requisición.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+			detalles_por_id = {str(detalle.id_detalle): detalle for detalle in detalles_qs}
+			errores = []
+			for detalle_id in request.POST.getlist('detalle_id[]'):
+				detalle = detalles_por_id.get(str(detalle_id))
+				if not detalle:
+					continue
+
+				cantidad_autorizada = _parsear_entero(request.POST.get(f'cantidad_autorizada_{detalle.id_detalle}'))
+				cantidad_entregada = _parsear_entero(request.POST.get(f'cantidad_entregada_{detalle.id_detalle}'))
+				costo_unitario = _parsear_decimal(request.POST.get(f'costo_unitario_{detalle.id_detalle}'))
+				estatus_detalle = (request.POST.get(f'estatus_detalle_{detalle.id_detalle}') or detalle.estatus_detalle).strip()
+				observaciones = (request.POST.get(f'observaciones_compra_{detalle.id_detalle}') or '').strip()
+
+				if cantidad_autorizada < 0 or cantidad_autorizada > detalle.cantidad_solicitada:
+					errores.append(f'La cantidad autorizada de "{detalle.articulo.nombre}" es inválida.')
+				if cantidad_entregada < 0 or cantidad_entregada > cantidad_autorizada:
+					errores.append(f'La cantidad entregada de "{detalle.articulo.nombre}" no puede exceder la autorizada.')
+				if estatus_detalle not in dict(RequisicionesSolicitudDetalle.ESTATUS_DETALLE_CHOICES):
+					errores.append(f'El estatus del detalle "{detalle.articulo.nombre}" no es válido.')
+
+				detalle.cantidad_autorizada = cantidad_autorizada
+				detalle.cantidad_entregada = cantidad_entregada
+				detalle.costo_unitario = costo_unitario
+				detalle.estatus_detalle = estatus_detalle
+				detalle.observaciones_compra = observaciones
+
+			comentarios_compra = (request.POST.get('comentarios_compra') or '').strip()
+			motivo_no_autorizado = (request.POST.get('no_autorizado_motivo') or '').strip()
+			nuevo_estatus = (request.POST.get('estatus_requisicion') or requisicion.estatus).strip()
+
+			if nuevo_estatus not in dict(RequisicionesSolicitud.ESTATUS_CHOICES):
+				errores.append('El estatus seleccionado para la requisición no es válido.')
+			if nuevo_estatus == 'no_autorizado' and not motivo_no_autorizado:
+				errores.append('Debes indicar el motivo cuando la requisición sea no autorizada.')
+
+			if errores:
+				for error in errores:
+					messages.error(request, error)
+			else:
+				with transaction.atomic():
+					for detalle in detalles_por_id.values():
+						detalle.save(update_fields=[
+							'cantidad_autorizada',
+							'cantidad_entregada',
+							'costo_unitario',
+							'estatus_detalle',
+							'observaciones_compra',
+						])
+
+					estatus_anterior = requisicion.estatus
+					requisicion.comentarios_compra = comentarios_compra
+					requisicion.no_autorizado_motivo = motivo_no_autorizado
+					if not requisicion.atendido_por_id:
+						requisicion.atendido_por = request.user
+						requisicion.fecha_toma = timezone.now()
+
+					if nuevo_estatus == 'para_entrega' and not requisicion.fecha_para_entrega:
+						requisicion.fecha_para_entrega = timezone.now()
+					if nuevo_estatus != 'para_entrega':
+						requisicion.fecha_para_entrega = requisicion.fecha_para_entrega
+
+					requisicion.estatus = nuevo_estatus or _normalizar_estatus_requisicion(requisicion)
+					requisicion.save(update_fields=[
+						'comentarios_compra',
+						'no_autorizado_motivo',
+						'atendido_por',
+						'fecha_toma',
+						'fecha_para_entrega',
+						'estatus',
+						'fecha_actualizacion',
+					])
+
+					_registrar_seguimiento_requisicion(
+						requisicion,
+						request.user,
+						'estado',
+						'La requisición fue actualizada por el área de compras.',
+						estatus_anterior,
+						requisicion.estatus,
+					)
+
+				messages.success(request, 'La requisición se actualizó correctamente.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+		if accion == 'subir_documento':
+			if not puede_editar_compra:
+				messages.error(request, 'No tienes permiso para subir documentos de esta requisición.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+			documento_form = RequisicionesDocumentoForm(request.POST, request.FILES, detalles_queryset=detalles_qs)
+			if documento_form.is_valid():
+				documento = documento_form.save(commit=False)
+				documento.requisicion = requisicion
+				documento.nombre_original = documento.archivo.name
+				documento.subido_por = request.user
+				documento.save()
+				_registrar_seguimiento_requisicion(
+					requisicion,
+					request.user,
+					'documento',
+					f'Se cargó un documento de tipo {documento.get_tipo_documento_display().lower()}.',
+				)
+				messages.success(request, 'Documento cargado correctamente.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+			messages.error(request, 'No fue posible cargar el documento. Verifica el archivo y los datos capturados.')
+
+		if accion == 'entregar':
+			if not puede_editar_compra:
+				messages.error(request, 'No tienes permiso para entregar esta requisición.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+			if requisicion.estatus == 'entregado':
+				messages.info(request, 'La requisición ya fue entregada anteriormente.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+			id_recibido_por = _parsear_entero(request.POST.get('recibido_por'), default=None)
+			if not id_recibido_por:
+				messages.error(request, 'Selecciona a la persona que recibe la requisición.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+			recibido_por = get_object_or_404(PersonalEmpleados, id_empleado=id_recibido_por, activo=True)
+			if requisicion.departamento_solicitante_id and recibido_por.iddepartamento_id != requisicion.departamento_solicitante_id:
+				messages.error(request, 'La persona que recibe debe pertenecer al mismo departamento solicitante.')
+				return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+			with transaction.atomic():
+				for detalle in detalles_qs:
+					if detalle.cantidad_autorizada > 0 and detalle.cantidad_entregada == 0:
+						detalle.cantidad_entregada = detalle.cantidad_autorizada
+					if detalle.cantidad_entregada > 0:
+						articulo = detalle.articulo
+						articulo.stock_actual = max(0, articulo.stock_actual - detalle.cantidad_entregada)
+						articulo.save(update_fields=['stock_actual', 'fecha_modificacion'])
+						detalle.estatus_detalle = 'entregado'
+					elif detalle.estatus_detalle == 'pendiente':
+						detalle.estatus_detalle = 'no_autorizado'
+					detalle.save(update_fields=['cantidad_entregada', 'estatus_detalle'])
+
+				estatus_anterior = requisicion.estatus
+				requisicion.estatus = 'entregado'
+				requisicion.recibido_por = recibido_por
+				requisicion.fecha_entrega = timezone.now()
+				requisicion.save(update_fields=['estatus', 'recibido_por', 'fecha_entrega', 'fecha_actualizacion'])
+
+				_registrar_seguimiento_requisicion(
+					requisicion,
+					request.user,
+					'entrega',
+					f'La requisición fue entregada a {recibido_por.nombre_completo}.',
+					estatus_anterior,
+					requisicion.estatus,
+				)
+
+			messages.success(request, 'La requisición se marcó como entregada.')
+			return redirect('ver_requisicion', id_requisicion=requisicion.id_requisicion)
+
+	seguimientos = requisicion.seguimientos.select_related('autor').order_by('-fecha')
+	documentos = requisicion.documentos.select_related('subido_por', 'detalle__articulo').order_by('-fecha_subida')
+	empleados_departamento = PersonalEmpleados.objects.filter(
+		activo=True,
+		iddepartamento_id=requisicion.departamento_solicitante_id,
+	).order_by('nombre', 'apellido_paterno', 'apellido_materno')
+
+	return render(request, 'desarrollo/web/requisiciones/ver_requisicion.html', {
+		'requisicion': requisicion,
+		'detalles': detalles_qs,
+		'seguimientos': seguimientos,
+		'documentos': documentos,
+		'documento_form': documento_form,
+		'estados': RequisicionesSolicitud.ESTATUS_CHOICES,
+		'estados_detalle': RequisicionesSolicitudDetalle.ESTATUS_DETALLE_CHOICES,
+		'es_admin': es_admin,
+		'es_compras': es_compras,
+		'puede_editar_compra': puede_editar_compra,
+		'empleados_departamento': empleados_departamento,
+	})
+
+
+@login_required
+def compras_requisiciones(request):
+	try:
+		RequisicionesSolicitud.objects.exists()
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if not _usuario_es_compras_requisiciones(request.user):
+		return _render_acceso_denegado_adquisiciones(request, 'Compras')
+
+	qs = RequisicionesSolicitud.objects.select_related(
+		'solicitante', 'departamento_solicitante', 'atendido_por', 'recibido_por'
+	).prefetch_related('detalles__articulo').order_by('-fecha_creacion')
+
+	estatus = (request.GET.get('estatus') or '').strip()
+	busqueda = (request.GET.get('q') or '').strip()
+	if estatus:
+		qs = qs.filter(estatus=estatus)
+		if busqueda:
+			qs = qs.filter(
+				Q(folio__icontains=busqueda) |
+				Q(solicitante__nombre_completo__icontains=busqueda) |
+				Q(departamento_solicitante__departamento__icontains=busqueda)
+			)
+	else:
+		qs = qs.exclude(estatus='entregado')
+		if busqueda:
+			qs = qs.filter(
+				Q(folio__icontains=busqueda) |
+				Q(solicitante__nombre_completo__icontains=busqueda) |
+				Q(departamento_solicitante__departamento__icontains=busqueda)
+			)
+
+	hoy = timezone.localdate()
+	trimestre_actual = ((hoy.month - 1) // 3) + 1
+	anio = _parsear_entero(request.GET.get('anio'), hoy.year)
+	trimestre = _parsear_entero(request.GET.get('trimestre'), trimestre_actual)
+	if trimestre not in (1, 2, 3, 4):
+		trimestre = trimestre_actual
+
+	resumen_trimestral, total_trimestral, fecha_inicio, fecha_fin = _obtener_resumen_trimestral_requisiciones(anio, trimestre)
+	try:
+		requisiciones = list(qs)
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	return render(request, 'desarrollo/web/requisiciones/compras_requisiciones.html', {
+		'requisiciones': requisiciones,
+		'estados': RequisicionesSolicitud.ESTATUS_CHOICES,
+		'filtro_estatus': estatus,
+		'busqueda': busqueda,
+		'resumen_trimestral': resumen_trimestral,
+		'total_trimestral': total_trimestral,
+		'anio': anio,
+		'trimestre': trimestre,
+		'fecha_inicio': fecha_inicio,
+		'fecha_fin': fecha_fin,
+	})
+
+
+@login_required
+def catalogo_requisiciones(request):
+	try:
+		RequisicionesCatalogoArticulos.objects.exists()
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if not _usuario_es_compras_requisiciones(request.user):
+		return _render_acceso_denegado_adquisiciones(request, 'Catálogo de artículos')
+
+	articulos = RequisicionesCatalogoArticulos.objects.select_related('clasificacion').order_by('nombre')
+	clasificacion_id = (request.GET.get('clasificacion') or '').strip()
+	texto = (request.GET.get('q') or '').strip()
+	activo = (request.GET.get('activo') or '').strip()
+
+	if clasificacion_id:
+		articulos = articulos.filter(clasificacion_id=clasificacion_id)
+	if texto:
+		articulos = articulos.filter(Q(nombre__icontains=texto) | Q(descripcion__icontains=texto))
+	if activo in ('1', '0'):
+		articulos = articulos.filter(activo=activo == '1')
+
+	try:
+		articulos = list(articulos)
+		clasificaciones = list(RequisicionesClasificacion.objects.filter(activo=True).order_by('nombre'))
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	return render(request, 'desarrollo/web/requisiciones/catalogo_requisiciones.html', {
+		'articulos': articulos,
+		'clasificaciones': clasificaciones,
+		'clasificacion_id': clasificacion_id,
+		'texto': texto,
+		'activo': activo,
+	})
+
+
+@login_required
+def crear_articulo_requisicion(request):
+	try:
+		RequisicionesClasificacion.objects.exists()
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if not _usuario_es_compras_requisiciones(request.user):
+		return _render_acceso_denegado_adquisiciones(request, 'Catálogo de artículos')
+
+	form = RequisicionesCatalogoArticulosForm(request.POST or None, request.FILES or None)
+	if request.method == 'POST' and form.is_valid():
+		articulo = form.save(commit=False)
+		nombre_usuario = getattr(request.user, 'usuario', '') or getattr(request.user, 'nombre_completo', '') or str(request.user)
+		articulo.usuario_captura = nombre_usuario
+		articulo.usuario_modificacion = nombre_usuario
+		articulo.save()
+		messages.success(request, 'Artículo registrado correctamente.')
+		return redirect('catalogo_requisiciones')
+
+	return render(request, 'desarrollo/web/requisiciones/form_articulo_requisicion.html', {
+		'form': form,
+		'titulo': 'Nuevo artículo',
+		'accion': 'Registrar',
+	})
+
+
+@login_required
+def editar_articulo_requisicion(request, id_articulo):
+	try:
+		RequisicionesCatalogoArticulos.objects.exists()
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if not _usuario_es_compras_requisiciones(request.user):
+		return _render_acceso_denegado_adquisiciones(request, 'Catálogo de artículos')
+
+	articulo = get_object_or_404(RequisicionesCatalogoArticulos, id_articulo=id_articulo)
+	form = RequisicionesCatalogoArticulosForm(request.POST or None, request.FILES or None, instance=articulo)
+	if request.method == 'POST' and form.is_valid():
+		articulo = form.save(commit=False)
+		articulo.usuario_modificacion = getattr(request.user, 'usuario', '') or getattr(request.user, 'nombre_completo', '') or str(request.user)
+		articulo.save()
+		messages.success(request, 'Artículo actualizado correctamente.')
+		return redirect('catalogo_requisiciones')
+
+	return render(request, 'desarrollo/web/requisiciones/form_articulo_requisicion.html', {
+		'form': form,
+		'articulo': articulo,
+		'titulo': 'Editar artículo',
+		'accion': 'Guardar cambios',
+	})
+
+
+@login_required
+def buscar_articulos_requisiciones(request):
+	try:
+		articulos = RequisicionesCatalogoArticulos.objects.filter(activo=True).select_related('clasificacion').order_by('nombre')
+	except (ProgrammingError, OperationalError):
+		return JsonResponse({'results': [], 'error': 'Modulo no disponible hasta aplicar migraciones.'}, status=503)
+
+	termino = (request.GET.get('q') or '').strip()
+	if termino:
+		articulos = articulos.filter(
+			Q(nombre__icontains=termino) |
+			Q(descripcion__icontains=termino) |
+			Q(clasificacion__nombre__icontains=termino)
+		)
+
+	resultados = []
+	for articulo in articulos[:15]:
+		resultados.append({
+			'id': articulo.id_articulo,
+			'nombre': articulo.nombre,
+			'clasificacion': articulo.clasificacion.nombre if articulo.clasificacion else '',
+			'descripcion': articulo.descripcion or '',
+			'unidad_medida': articulo.unidad_medida,
+			'stock_actual': articulo.stock_actual,
+			'precio_referencia': str(articulo.precio_referencia or Decimal('0.00')),
+			'imagen_url': articulo.imagen.url if articulo.imagen else '',
+		})
+
+	return JsonResponse({'results': resultados})
+
+
+@login_required
+def descargar_documento_requisicion(request, id_documento):
+	try:
+		documento = get_object_or_404(RequisicionesDocumento.objects.select_related('requisicion'), id_documento=id_documento)
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+	if not _usuario_puede_ver_requisicion(request.user, documento.requisicion):
+		messages.error(request, 'No tienes permiso para descargar este documento.')
+		return redirect('listar_requisiciones')
+
+	try:
+		return FileResponse(documento.archivo.open('rb'), as_attachment=True, filename=documento.nombre_original)
+	except Exception:
+		messages.error(request, 'No se pudo descargar el documento.')
+		return redirect('ver_requisicion', id_requisicion=documento.requisicion.id_requisicion)
+
+
+@login_required
+@xframe_options_sameorigin
+def previsualizar_documento_requisicion(request, id_documento):
+	try:
+		documento = get_object_or_404(RequisicionesDocumento.objects.select_related('requisicion'), id_documento=id_documento)
+	except (ProgrammingError, OperationalError):
+		return _redirigir_si_requisiciones_no_disponibles(request)
+
+	if not _usuario_puede_ver_requisicion(request.user, documento.requisicion):
+		messages.error(request, 'No tienes permiso para visualizar este documento.')
+		return redirect('listar_requisiciones')
+
+	if not documento.es_pdf:
+		messages.error(request, 'Solo es posible previsualizar archivos PDF.')
+		return redirect('ver_requisicion', id_requisicion=documento.requisicion.id_requisicion)
+
+	try:
+		response = FileResponse(documento.archivo.open('rb'), content_type='application/pdf')
+		response['Content-Disposition'] = f'inline; filename="{documento.nombre_original}"'
+		return response
+	except Exception:
+		messages.error(request, 'No se pudo previsualizar el documento.')
+		return redirect('ver_requisicion', id_requisicion=documento.requisicion.id_requisicion)

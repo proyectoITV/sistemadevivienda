@@ -384,6 +384,21 @@
                                     </ul>
                                 </div>
                             </li>
+                            <li><a class="nav-link" href="{% url 'listar_viaticos' %}" title="Viaticos"><i class="fas fa-route"></i> <span class="label">Viaticos</span></a></li>
+                            {% if mostrar_menu_adquisiciones %}
+                            <li>
+                                <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#adquisiciones_menu" title="Departamento de Adquisiciones">
+                                    <i class="fas fa-shopping-cart"></i> <span class="label">Departamento de Adquisiciones</span>
+                                    <i class="fas fa-chevron-down chevron-icon"></i>
+                                </a>
+                                <div class="collapse" id="adquisiciones_menu">
+                                    <ul class="nav flex-column ms-4 submenu">
+                                        <li><a class="nav-link" href="{% url 'catalogo_requisiciones' %}" title="Catálogo de artículos"><i class="fas fa-box-open"></i> <span class="label">Catálogo de artículos</span></a></li>
+                                        <li><a class="nav-link" href="{% url 'compras_requisiciones' %}" title="Compras"><i class="fas fa-file-invoice-dollar"></i> <span class="label">Compras</span></a></li>
+                                    </ul>
+                                </div>
+                            </li>
+                            {% endif %}
                         </ul>
                     </div>
                 </li>
@@ -425,6 +440,13 @@
                     <a class="nav-link" href="{% url 'listar_tickets_mantenimiento' %}" title="Servicio de Mantenimiento">
                         <i class="fas fa-tools icon"></i>
                         <span class="label">Servicio de Mantenimiento</span>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'listar_requisiciones' %}" title="Requisiciones">
+                        <i class="fas fa-clipboard-list icon"></i>
+                        <span class="label">Requisiciones</span>
                     </a>
                 </li>
                 
@@ -566,6 +588,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeSidebarBtn = document.getElementById('closeSidebar');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
+    const navigationLinks = document.querySelectorAll('.sidebar-nav a.nav-link:not([data-bs-toggle="collapse"])');
 
     // Close sidebar on mobile
     closeSidebarBtn?.addEventListener('click', function() {
@@ -606,6 +629,89 @@ document.addEventListener('DOMContentLoaded', function() {
 
         observer.observe(element, { attributes: true, attributeFilter: ['class'] });
     });
+
+    navigationLinks.forEach(function(link) {
+        link.addEventListener('click', function() {
+            if (window.innerWidth < 992) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            }
+        });
+    });
+
 });
 </script>
+
+{% if mostrar_cumpleanos %}
+<!-- Birthday Modal -->
+<div class="modal fade" id="birthdayModal" tabindex="-1" aria-labelledby="birthdayModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.4);">
+            <div class="modal-body p-0 position-relative text-center text-white" style="background: url('{% static 'desarrollo/img/birthday_bg.png' %}') center/cover no-repeat; min-height: 450px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <!-- Overlay to ensure text readability -->
+                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(171,0,51,0.6) 0%, rgba(188,149,92,0.4) 100%), rgba(0,0,0,0.5); z-index: 1;"></div>
+                
+                <div style="position: relative; z-index: 2; padding: 3rem;">
+                    <i class="fas fa-gift mb-3" style="font-size: 5rem; color: #fdd9a3; text-shadow: 0 0 20px rgba(253,217,163,0.8); animation: bounce 2s infinite;"></i>
+                    <h1 class="mb-3" style="font-weight: 800; font-size: 3.5rem; text-shadow: 2px 2px 5px rgba(0,0,0,0.6); font-family: 'Segoe UI', sans-serif; letter-spacing: 1px;">¡Feliz Cumpleaños!</h1>
+                    <h2 class="mb-4" style="font-weight: 600; font-size: 2.2rem; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); color: #fdd9a3;">{{ user.nombre }} {{ user.apellido_paterno }}</h2>
+                    <p style="font-size: 1.3rem; font-weight: 400; margin-bottom: 2.5rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.6); max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+                        En nombre de todo el equipo, deseamos que pases un día extraordinario lleno de alegría y éxito. ¡Gracias por ser parte de nosotros!
+                    </p>
+                    <button type="button" class="btn btn-lg fw-bold" data-bs-dismiss="modal" style="background: linear-gradient(135deg, #bc955c 0%, #d4af82 100%); color: #ab0033; border: none; padding: 12px 40px; border-radius: 50px; font-size: 1.2rem; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: all 0.3s ease; text-transform: uppercase;">
+                        ¡Muchas Gracias!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+        40% {transform: translateY(-20px);}
+        60% {transform: translateY(-10px);}
+    }
+    #birthdayModal .btn:hover {
+        transform: scale(1.05) translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.4) !important;
+        background: linear-gradient(135deg, #d4af82 0%, #bc955c 100%) !important;
+    }
+</style>
+
+<!-- Confetti script and trigger -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var birthdayModalEl = document.getElementById('birthdayModal');
+        if (birthdayModalEl) {
+            var birthdayModal = new bootstrap.Modal(birthdayModalEl);
+            birthdayModal.show();
+            
+            // Custom confetti animation
+            var duration = 4 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1060 }; // zIndex higher than Bootstrap modal
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            var interval = setInterval(function() {
+                var timeLeft = animationEnd - Date.now();
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                var particleCount = 50 * (timeLeft / duration);
+                // since particles fall down, start a bit higher than random
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }, colors: ['#ab0033', '#bc955c', '#ffffff', '#fdd9a3'] }));
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }, colors: ['#ab0033', '#bc955c', '#ffffff', '#fdd9a3'] }));
+            }, 250);
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}

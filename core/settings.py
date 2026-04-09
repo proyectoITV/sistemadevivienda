@@ -141,6 +141,7 @@ CONTACT_FORM_MIN_SECONDS = int(os.getenv('CONTACT_FORM_MIN_SECONDS', '3'))
 # Configuración de sitio
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')
 CONTACT_FORM_RATE_LIMIT_SECONDS = int(os.getenv('CONTACT_FORM_RATE_LIMIT_SECONDS', '60'))
+LOGIN_URL = '/login/'
 
 # ===================== CONFIGURACIÓN DE SESIONES =====================
 # Tiempo de vida de la sesión: 15 minutos por defecto (editable en configuracion_sistema)

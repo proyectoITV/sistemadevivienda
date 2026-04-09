@@ -1,0 +1,1308 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4 viaticos-page">
+    <div class="hero-shell mb-4">
+        <div class="hero-copy">
+            <span class="hero-kicker">Direccion Administrativa</span>
+            <h1>Viaticos</h1>
+            <p>Control por direccion con semaforo presupuestal, captura moderna y estimacion automatica de hospedaje, alimentacion, combustible, pasajes y taxis.</p>
+        </div>
+        <div class="hero-metrics">
+            <div class="metric-card">
+                <span>Ejercicio</span>
+                <strong>{{ ejercicio_actual }}</strong>
+            </div>
+            <div class="metric-card">
+                <span>Solicitudes</span>
+                <strong>{{ page_obj.paginator.count }}</strong>
+            </div>
+            <div class="metric-card">
+                <span>Zonas activas</span>
+                <strong>{{ zonas|length }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-8">
+            <div class="glass-card p-4 mb-4">
+                <div class="section-head">
+                    <div>
+                        <h3>Nueva solicitud</h3>
+                        <p>Inicia por el numero de empleado o buscandolo por nombre y apellidos.</p>
+                    </div>
+                    <span class="pill-accent">Calculo automatico</span>
+                </div>
+
+                <form method="post" id="viaticos-form" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="crear_solicitud">
+
+                    {% if solicitud_form.non_field_errors %}
+                    <div class="alert alert-danger mb-3">{{ solicitud_form.non_field_errors|striptags }}</div>
+                    {% endif %}
+
+                    <div class="row g-3 align-items-start">
+                        <div class="col-lg-7">
+                            <label class="form-label">{{ solicitud_form.empleado.label }}</label>
+                            {{ solicitud_form.empleado }}
+                            {% if solicitud_form.empleado.errors %}<div class="text-danger small mt-1">{{ solicitud_form.empleado.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-lg-5">
+                            <label class="form-label">{{ solicitud_form.zona.label }}</label>
+                            {{ solicitud_form.zona }}
+                            {% if solicitud_form.zona.errors %}<div class="text-danger small mt-1">{{ solicitud_form.zona.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ solicitud_form.origen.label }}</label>
+                            {{ solicitud_form.origen }}
+                            {% if solicitud_form.origen.errors %}<div class="text-danger small mt-1">{{ solicitud_form.origen.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ solicitud_form.destino.label }}</label>
+                            {{ solicitud_form.destino }}
+                            {% if solicitud_form.destino.errors %}<div class="text-danger small mt-1">{{ solicitud_form.destino.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        {{ solicitud_form.origen_latitud }}
+                        {{ solicitud_form.origen_longitud }}
+                        {{ solicitud_form.destino_latitud }}
+                        {{ solicitud_form.destino_longitud }}
+
+                        <div class="col-md-4">
+                            <label class="form-label">{{ solicitud_form.dias.label }}</label>
+                            {{ solicitud_form.dias }}
+                            {% if solicitud_form.dias.errors %}<div class="text-danger small mt-1">{{ solicitud_form.dias.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ solicitud_form.transporte.label }}</label>
+                            {{ solicitud_form.transporte }}
+                            {% if solicitud_form.transporte.errors %}<div class="text-danger small mt-1">{{ solicitud_form.transporte.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ solicitud_form.distancia_km.label }}</label>
+                            {{ solicitud_form.distancia_km }}
+                            {% if solicitud_form.distancia_km.errors %}<div class="text-danger small mt-1">{{ solicitud_form.distancia_km.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ solicitud_form.pasajes_estimados.label }}</label>
+                            <div class="input-group money-input">
+                                <span class="input-group-text">$</span>
+                                {{ solicitud_form.pasajes_estimados }}
+                            </div>
+                            {% if solicitud_form.pasajes_estimados.errors %}<div class="text-danger small mt-1">{{ solicitud_form.pasajes_estimados.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ solicitud_form.taxis_estimados.label }}</label>
+                            <div class="input-group money-input">
+                                <span class="input-group-text">$</span>
+                                {{ solicitud_form.taxis_estimados }}
+                            </div>
+                            {% if solicitud_form.taxis_estimados.errors %}<div class="text-danger small mt-1">{{ solicitud_form.taxis_estimados.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check form-switch route-switch">
+                                {{ solicitud_form.viaje_redondo }}
+                                <label class="form-check-label" for="{{ solicitud_form.viaje_redondo.id_for_label }}">{{ solicitud_form.viaje_redondo.label }}</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">{{ solicitud_form.motivo_comision.label }}</label>
+                            {{ solicitud_form.motivo_comision }}
+                            {% if solicitud_form.motivo_comision.errors %}<div class="text-danger small mt-1">{{ solicitud_form.motivo_comision.errors|striptags }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">{{ solicitud_form.observaciones.label }}</label>
+                            {{ solicitud_form.observaciones }}
+                            {% if solicitud_form.observaciones.errors %}<div class="text-danger small mt-1">{{ solicitud_form.observaciones.errors|striptags }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mt-1">
+                        <div class="col-lg-5">
+                            <div class="insight-panel employee-panel" id="employeeSummary">
+                                <span class="insight-title">Empleado y presupuesto</span>
+                                <div class="empty-state">Selecciona un empleado para cargar su direccion, departamento y presupuesto disponible.</div>
+                            </div>
+                        </div>
+                        <div class="col-lg-7">
+                            <div class="map-panel">
+                                <div class="map-topbar">
+                                    <div>
+                                        <span class="insight-title">Mini mapa de comision</span>
+                                        <p class="mb-0 text-muted small">Se traza una referencia entre origen y destino con geocodificacion publica.</p>
+                                    </div>
+                                    <span class="route-distance" id="distanceBadge">0 km</span>
+                                </div>
+                                <div id="viaticosMapa"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="estimate-grid mt-4" id="estimateGrid">
+                        <div class="estimate-card">
+                            <span>Hospedaje</span>
+                            <strong id="estimadoHospedaje">$0.00</strong>
+                        </div>
+                        <div class="estimate-card">
+                            <span>Alimentacion</span>
+                            <strong id="estimadoAlimentacion">$0.00</strong>
+                        </div>
+                        <div class="estimate-card">
+                            <span>Combustible</span>
+                            <strong id="estimadoCombustible">$0.00</strong>
+                        </div>
+                        <div class="estimate-card">
+                            <span>Pasajes y taxis</span>
+                            <strong id="estimadoTraslados">$0.00</strong>
+                        </div>
+                        <div class="estimate-card total">
+                            <span>Total estimado</span>
+                            <strong id="estimadoTotal">$0.00</strong>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end mt-4 flex-wrap">
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Regresar</a>
+                        <button type="submit" class="btn btn-primary btn-hero">Guardar solicitud</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="glass-card p-4 mb-4">
+                <div class="section-head mb-3">
+                    <div>
+                        <h3>Monitoreo en vivo</h3>
+                        <p>Vista operativa del personal en comision con mapa interno y panel directo en Google Maps.</p>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <span class="pill-accent" id="liveServerTime">Sincronizando</span>
+                        <button type="button" class="btn btn-outline-dark btn-sm" id="liveRefreshBtn">Actualizar</button>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-xl-7">
+                        <div class="tracking-map-panel">
+                            <div class="map-topbar">
+                                <div>
+                                    <span class="insight-title">Mapa interno</span>
+                                    <p class="mb-0 text-muted small">Marcadores activos del personal. Se actualiza automaticamente.</p>
+                                </div>
+                                <span class="route-distance" id="liveCountBadge">0 activos</span>
+                            </div>
+                            <div id="liveTrackingMap"></div>
+                        </div>
+                    </div>
+                    <div class="col-xl-5">
+                        <div class="tracking-google-panel">
+                            <div class="map-topbar">
+                                <div>
+                                    <span class="insight-title">Google Maps</span>
+                                    <p class="mb-0 text-muted small">Vista centrada del colaborador seleccionado.</p>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-outline-danger disabled" id="liveGoogleMapsLink" target="_blank">Abrir en Google Maps</a>
+                            </div>
+                            <iframe id="liveGoogleFrame" title="Google Maps seguimiento" src="about:blank" loading="lazy"></iframe>
+                            <div class="tracking-selected" id="liveSelectedCard">
+                                Selecciona un marcador o un elemento de la lista para enfocar el seguimiento.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tracking-list mt-4" id="trackingListContainer">
+                    <div class="empty-state">No hay colaboradores reportando ubicacion en este momento.</div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4">
+                <div class="section-head mb-3">
+                    <div>
+                        <h3>Solicitudes registradas</h3>
+                        <p>Consulta, filtra y cambia el estatus operativo del viatico.</p>
+                    </div>
+                </div>
+
+                <form method="get" class="row g-2 mb-3">
+                    <div class="col-md-7">
+                        <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Buscar por folio, empleado, origen o destino...">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="direccion" class="form-select">
+                            <option value="">Todas las direcciones</option>
+                            {% for direccion in direcciones %}
+                            <option value="{{ direccion.iddireccion }}" {% if direccion_filtro == direccion.iddireccion|stringformat:'s' %}selected{% endif %}>{{ direccion.direccion }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-outline-dark w-100">Filtrar</button>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table align-middle table-hover viaticos-table">
+                        <thead>
+                            <tr>
+                                <th>Folio</th>
+                                <th>Empleado</th>
+                                <th>Ruta</th>
+                                <th>Zona</th>
+                                <th>Total</th>
+                                <th>Estatus</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for viatico in page_obj %}
+                            <tr>
+                                <td>
+                                    <strong>{{ viatico.folio }}</strong>
+                                    <div class="small text-muted">{{ viatico.direccion.direccion }}</div>
+                                </td>
+                                <td>
+                                    <div>{{ viatico.empleado.nombre_completo }}</div>
+                                    <div class="small text-muted">{{ viatico.empleado.numero_empleado|default:viatico.empleado.id_empleado }}</div>
+                                </td>
+                                <td>
+                                    <div>{{ viatico.origen }}</div>
+                                    <div class="small text-muted">{{ viatico.destino }}</div>
+                                </td>
+                                <td>{{ viatico.zona.nombre }}</td>
+                                <td>${{ viatico.total_estimado|floatformat:2 }}</td>
+                                <td>
+                                    <span class="status-chip status-{{ viatico.estatus }}">{{ viatico.get_estatus_display }}</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        {% if viatico.estatus != 'autorizado' %}
+                                        <form method="post" action="{% url 'actualizar_estatus_viatico' viatico.id %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="estatus" value="autorizado">
+                                            <button type="submit" class="btn btn-sm btn-outline-success">Autorizar</button>
+                                        </form>
+                                        {% endif %}
+                                        {% if viatico.estatus != 'cancelado' %}
+                                        <form method="post" action="{% url 'actualizar_estatus_viatico' viatico.id %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="estatus" value="cancelado">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Cancelar</button>
+                                        </form>
+                                        {% endif %}
+                                        <a href="{% url 'seguimiento_viatico' viatico.id %}" class="btn btn-sm btn-outline-dark">Seguimiento</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">No hay solicitudes de viaticos registradas con los filtros actuales.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if page_obj.paginator.num_pages > 1 %}
+                <nav class="mt-3">
+                    <ul class="pagination justify-content-end mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?search={{ search|urlencode }}&direccion={{ direccion_filtro }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
+                        {% endif %}
+                        <li class="page-item disabled"><span class="page-link">Pagina {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+                        {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?search={{ search|urlencode }}&direccion={{ direccion_filtro }}&page={{ page_obj.next_page_number }}">Siguiente</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="glass-card p-4 mb-4">
+                <div class="section-head">
+                    <div>
+                        <h3>Presupuesto por direccion</h3>
+                        <p>Compromiso actual del ejercicio {{ ejercicio_actual }}.</p>
+                    </div>
+                </div>
+
+                <div class="budget-stack">
+                    {% for item in resumen_presupuestos %}
+                    <div class="budget-card">
+                        <div class="d-flex justify-content-between gap-3 align-items-start">
+                            <div>
+                                <strong>{{ item.obj.iddireccion.direccion }}</strong>
+                                <div class="small text-muted">Asignado: ${{ item.obj.monto_asignado|floatformat:2 }}</div>
+                            </div>
+                            <span class="budget-percentage">{{ item.porcentaje }}%</span>
+                        </div>
+                        <div class="progress budget-progress mt-2">
+                            <div class="progress-bar {% if item.porcentaje >= 90 %}bg-danger{% elif item.porcentaje >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ item.porcentaje }}%"></div>
+                        </div>
+                        <div class="budget-legend mt-2">
+                            <span>Comprometido: ${{ item.comprometido|floatformat:2 }}</span>
+                            <span>Disponible: ${{ item.disponible|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-state">No hay presupuestos configurados para este ejercicio.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="glass-card p-4 mb-4">
+                <div class="section-head mb-3">
+                    <div>
+                        <h3>Tarifas de zonas</h3>
+                        <p>Norte, Centro y Sur con monto referencial por noche, dia y kilometro.</p>
+                    </div>
+                </div>
+                <div class="zone-stack mb-4">
+                    {% for zona in zonas %}
+                    <div class="zone-card">
+                        <strong>{{ zona.nombre }}</strong>
+                        <span>Hospedaje: ${{ zona.hospedaje_noche|floatformat:2 }}</span>
+                        <span>Alimentacion: ${{ zona.alimentacion_diaria|floatformat:2 }}</span>
+                        <span>Combustible/km: ${{ zona.combustible_km|floatformat:4 }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="accordion" id="viaticosConfigAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#presupuestoCollapse">Configurar presupuesto</button>
+                        </h2>
+                        <div id="presupuestoCollapse" class="accordion-collapse collapse show" data-bs-parent="#viaticosConfigAccordion">
+                            <div class="accordion-body">
+                                <form method="post" class="row g-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="crear_presupuesto">
+                                    <div class="col-12">
+                                        <label class="form-label">{{ presupuesto_form.iddireccion.label }}</label>
+                                        {{ presupuesto_form.iddireccion }}
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">{{ presupuesto_form.ejercicio.label }}</label>
+                                        {{ presupuesto_form.ejercicio }}
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">{{ presupuesto_form.monto_asignado.label }}</label>
+                                        {{ presupuesto_form.monto_asignado }}
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">{{ presupuesto_form.observaciones.label }}</label>
+                                        {{ presupuesto_form.observaciones }}
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check">{{ presupuesto_form.activo }} <label class="form-check-label" for="{{ presupuesto_form.activo.id_for_label }}">{{ presupuesto_form.activo.label }}</label></div>
+                                    </div>
+                                    <div class="col-12 d-grid">
+                                        <button type="submit" class="btn btn-outline-dark">Guardar presupuesto</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#zonaCollapse">Configurar zona</button>
+                        </h2>
+                        <div id="zonaCollapse" class="accordion-collapse collapse" data-bs-parent="#viaticosConfigAccordion">
+                            <div class="accordion-body">
+                                <form method="post" class="row g-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="crear_zona">
+                                    <div class="col-12">
+                                        <label class="form-label">{{ zona_form.clave.label }}</label>
+                                        {{ zona_form.clave }}
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">{{ zona_form.nombre.label }}</label>
+                                        {{ zona_form.nombre }}
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">{{ zona_form.hospedaje_noche.label }}</label>
+                                        {{ zona_form.hospedaje_noche }}
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">{{ zona_form.alimentacion_diaria.label }}</label>
+                                        {{ zona_form.alimentacion_diaria }}
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">{{ zona_form.combustible_km.label }}</label>
+                                        {{ zona_form.combustible_km }}
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-check">{{ zona_form.activo }} <label class="form-check-label" for="{{ zona_form.activo.id_for_label }}">{{ zona_form.activo.label }}</label></div>
+                                    </div>
+                                    <div class="col-12 d-grid">
+                                        <button type="submit" class="btn btn-outline-dark">Guardar zona</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    .viaticos-page {
+        --vino: #7a1d2c;
+        --terracota: #c27a4b;
+        --arena: #efe2c3;
+        --noche: #1d2b36;
+        --niebla: #f7f3ea;
+    }
+
+    .viaticos-page .form-control,
+    .viaticos-page .form-select {
+        border-radius: 14px;
+        border: 1px solid rgba(29, 43, 54, 0.12);
+        min-height: 48px;
+    }
+
+    .viaticos-page .form-control:focus,
+    .viaticos-page .form-select:focus {
+        border-color: var(--terracota);
+        box-shadow: 0 0 0 0.2rem rgba(194, 122, 75, 0.16);
+    }
+
+    .hero-shell {
+        display: grid;
+        grid-template-columns: 1.3fr 0.9fr;
+        gap: 1rem;
+        padding: 1.75rem;
+        border-radius: 28px;
+        background:
+            radial-gradient(circle at top right, rgba(239, 226, 195, 0.9), transparent 34%),
+            linear-gradient(135deg, #fff8ef 0%, #f2ebe0 45%, #eadcc4 100%);
+        border: 1px solid rgba(122, 29, 44, 0.08);
+        box-shadow: 0 30px 60px rgba(29, 43, 54, 0.08);
+    }
+
+    .hero-kicker {
+        display: inline-block;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.76rem;
+        color: var(--vino);
+        margin-bottom: 0.6rem;
+        font-weight: 700;
+    }
+
+    .hero-copy h1,
+    .section-head h3 {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        color: var(--noche);
+        margin-bottom: 0.45rem;
+    }
+
+    .hero-copy p,
+    .section-head p {
+        color: rgba(29, 43, 54, 0.76);
+        margin-bottom: 0;
+    }
+
+    .hero-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.8rem;
+        align-content: start;
+    }
+
+    .metric-card,
+    .glass-card {
+        background: rgba(255, 255, 255, 0.74);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(122, 29, 44, 0.08);
+        box-shadow: 0 18px 45px rgba(29, 43, 54, 0.08);
+        border-radius: 24px;
+    }
+
+    .metric-card {
+        padding: 1rem;
+    }
+
+    .metric-card span {
+        display: block;
+        color: rgba(29, 43, 54, 0.65);
+        font-size: 0.82rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .metric-card strong {
+        color: var(--vino);
+        font-size: 1.75rem;
+        line-height: 1;
+    }
+
+    .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .pill-accent {
+        background: rgba(122, 29, 44, 0.08);
+        color: var(--vino);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .btn-hero {
+        background: linear-gradient(135deg, var(--vino), #9b3e2e);
+        border: none;
+        border-radius: 999px;
+        padding-inline: 1.4rem;
+    }
+
+    .money-input .input-group-text {
+        border-radius: 14px 0 0 14px;
+        background: #f3eee4;
+    }
+
+    .money-input .form-control {
+        border-radius: 0 14px 14px 0;
+    }
+
+    .route-switch {
+        background: #f7f1e4;
+        border-radius: 16px;
+        padding: 0.85rem 1rem;
+    }
+
+    .employee-panel,
+    .map-panel,
+    .tracking-map-panel,
+    .tracking-google-panel,
+    .zone-card,
+    .budget-card,
+    .estimate-card {
+        border-radius: 20px;
+        border: 1px solid rgba(29, 43, 54, 0.08);
+        background: #fff;
+    }
+
+    .employee-panel,
+    .map-panel {
+        height: 100%;
+    }
+
+    .insight-panel {
+        padding: 1.1rem;
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(247,243,234,0.98));
+    }
+
+    .insight-title {
+        display: inline-block;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--vino);
+        margin-bottom: 0.75rem;
+        font-weight: 700;
+    }
+
+    .empty-state {
+        color: rgba(29, 43, 54, 0.6);
+        font-size: 0.95rem;
+    }
+
+    .employee-meta {
+        display: grid;
+        gap: 0.8rem;
+    }
+
+    .meta-block {
+        padding: 0.9rem 1rem;
+        background: #f9f5ed;
+        border-radius: 16px;
+    }
+
+    .meta-block span {
+        display: block;
+        color: rgba(29, 43, 54, 0.62);
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .meta-block strong {
+        color: var(--noche);
+    }
+
+    .map-topbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: start;
+        padding: 1rem 1rem 0;
+    }
+
+    .route-distance {
+        background: #fff3ea;
+        color: var(--terracota);
+        font-weight: 700;
+        border-radius: 999px;
+        padding: 0.45rem 0.75rem;
+        white-space: nowrap;
+    }
+
+    #viaticosMapa {
+        height: 300px;
+        margin: 0.8rem 1rem 1rem;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    #liveTrackingMap {
+        height: 360px;
+        margin: 0.8rem 1rem 1rem;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .tracking-google-panel iframe {
+        width: calc(100% - 2rem);
+        height: 360px;
+        margin: 0.8rem 1rem 0;
+        border: 0;
+        border-radius: 16px;
+        background: #f7f3ea;
+    }
+
+    .tracking-selected {
+        margin: 0.9rem 1rem 1rem;
+        padding: 1rem;
+        border-radius: 16px;
+        background: #faf4e8;
+        color: rgba(29, 43, 54, 0.72);
+    }
+
+    .tracking-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.9rem;
+    }
+
+    .tracking-item {
+        display: grid;
+        gap: 0.45rem;
+        padding: 1rem;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff, #f8f2e8);
+        border: 1px solid rgba(29, 43, 54, 0.08);
+        cursor: pointer;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .tracking-item:hover,
+    .tracking-item.active {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(29, 43, 54, 0.08);
+    }
+
+    .tracking-item-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: start;
+    }
+
+    .tracking-item .badge {
+        width: fit-content;
+    }
+
+    .estimate-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.9rem;
+    }
+
+    .estimate-card {
+        padding: 1rem;
+        background: linear-gradient(180deg, #ffffff, #f9f4ea);
+    }
+
+    .estimate-card span {
+        display: block;
+        color: rgba(29, 43, 54, 0.65);
+        font-size: 0.82rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .estimate-card strong {
+        font-size: 1.25rem;
+        color: var(--noche);
+    }
+
+    .estimate-card.total {
+        background: linear-gradient(135deg, var(--vino), #9b3e2e);
+    }
+
+    .estimate-card.total span,
+    .estimate-card.total strong {
+        color: #fff;
+    }
+
+    .budget-stack,
+    .zone-stack {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .budget-card,
+    .zone-card {
+        padding: 1rem;
+    }
+
+    .budget-percentage {
+        color: var(--vino);
+        font-weight: 700;
+    }
+
+    .budget-progress {
+        height: 10px;
+        border-radius: 999px;
+        background: #efe8dd;
+    }
+
+    .budget-legend {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        color: rgba(29, 43, 54, 0.68);
+        font-size: 0.82rem;
+    }
+
+    .zone-card {
+        display: grid;
+        gap: 0.2rem;
+        background: linear-gradient(180deg, #ffffff, #f8f2e8);
+    }
+
+    .zone-card span {
+        color: rgba(29, 43, 54, 0.72);
+        font-size: 0.88rem;
+    }
+
+    .viaticos-table thead th {
+        color: rgba(29, 43, 54, 0.7);
+        border-bottom-width: 1px;
+        font-size: 0.84rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.4rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .status-capturado {
+        color: #6b4b00;
+        background: #fff4cf;
+    }
+
+    .status-autorizado {
+        color: #0f5132;
+        background: #daf5e8;
+    }
+
+    .status-cancelado {
+        color: #842029;
+        background: #f8d7da;
+    }
+
+    .accordion-item {
+        border-radius: 18px !important;
+        overflow: hidden;
+        border: 1px solid rgba(29, 43, 54, 0.08);
+        margin-bottom: 0.8rem;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background: #f6efe2;
+        color: var(--vino);
+        box-shadow: none;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 48px;
+        border-radius: 14px;
+        border-color: rgba(29, 43, 54, 0.12);
+        padding-top: 0.45rem;
+    }
+
+    @media (max-width: 1199.98px) {
+        .hero-shell {
+            grid-template-columns: 1fr;
+        }
+
+        .estimate-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .tracking-list {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        .hero-metrics,
+        .estimate-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .section-head,
+        .map-topbar,
+        .budget-legend {
+            flex-direction: column;
+        }
+
+        #viaticosMapa {
+            height: 240px;
+        }
+
+        #liveTrackingMap,
+        .tracking-google-panel iframe {
+            height: 260px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const empleadosData = JSON.parse('{{ empleados_data_json|escapejs }}');
+        const zonasData = JSON.parse('{{ zonas_data_json|escapejs }}');
+
+        const employeeSelect = document.getElementById('{{ solicitud_form.empleado.id_for_label }}');
+        const zoneSelect = document.getElementById('{{ solicitud_form.zona.id_for_label }}');
+        const diasInput = document.getElementById('{{ solicitud_form.dias.id_for_label }}');
+        const transporteSelect = document.getElementById('{{ solicitud_form.transporte.id_for_label }}');
+        const pasajesInput = document.getElementById('{{ solicitud_form.pasajes_estimados.id_for_label }}');
+        const taxisInput = document.getElementById('{{ solicitud_form.taxis_estimados.id_for_label }}');
+        const distanciaInput = document.getElementById('{{ solicitud_form.distancia_km.id_for_label }}');
+        const viajeRedondo = document.getElementById('{{ solicitud_form.viaje_redondo.id_for_label }}');
+        const origenInput = document.getElementById('{{ solicitud_form.origen.id_for_label }}');
+        const destinoInput = document.getElementById('{{ solicitud_form.destino.id_for_label }}');
+        const origenLatInput = document.getElementById('{{ solicitud_form.origen_latitud.id_for_label }}');
+        const origenLngInput = document.getElementById('{{ solicitud_form.origen_longitud.id_for_label }}');
+        const destinoLatInput = document.getElementById('{{ solicitud_form.destino_latitud.id_for_label }}');
+        const destinoLngInput = document.getElementById('{{ solicitud_form.destino_longitud.id_for_label }}');
+
+        const employeeSummary = document.getElementById('employeeSummary');
+        const distanceBadge = document.getElementById('distanceBadge');
+        const liveServerTime = document.getElementById('liveServerTime');
+        const liveCountBadge = document.getElementById('liveCountBadge');
+        const liveGoogleFrame = document.getElementById('liveGoogleFrame');
+        const liveGoogleMapsLink = document.getElementById('liveGoogleMapsLink');
+        const liveSelectedCard = document.getElementById('liveSelectedCard');
+        const trackingListContainer = document.getElementById('trackingListContainer');
+        const liveRefreshBtn = document.getElementById('liveRefreshBtn');
+        const moneyOutputs = {
+            hospedaje: document.getElementById('estimadoHospedaje'),
+            alimentacion: document.getElementById('estimadoAlimentacion'),
+            combustible: document.getElementById('estimadoCombustible'),
+            traslados: document.getElementById('estimadoTraslados'),
+            total: document.getElementById('estimadoTotal'),
+        };
+        let liveItems = JSON.parse('{{ monitoreo_inicial_json|escapejs }}');
+
+        function formatMoney(value) {
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value || 0);
+        }
+
+        if (employeeSelect) {
+            $(employeeSelect).select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: employeeSelect.getAttribute('data-placeholder') || 'Selecciona un empleado',
+            });
+        }
+
+        let map = null;
+        let routeLine = null;
+        let originMarker = null;
+        let destinationMarker = null;
+        let liveMap = null;
+        const liveMarkers = new Map();
+        let selectedLiveId = null;
+
+        function initMap() {
+            map = L.map('viaticosMapa').setView([23.7369, -99.1411], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        function initLiveMap() {
+            liveMap = L.map('liveTrackingMap').setView([23.7369, -99.1411], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(liveMap);
+        }
+
+        function setMarker(existing, lat, lng, label) {
+            if (existing) {
+                existing.setLatLng([lat, lng]).bindPopup(label);
+                return existing;
+            }
+            return L.marker([lat, lng]).addTo(map).bindPopup(label);
+        }
+
+        function haversine(lat1, lon1, lat2, lon2) {
+            const toRad = (value) => value * Math.PI / 180;
+            const R = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function updateMap() {
+            const oLat = parseFloat(origenLatInput.value);
+            const oLng = parseFloat(origenLngInput.value);
+            const dLat = parseFloat(destinoLatInput.value);
+            const dLng = parseFloat(destinoLngInput.value);
+
+            if (!Number.isFinite(oLat) || !Number.isFinite(oLng) || !Number.isFinite(dLat) || !Number.isFinite(dLng)) {
+                return;
+            }
+
+            originMarker = setMarker(originMarker, oLat, oLng, origenInput.value || 'Origen');
+            destinationMarker = setMarker(destinationMarker, dLat, dLng, destinoInput.value || 'Destino');
+
+            if (routeLine) {
+                map.removeLayer(routeLine);
+            }
+            routeLine = L.polyline([[oLat, oLng], [dLat, dLng]], {
+                color: '#7a1d2c',
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '10, 8'
+            }).addTo(map);
+
+            const bounds = L.latLngBounds([[oLat, oLng], [dLat, dLng]]);
+            map.fitBounds(bounds.pad(0.25));
+
+            const distancia = haversine(oLat, oLng, dLat, dLng);
+            distanciaInput.value = distancia.toFixed(2);
+            distanceBadge.textContent = `${distancia.toFixed(2)} km`;
+            recalculateEstimate();
+        }
+
+        async function geocode(texto, latField, lngField) {
+            const query = (texto || '').trim();
+            if (!query) {
+                return;
+            }
+
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=mx&q=${encodeURIComponent(query)}`);
+            const results = await response.json();
+            if (!results.length) {
+                return;
+            }
+
+            latField.value = results[0].lat;
+            lngField.value = results[0].lon;
+            updateMap();
+        }
+
+        let geocodeTimer = null;
+        function scheduleGeocode() {
+            clearTimeout(geocodeTimer);
+            geocodeTimer = setTimeout(async () => {
+                try {
+                    await geocode(origenInput.value, origenLatInput, origenLngInput);
+                    await geocode(destinoInput.value, destinoLatInput, destinoLngInput);
+                } catch (error) {
+                    console.error('No fue posible geocodificar la ruta', error);
+                }
+            }, 650);
+        }
+
+        function renderEmployeeSummary() {
+            const empleado = empleadosData[employeeSelect.value];
+            if (!empleado) {
+                employeeSummary.innerHTML = '<span class="insight-title">Empleado y presupuesto</span><div class="empty-state">Selecciona un empleado para cargar su direccion, departamento y presupuesto disponible.</div>';
+                return;
+            }
+
+            const presupuesto = empleado.presupuesto;
+            let semaforo = '<span class="badge text-bg-danger">Sin presupuesto</span>';
+            if (presupuesto && presupuesto.existe) {
+                const ratio = presupuesto.asignado > 0 ? (presupuesto.disponible / presupuesto.asignado) : 0;
+                if (ratio >= 0.3) {
+                    semaforo = '<span class="badge text-bg-success">Disponible</span>';
+                } else if (ratio >= 0.1) {
+                    semaforo = '<span class="badge text-bg-warning">Por agotarse</span>';
+                } else {
+                    semaforo = '<span class="badge text-bg-danger">Critico</span>';
+                }
+            }
+
+            employeeSummary.innerHTML = `
+                <span class="insight-title">Empleado y presupuesto</span>
+                <div class="employee-meta">
+                    <div class="meta-block"><span>Empleado</span><strong>${empleado.numero} | ${empleado.nombre}</strong></div>
+                    <div class="meta-block"><span>Departamento</span><strong>${empleado.departamento}</strong></div>
+                    <div class="meta-block"><span>Direccion</span><strong>${empleado.direccion}</strong></div>
+                    <div class="meta-block"><span>Semaforo</span><strong>${semaforo}</strong></div>
+                    <div class="meta-block"><span>Disponible del ejercicio</span><strong>${presupuesto ? formatMoney(presupuesto.disponible) : 'Sin configurar'}</strong></div>
+                </div>
+            `;
+        }
+
+        function relativeTime(value) {
+            if (!value) {
+                return 'Sin dato';
+            }
+            const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+            if (seconds < 60) {
+                return `hace ${seconds} s`;
+            }
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) {
+                return `hace ${minutes} min`;
+            }
+            const hours = Math.floor(minutes / 60);
+            return `hace ${hours} h`;
+        }
+
+        function getTrackingBadge(item) {
+            const ageSeconds = item.ultima_actualizacion ? Math.floor((Date.now() - new Date(item.ultima_actualizacion).getTime()) / 1000) : 99999;
+            if (ageSeconds <= 90) {
+                return '<span class="badge text-bg-success">En linea</span>';
+            }
+            if (ageSeconds <= 300) {
+                return '<span class="badge text-bg-warning">Señal retrasada</span>';
+            }
+            return '<span class="badge text-bg-danger">Sin señal reciente</span>';
+        }
+
+        function focusLiveItem(id) {
+            const item = liveItems.find((entry) => entry.id === id);
+            if (!item) {
+                return;
+            }
+            selectedLiveId = id;
+            document.querySelectorAll('.tracking-item').forEach((element) => {
+                element.classList.toggle('active', Number(element.dataset.id) === id);
+            });
+            if (liveMarkers.has(id)) {
+                const marker = liveMarkers.get(id);
+                liveMap.flyTo(marker.getLatLng(), 14, { duration: 0.75 });
+                marker.openPopup();
+            }
+            liveGoogleFrame.src = item.google_embed_url;
+            liveGoogleMapsLink.href = item.google_maps_url;
+            liveGoogleMapsLink.classList.remove('disabled');
+            liveSelectedCard.innerHTML = `
+                <strong>${item.empleado}</strong><br>
+                ${item.numero_empleado} | ${item.folio}<br>
+                ${item.direccion} · ${item.zona}<br>
+                Destino: ${item.destino}<br>
+                Ultima actualizacion: ${relativeTime(item.ultima_actualizacion)}
+            `;
+        }
+
+        function renderTrackingList() {
+            liveCountBadge.textContent = `${liveItems.length} activos`;
+            if (!liveItems.length) {
+                trackingListContainer.innerHTML = '<div class="empty-state">No hay colaboradores reportando ubicacion en este momento.</div>';
+                liveSelectedCard.textContent = 'No hay seguimiento activo en este momento.';
+                liveGoogleFrame.src = 'about:blank';
+                liveGoogleMapsLink.href = '#';
+                liveGoogleMapsLink.classList.add('disabled');
+                return;
+            }
+
+            trackingListContainer.innerHTML = liveItems.map((item) => `
+                <div class="tracking-item ${selectedLiveId === item.id ? 'active' : ''}" data-id="${item.id}" role="button" tabindex="0">
+                    <div class="tracking-item-top">
+                        <div>
+                            <strong>${item.empleado}</strong>
+                            <div class="small text-muted">${item.numero_empleado} · ${item.folio}</div>
+                        </div>
+                        ${getTrackingBadge(item)}
+                    </div>
+                    <div class="small text-muted">${item.direccion} · ${item.zona}</div>
+                    <div><strong>Destino:</strong> ${item.destino}</div>
+                    <div class="small text-muted">Ultima señal ${relativeTime(item.ultima_actualizacion)}</div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a class="btn btn-sm btn-outline-danger" href="${item.google_maps_url}" target="_blank">Google Maps</a>
+                        <a class="btn btn-sm btn-outline-dark" href="${item.rastreo_url}">Abrir rastreo</a>
+                    </div>
+                </div>
+            `).join('');
+
+            trackingListContainer.querySelectorAll('.tracking-item').forEach((card) => {
+                card.addEventListener('click', function (event) {
+                    if (event.target.tagName.toLowerCase() === 'a') {
+                        return;
+                    }
+                    focusLiveItem(Number(card.dataset.id));
+                });
+
+                card.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        focusLiveItem(Number(card.dataset.id));
+                    }
+                });
+            });
+
+            if (!selectedLiveId || !liveItems.find((item) => item.id === selectedLiveId)) {
+                focusLiveItem(liveItems[0].id);
+            }
+        }
+
+        function renderLiveMarkers() {
+            const ids = new Set();
+            liveItems.forEach((item) => {
+                ids.add(item.id);
+                const popupHtml = `
+                    <strong>${item.empleado}</strong><br>
+                    ${item.numero_empleado}<br>
+                    ${item.folio}<br>
+                    <strong>Destino:</strong> ${item.destino}<br>
+                    <a href="${item.google_maps_url}" target="_blank">Abrir en Google Maps</a>
+                `;
+                if (liveMarkers.has(item.id)) {
+                    liveMarkers.get(item.id).setLatLng([item.latitud, item.longitud]).setPopupContent(popupHtml);
+                } else {
+                    const marker = L.marker([item.latitud, item.longitud]).addTo(liveMap).bindPopup(popupHtml);
+                    marker.on('click', () => focusLiveItem(item.id));
+                    liveMarkers.set(item.id, marker);
+                }
+            });
+
+            Array.from(liveMarkers.keys()).forEach((id) => {
+                if (!ids.has(id)) {
+                    liveMap.removeLayer(liveMarkers.get(id));
+                    liveMarkers.delete(id);
+                }
+            });
+
+            if (liveItems.length) {
+                const bounds = L.latLngBounds(liveItems.map((item) => [item.latitud, item.longitud]));
+                liveMap.fitBounds(bounds.pad(0.2));
+            }
+        }
+
+        async function refreshLiveTracking() {
+            try {
+                const response = await fetch('{% url "api_posiciones_viaticos" %}', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await response.json();
+                liveItems = data.items || [];
+                liveServerTime.textContent = data.server_time ? new Date(data.server_time).toLocaleTimeString('es-MX') : 'Sincronizado';
+                renderLiveMarkers();
+                renderTrackingList();
+            } catch (error) {
+                console.error('No fue posible actualizar el monitoreo en vivo', error);
+                liveServerTime.textContent = 'Error de conexión';
+            }
+        }
+
+        function recalculateEstimate() {
+            const zona = zonasData[zoneSelect.value];
+            const dias = parseInt(diasInput.value || '0', 10) || 0;
+            const distancia = parseFloat(distanciaInput.value || '0') || 0;
+            const pasajes = parseFloat(pasajesInput.value || '0') || 0;
+            const taxis = parseFloat(taxisInput.value || '0') || 0;
+            const transporte = transporteSelect.value;
+            const factorViaje = viajeRedondo.checked ? 2 : 1;
+
+            if (!zona) {
+                moneyOutputs.hospedaje.textContent = formatMoney(0);
+                moneyOutputs.alimentacion.textContent = formatMoney(0);
+                moneyOutputs.combustible.textContent = formatMoney(0);
+                moneyOutputs.traslados.textContent = formatMoney(pasajes + taxis);
+                moneyOutputs.total.textContent = formatMoney(pasajes + taxis);
+                return;
+            }
+
+            const noches = Math.max(dias - 1, 0);
+            const hospedaje = noches * zona.hospedaje_noche;
+            const alimentacion = dias * zona.alimentacion_diaria;
+            const combustible = ['vehiculo_interno', 'mixto'].includes(transporte)
+                ? distancia * factorViaje * zona.combustible_km
+                : 0;
+            const traslados = pasajes + taxis;
+            const total = hospedaje + alimentacion + combustible + traslados;
+
+            moneyOutputs.hospedaje.textContent = formatMoney(hospedaje);
+            moneyOutputs.alimentacion.textContent = formatMoney(alimentacion);
+            moneyOutputs.combustible.textContent = formatMoney(combustible);
+            moneyOutputs.traslados.textContent = formatMoney(traslados);
+            moneyOutputs.total.textContent = formatMoney(total);
+        }
+
+        [zoneSelect, diasInput, transporteSelect, pasajesInput, taxisInput, distanciaInput, viajeRedondo].forEach((field) => {
+            if (field) {
+                field.addEventListener('change', recalculateEstimate);
+                field.addEventListener('input', recalculateEstimate);
+            }
+        });
+
+        if (employeeSelect) {
+            employeeSelect.addEventListener('change', function () {
+                renderEmployeeSummary();
+                recalculateEstimate();
+            });
+        }
+
+        [origenInput, destinoInput].forEach((input) => {
+            if (input) {
+                input.addEventListener('input', scheduleGeocode);
+                input.addEventListener('blur', scheduleGeocode);
+            }
+        });
+
+        initMap();
+        initLiveMap();
+        renderEmployeeSummary();
+        recalculateEstimate();
+        renderLiveMarkers();
+        renderTrackingList();
+        if (liveRefreshBtn) {
+            liveRefreshBtn.addEventListener('click', refreshLiveTracking);
+        }
+        setInterval(refreshLiveTracking, 15000);
+        if (origenInput.value && destinoInput.value) {
+            scheduleGeocode();
+        }
+    });
+</script>
+{% endblock %}

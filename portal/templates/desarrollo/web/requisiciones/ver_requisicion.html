@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .articulo-miniatura {
+        cursor: zoom-in;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .articulo-miniatura:hover {
+        transform: scale(1.06);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .visor-imagen-articulo {
+        position: fixed;
+        z-index: 1085;
+        width: min(320px, 42vw);
+        padding: 0.75rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .visor-imagen-articulo.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .visor-imagen-articulo img {
+        width: 100%;
+        max-height: 260px;
+        object-fit: contain;
+        display: block;
+        border-radius: 0.8rem;
+        background: #f8f9fa;
+    }
+
+    .visor-imagen-articulo .visor-titulo {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #212529;
+        margin-top: 0.65rem;
+        line-height: 1.25;
+    }
+
+    .visor-imagen-articulo .visor-ayuda {
+        font-size: 0.78rem;
+        color: #6c757d;
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-file-alt text-danger"></i> {{ requisicion.folio_corto }}</h1>
+            <p class="text-muted mb-0">{{ requisicion.departamento_solicitante.departamento }} · {{ requisicion.get_estatus_display }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'listar_requisiciones' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Historial
+            </a>
+            {% if puede_editar_compra and not requisicion.atendido_por_id and requisicion.estatus != 'entregado' %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="tomar">
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-hand-paper"></i> Tomar requisición
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Datos generales</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6"><strong>Solicitante:</strong> {{ requisicion.solicitante.nombre_completo }}</div>
+                        <div class="col-md-6"><strong>Departamento:</strong> {{ requisicion.departamento_solicitante.departamento }}</div>
+                        <div class="col-md-6"><strong>Atiende:</strong> {{ requisicion.atendido_por.nombre_completo|default:'Sin asignar' }}</div>
+                        <div class="col-md-6"><strong>Recibe:</strong> {{ requisicion.recibido_por.nombre_completo|default:'Pendiente' }}</div>
+                        <div class="col-md-6"><strong>Creación:</strong> {{ requisicion.fecha_creacion|date:'d/m/Y H:i' }}</div>
+                        <div class="col-md-6"><strong>Entrega:</strong> {{ requisicion.fecha_entrega|date:'d/m/Y H:i'|default:'Pendiente' }}</div>
+                        <div class="col-12">
+                            <strong>Comentarios generales:</strong>
+                            <div class="mt-2 p-3 bg-light rounded">{{ requisicion.comentarios_compra|default:'Sin comentarios adicionales.' }}</div>
+                        </div>
+                        {% if requisicion.no_autorizado_motivo %}
+                        <div class="col-12">
+                            <strong>Motivo no autorizado:</strong>
+                            <div class="mt-2 p-3 bg-warning-subtle rounded">{{ requisicion.no_autorizado_motivo }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Detalle de artículos</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if puede_editar_compra %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="guardar_compra">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Artículo</th>
+                                        <th>Solicitado</th>
+                                        <th>Autorizado</th>
+                                        <th>Entregado</th>
+                                        <th>Costo unitario</th>
+                                        <th>Estatus</th>
+                                        <th>Observaciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detalle in detalles %}
+                                    <tr>
+                                        <td>
+                                            <input type="hidden" name="detalle_id[]" value="{{ detalle.id_detalle }}">
+                                            <div class="d-flex align-items-center gap-3">
+                                                {% if detalle.articulo.imagen %}
+                                                <img src="{{ detalle.articulo.imagen.url }}" alt="{{ detalle.articulo.nombre }}" width="60" height="60" class="rounded articulo-miniatura js-preview-imagen" data-preview-src="{{ detalle.articulo.imagen.url }}" data-preview-title="{{ detalle.articulo.nombre }}" style="object-fit: cover;">
+                                                {% endif %}
+                                                <div>
+                                                    <div class="fw-semibold">{{ detalle.articulo.nombre }}</div>
+                                                    <small class="text-muted">{{ detalle.motivo }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ detalle.cantidad_solicitada }} {{ detalle.get_unidad_medida_display }}</td>
+                                        <td><input type="number" min="0" max="{{ detalle.cantidad_solicitada }}" class="form-control" name="cantidad_autorizada_{{ detalle.id_detalle }}" value="{{ detalle.cantidad_autorizada }}"></td>
+                                        <td><input type="number" min="0" max="{{ detalle.cantidad_autorizada }}" class="form-control" name="cantidad_entregada_{{ detalle.id_detalle }}" value="{{ detalle.cantidad_entregada }}"></td>
+                                        <td><input type="number" min="0" step="0.01" class="form-control" name="costo_unitario_{{ detalle.id_detalle }}" value="{{ detalle.costo_unitario }}"></td>
+                                        <td>
+                                            <select class="form-select" name="estatus_detalle_{{ detalle.id_detalle }}">
+                                                {% for valor, etiqueta in estados_detalle %}
+                                                <option value="{{ valor }}" {% if detalle.estatus_detalle == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                        <td><textarea class="form-control" rows="2" name="observaciones_compra_{{ detalle.id_detalle }}">{{ detalle.observaciones_compra }}</textarea></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 border-top">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Estatus de requisición</label>
+                                    <select class="form-select" name="estatus_requisicion">
+                                        {% for valor, etiqueta in estados %}
+                                        <option value="{{ valor }}" {% if requisicion.estatus == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Comentarios del área de compras</label>
+                                    <textarea class="form-control" rows="3" name="comentarios_compra">{{ requisicion.comentarios_compra }}</textarea>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Motivo de no autorización</label>
+                                    <textarea class="form-control" rows="3" name="no_autorizado_motivo">{{ requisicion.no_autorizado_motivo }}</textarea>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-save"></i> Guardar seguimiento de compras
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Artículo</th>
+                                    <th>Solicitado</th>
+                                    <th>Autorizado</th>
+                                    <th>Entregado</th>
+                                    <th>Estatus</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-3">
+                                            {% if detalle.articulo.imagen %}
+                                            <img src="{{ detalle.articulo.imagen.url }}" alt="{{ detalle.articulo.nombre }}" width="60" height="60" class="rounded articulo-miniatura js-preview-imagen" data-preview-src="{{ detalle.articulo.imagen.url }}" data-preview-title="{{ detalle.articulo.nombre }}" style="object-fit: cover;">
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-semibold">{{ detalle.articulo.nombre }}</div>
+                                                <small class="text-muted">{{ detalle.motivo }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ detalle.cantidad_solicitada }} {{ detalle.get_unidad_medida_display }}</td>
+                                    <td>{{ detalle.cantidad_autorizada }}</td>
+                                    <td>{{ detalle.cantidad_entregada }}</td>
+                                    <td>{{ detalle.get_estatus_detalle_display }}</td>
+                                    <td>${{ detalle.subtotal|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Seguimiento</h5>
+                </div>
+                <div class="card-body">
+                    {% for seguimiento in seguimientos %}
+                    <div class="border-start border-4 ps-3 mb-3" style="border-color: #ab0033 !important;">
+                        <div class="d-flex justify-content-between flex-wrap gap-2">
+                            <strong>{{ seguimiento.get_tipo_display }}</strong>
+                            <small class="text-muted">{{ seguimiento.fecha|date:'d/m/Y H:i' }}</small>
+                        </div>
+                        <div>{{ seguimiento.mensaje }}</div>
+                        <small class="text-muted">{{ seguimiento.autor.nombre_completo|default:'Sistema' }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">Sin movimientos registrados.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Resumen económico</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2"><span>Total estimado</span><strong>${{ requisicion.total_estimado|floatformat:2 }}</strong></div>
+                    <div class="d-flex justify-content-between"><span>Total entregado</span><strong>${{ requisicion.total_entregado|floatformat:2 }}</strong></div>
+                </div>
+            </div>
+
+            {% if puede_editar_compra %}
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Documentos PDF</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="subir_documento">
+                        <div class="mb-3">
+                            <label class="form-label">{{ documento_form.tipo_documento.label }}</label>
+                            {{ documento_form.tipo_documento }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ documento_form.detalle.label }}</label>
+                            {{ documento_form.detalle }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ documento_form.proveedor.label }}</label>
+                            {{ documento_form.proveedor }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ documento_form.descripcion.label }}</label>
+                            {{ documento_form.descripcion }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ documento_form.archivo.label }}</label>
+                            {{ documento_form.archivo }}
+                        </div>
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-upload"></i> Subir PDF
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Entrega</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="entregar">
+                        <label class="form-label fw-semibold">Recibe</label>
+                        <select name="recibido_por" class="form-select mb-3">
+                            <option value="">Selecciona un empleado</option>
+                            {% for empleado in empleados_departamento %}
+                            <option value="{{ empleado.id_empleado }}">{{ empleado.nombre_completo }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-success w-100" {% if requisicion.estatus == 'entregado' %}disabled{% endif %}>
+                            <i class="fas fa-box-open"></i> Marcar como entregado
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Documentos cargados</h5>
+                </div>
+                <div class="card-body">
+                    {% for documento in documentos %}
+                    <div class="border rounded p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                            <strong>{{ documento.get_tipo_documento_display }}</strong>
+                            <a href="{% url 'descargar_documento_requisicion' documento.id_documento %}" class="btn btn-sm btn-outline-secondary">Descargar</a>
+                        </div>
+                        <div class="small text-muted mb-2">{{ documento.proveedor|default:'Sin proveedor' }} · {{ documento.fecha_subida|date:'d/m/Y H:i' }}</div>
+                        <div class="mb-2">{{ documento.descripcion|default:'Sin descripción' }}</div>
+                        {% if documento.es_pdf %}
+                        <iframe src="{% url 'previsualizar_documento_requisicion' documento.id_documento %}" width="100%" height="240" class="border rounded" title="Vista previa de {{ documento.nombre_original }}"></iframe>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">No hay documentos cargados.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="visorImagenArticulo" class="visor-imagen-articulo" aria-hidden="true">
+    <img id="visorImagenArticuloImg" src="" alt="Vista previa del artículo">
+    <div id="visorImagenArticuloTitulo" class="visor-titulo"></div>
+    <div class="visor-ayuda">Vista ampliada del artículo</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const visor = document.getElementById('visorImagenArticulo');
+    const visorImg = document.getElementById('visorImagenArticuloImg');
+    const visorTitulo = document.getElementById('visorImagenArticuloTitulo');
+    let previewTimer = null;
+    let previewTarget = null;
+
+    function posicionarPreview(target) {
+        const rect = target.getBoundingClientRect();
+        const visorRect = visor.getBoundingClientRect();
+        const margen = 18;
+        let top = rect.top + window.scrollY + (rect.height / 2) - (visorRect.height / 2);
+        let left = rect.right + window.scrollX + margen;
+        const maxLeft = window.scrollX + window.innerWidth - visorRect.width - margen;
+        const minLeft = window.scrollX + margen;
+        const maxTop = window.scrollY + window.innerHeight - visorRect.height - margen;
+        const minTop = window.scrollY + margen;
+
+        if (left > maxLeft) {
+            left = rect.left + window.scrollX - visorRect.width - margen;
+        }
+
+        visor.style.left = Math.max(minLeft, Math.min(left, maxLeft)) + 'px';
+        visor.style.top = Math.max(minTop, Math.min(top, maxTop)) + 'px';
+    }
+
+    function ocultarPreview() {
+        window.clearTimeout(previewTimer);
+        previewTarget = null;
+        visor.classList.remove('visible');
+        visor.setAttribute('aria-hidden', 'true');
+    }
+
+    function mostrarPreview(target) {
+        const src = target.dataset.previewSrc || target.getAttribute('src');
+        if (!src) {
+            return;
+        }
+        previewTarget = target;
+        visorImg.src = src;
+        visorTitulo.textContent = target.dataset.previewTitle || target.getAttribute('alt') || 'Artículo';
+        visor.setAttribute('aria-hidden', 'false');
+        visor.classList.add('visible');
+        posicionarPreview(target);
+    }
+
+    document.addEventListener('mouseover', function(event) {
+        const imagen = event.target.closest('.js-preview-imagen');
+        if (!imagen) {
+            return;
+        }
+        window.clearTimeout(previewTimer);
+        previewTimer = window.setTimeout(function() {
+            mostrarPreview(imagen);
+        }, 700);
+    });
+
+    document.addEventListener('mouseout', function(event) {
+        const imagen = event.target.closest('.js-preview-imagen');
+        if (!imagen) {
+            return;
+        }
+        if (event.relatedTarget && imagen.contains(event.relatedTarget)) {
+            return;
+        }
+        ocultarPreview();
+    });
+
+    document.addEventListener('mousemove', function(event) {
+        if (!previewTarget || !visor.classList.contains('visible')) {
+            return;
+        }
+        const rect = previewTarget.getBoundingClientRect();
+        const fueraHorizontal = event.clientX < rect.left - 8 || event.clientX > rect.right + 8;
+        const fueraVertical = event.clientY < rect.top - 8 || event.clientY > rect.bottom + 8;
+        if (fueraHorizontal || fueraVertical) {
+            ocultarPreview();
+            return;
+        }
+        posicionarPreview(previewTarget);
+    });
+
+    window.addEventListener('scroll', function() {
+        if (previewTarget && visor.classList.contains('visible')) {
+            posicionarPreview(previewTarget);
+        }
+    }, true);
+
+    window.addEventListener('resize', function() {
+        if (previewTarget && visor.classList.contains('visible')) {
+            posicionarPreview(previewTarget);
+        }
+    });
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            ocultarPreview();
+        }
+    });
+});
+</script>
+{% endblock %}

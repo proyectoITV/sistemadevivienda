@@ -43,10 +43,8 @@ class SessionTimeoutMiddleware:
 				# Si ha pasado el tiempo configurado, cerrar sesión
 				if tiempo_transcurrido > tiempo_sesion_segundos:
 					logout(request)
-					# Marcar en la sesión que fue cerrada por inactividad
-					request.session['sesion_expirada_por_inactividad'] = True
-					# Redirigir al login
-					return redirect('login')
+					messages.warning(request, 'Tu sesión expiró por inactividad. Ingresa nuevamente para continuar.')
+					return redirect('index')
 			
 			# Actualizar el timestamp de última actividad
 			request.session['ultima_actividad'] = now().timestamp()

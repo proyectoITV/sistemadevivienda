@@ -23,6 +23,12 @@ urlpatterns = [
     path('vehiculos/proveedores/', views.listar_proveedores_vehiculos, name='listar_proveedores_vehiculos'),
     path('vehiculos/proveedores/crear/', views.crear_proveedor_vehiculo, name='crear_proveedor_vehiculo'),
     path('vehiculos/proveedores/<int:clave_proveedor>/editar/', views.editar_proveedor_vehiculo, name='editar_proveedor_vehiculo'),
+    path('viaticos/', views.listar_viaticos, name='listar_viaticos'),
+    path('viaticos/<int:id_viatico>/estatus/', views.actualizar_estatus_viatico, name='actualizar_estatus_viatico'),
+    path('viaticos/<int:id_viatico>/seguimiento/', views.seguimiento_viatico, name='seguimiento_viatico'),
+    path('viaticos/<int:id_viatico>/seguimiento/recorrido/', views.api_recorrido_viatico, name='api_recorrido_viatico'),
+    path('viaticos/<int:id_viatico>/seguimiento/ubicacion/', views.actualizar_ubicacion_viatico, name='actualizar_ubicacion_viatico'),
+    path('viaticos/<int:id_viatico>/seguimiento/estado/', views.cambiar_seguimiento_viatico, name='cambiar_seguimiento_viatico'),
     path('recuperar-contrasena/', views.recuperar_contrasena, name='recuperar_contrasena'),
     path('restablecer-contrasena/<str:token>/', views.restablecer_contrasena, name='restablecer_contrasena'),
     
@@ -109,6 +115,7 @@ urlpatterns = [
     # AJAX
     path('api/departamentos-por-direccion/', views.get_departamentos_por_direccion, name='get_departamentos_por_direccion'),
     path('api/estadisticas-cola/', views.api_estadisticas_cola, name='api_estadisticas_cola'),
+    path('api/viaticos/posiciones/', views.api_posiciones_viaticos, name='api_posiciones_viaticos'),
 
     # Tickets de Servicio
     path('tickets/', views.listar_tickets, name='listar_tickets'),
@@ -123,4 +130,17 @@ urlpatterns = [
     path('mantenimiento/<int:id_ticket_mantenimiento>/', views.ver_ticket_mantenimiento, name='ver_ticket_mantenimiento'),
     path('mantenimiento/archivos/<int:id_archivo>/descargar/', views.descargar_archivo_mantenimiento, name='descargar_archivo_mantenimiento'),
     path('mantenimiento/archivos/<int:id_archivo>/eliminar/', views.eliminar_archivo_mantenimiento, name='eliminar_archivo_mantenimiento'),
+
+    # Requisiciones
+    path('requisiciones/', views.listar_requisiciones, name='listar_requisiciones'),
+    path('requisiciones/nueva/', views.crear_requisicion, name='crear_requisicion'),
+    path('requisiciones/compras/', views.compras_requisiciones, name='compras_requisiciones'),
+    path('requisiciones/catalogo/', views.catalogo_requisiciones, name='catalogo_requisiciones'),
+    path('requisiciones/catalogo/nuevo/', views.crear_articulo_requisicion, name='crear_articulo_requisicion'),
+    path('requisiciones/catalogo/<int:id_articulo>/editar/', views.editar_articulo_requisicion, name='editar_articulo_requisicion'),
+    path('requisiciones/api/articulos/', views.buscar_articulos_requisiciones, name='buscar_articulos_requisiciones'),
+    path('requisiciones/historial/<int:id_requisicion>/', views.ver_requisicion_historial, name='ver_requisicion_historial'),
+    path('requisiciones/documentos/<int:id_documento>/preview/', views.previsualizar_documento_requisicion, name='previsualizar_documento_requisicion'),
+    path('requisiciones/documentos/<int:id_documento>/descargar/', views.descargar_documento_requisicion, name='descargar_documento_requisicion'),
+    path('requisiciones/<int:id_requisicion>/', views.ver_requisicion, name='ver_requisicion'),
 ]

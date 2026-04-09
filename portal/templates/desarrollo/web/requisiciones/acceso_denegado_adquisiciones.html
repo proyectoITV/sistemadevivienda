@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .acceso-shell {
+        min-height: calc(100vh - 180px);
+        display: grid;
+        place-items: center;
+        padding: 2rem 1rem 3rem;
+        background:
+            radial-gradient(circle at top left, rgba(188, 149, 92, 0.18), transparent 28%),
+            radial-gradient(circle at bottom right, rgba(171, 0, 51, 0.14), transparent 34%),
+            linear-gradient(180deg, #f7f1eb 0%, #eef2f6 100%);
+    }
+
+    .acceso-card {
+        width: min(1080px, 100%);
+        border: 0;
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 28px 70px rgba(37, 48, 63, 0.16);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(10px);
+    }
+
+    .acceso-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        min-height: 560px;
+    }
+
+    .acceso-copy {
+        padding: 3rem;
+    }
+
+    .acceso-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.55rem 1rem;
+        border-radius: 999px;
+        background: rgba(171, 0, 51, 0.1);
+        color: #8d0b34;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .acceso-title {
+        font-size: clamp(2rem, 3vw, 3.15rem);
+        line-height: 1.05;
+        font-weight: 800;
+        color: #233042;
+        margin-bottom: 1rem;
+    }
+
+    .acceso-text {
+        font-size: 1.02rem;
+        color: #516173;
+        max-width: 54ch;
+        margin-bottom: 1.75rem;
+    }
+
+    .acceso-paneles {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .acceso-panel {
+        border-radius: 20px;
+        padding: 1.15rem;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid rgba(35, 48, 66, 0.08);
+    }
+
+    .acceso-panel .label {
+        display: block;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #7a8795;
+        margin-bottom: 0.45rem;
+        font-weight: 700;
+    }
+
+    .acceso-panel .valor {
+        color: #213042;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.3;
+    }
+
+    .acceso-nota {
+        padding: 1rem 1.15rem;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(188, 149, 92, 0.12), rgba(171, 0, 51, 0.08));
+        border: 1px solid rgba(188, 149, 92, 0.18);
+        color: #5f4b31;
+        margin-bottom: 1.75rem;
+    }
+
+    .acceso-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem;
+    }
+
+    .btn-acceso-principal {
+        background: linear-gradient(135deg, #ab0033 0%, #cf4a3f 100%);
+        color: #fff;
+        border: 0;
+        border-radius: 14px;
+        padding: 0.9rem 1.35rem;
+        font-weight: 700;
+        box-shadow: 0 12px 28px rgba(171, 0, 51, 0.2);
+    }
+
+    .btn-acceso-principal:hover {
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    .btn-acceso-secundario {
+        border-radius: 14px;
+        padding: 0.9rem 1.35rem;
+        font-weight: 700;
+    }
+
+    .acceso-visual {
+        position: relative;
+        overflow: hidden;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(253, 217, 163, 0.9), transparent 20%),
+            radial-gradient(circle at 80% 25%, rgba(188, 149, 92, 0.55), transparent 22%),
+            linear-gradient(145deg, #243447 0%, #1a2533 52%, #111827 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+
+    .acceso-visual::before,
+    .acceso-visual::after {
+        content: '';
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(2px);
+    }
+
+    .acceso-visual::before {
+        width: 220px;
+        height: 220px;
+        background: rgba(171, 0, 51, 0.16);
+        top: -40px;
+        right: -50px;
+    }
+
+    .acceso-visual::after {
+        width: 180px;
+        height: 180px;
+        background: rgba(188, 149, 92, 0.18);
+        bottom: -30px;
+        left: -20px;
+    }
+
+    .escena {
+        position: relative;
+        width: min(420px, 100%);
+        aspect-ratio: 1 / 1;
+    }
+
+    .escena svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.22));
+    }
+
+    @media (max-width: 991.98px) {
+        .acceso-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .acceso-copy {
+            padding: 2rem;
+        }
+
+        .acceso-paneles {
+            grid-template-columns: 1fr;
+        }
+
+        .acceso-visual {
+            min-height: 320px;
+        }
+    }
+</style>
+
+<div class="acceso-shell">
+    <div class="acceso-card">
+        <div class="acceso-grid">
+            <section class="acceso-copy">
+                <span class="acceso-badge">
+                    <i class="fas fa-shield-alt"></i>
+                    Acceso restringido
+                </span>
+                <h1 class="acceso-title">No tienes autorización para entrar a {{ seccion }}.</h1>
+                <p class="acceso-text">
+                    Esta sección está reservada exclusivamente para el personal asignado al departamento configurado para Requisiciones y Compras.
+                    El sistema verificó tu adscripción actual y bloqueó el acceso para proteger la operación del área de adquisiciones.
+                </p>
+
+                <div class="acceso-paneles">
+                    <article class="acceso-panel">
+                        <span class="label">Tu departamento</span>
+                        <div class="valor">{{ departamento_usuario }}</div>
+                    </article>
+                    <article class="acceso-panel">
+                        <span class="label">Departamento autorizado</span>
+                        <div class="valor">{{ departamento_configurado }}</div>
+                    </article>
+                </div>
+
+                <div class="acceso-nota">
+                    <strong>Nota:</strong> Si consideras que debes tener acceso, revisa la configuración del sistema o valida tu asignación de departamento en Recursos Humanos.
+                </div>
+
+                <div class="acceso-actions">
+                    <a href="{% url 'dashboard' %}" class="btn btn-acceso-principal">
+                        <i class="fas fa-home"></i> Volver al dashboard
+                    </a>
+                    <a href="{% url 'listar_requisiciones' %}" class="btn btn-outline-secondary btn-acceso-secundario">
+                        <i class="fas fa-clipboard-list"></i> Ir a requisiciones
+                    </a>
+                </div>
+            </section>
+
+            <aside class="acceso-visual" aria-hidden="true">
+                <div class="escena">
+                    <svg viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="115" y="82" width="292" height="356" rx="32" fill="url(#panel)"/>
+                        <rect x="146" y="115" width="230" height="170" rx="22" fill="#0F172A" opacity="0.88"/>
+                        <rect x="168" y="145" width="186" height="16" rx="8" fill="#FDD9A3" opacity="0.92"/>
+                        <rect x="168" y="177" width="142" height="14" rx="7" fill="#BC955C" opacity="0.88"/>
+                        <rect x="168" y="205" width="168" height="14" rx="7" fill="#BC955C" opacity="0.6"/>
+                        <rect x="154" y="316" width="214" height="78" rx="22" fill="#FFF7ED"/>
+                        <circle cx="261" cy="251" r="62" fill="#AB0033"/>
+                        <path d="M261 221C248.85 221 239 230.85 239 243V253H232C225.373 253 220 258.373 220 265V304C220 310.627 225.373 316 232 316H290C296.627 316 302 310.627 302 304V265C302 258.373 296.627 253 290 253H283V243C283 230.85 273.15 221 261 221ZM252 253V243C252 238.029 256.029 234 261 234C265.971 234 270 238.029 270 243V253H252Z" fill="white"/>
+                        <path d="M176 344H344" stroke="#D3A86D" stroke-width="12" stroke-linecap="round"/>
+                        <path d="M176 372H312" stroke="#E7C79B" stroke-width="12" stroke-linecap="round"/>
+                        <circle cx="389" cy="145" r="46" fill="#BC955C"/>
+                        <path d="M376 145L385 154L404 135" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                        <defs>
+                            <linearGradient id="panel" x1="115" y1="82" x2="426" y2="438" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#F8FAFC"/>
+                                <stop offset="1" stop-color="#E2E8F0"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+            </aside>
+        </div>
+    </div>
+</div>
+{% endblock %}

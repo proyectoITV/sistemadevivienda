@@ -4,6 +4,12 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.utils import timezone
 from datetime import timedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
+from decimal import Decimal, ROUND_HALF_UP
+from django.core.exceptions import ValidationError
+
+
+def _current_year():
+	return timezone.now().year
 
 
 class Anuncio(models.Model):
@@ -392,6 +398,14 @@ class ConfiguracionSistema(models.Model):
 		blank=True,
 		related_name='configuraciones_soporte_mantenimiento',
 		help_text='Departamento que atenderá los tickets de Servicio de Mantenimiento'
+	)
+	departamento_compras_requisiciones = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='configuraciones_compras_requisiciones',
+		help_text='Departamento que atenderá Requisiciones y el módulo de Compras'
 	)
 	
 	fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -1273,6 +1287,272 @@ class TicketMantenimientoSeguimiento(models.Model):
 		return f"MTTO #{self.ticket.id_ticket_mantenimiento} – {self.tipo}"
 
 
+class RequisicionesClasificacion(models.Model):
+	id_clasificacion = models.AutoField(primary_key=True)
+	nombre = models.CharField(max_length=120, unique=True)
+	descripcion = models.TextField(blank=True)
+	activo = models.BooleanField(default=True)
+	fecha_captura = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'requisiciones_clasificaciones'
+		verbose_name = 'Clasificación de Artículo'
+		verbose_name_plural = 'Clasificaciones de Artículos'
+		ordering = ['nombre']
+
+	def __str__(self):
+		return self.nombre
+
+
+class RequisicionesCatalogoArticulos(models.Model):
+	UNIDAD_MEDIDA_CHOICES = [
+		('pieza', 'Pieza'),
+		('caja', 'Caja'),
+		('paquete', 'Paquete'),
+	]
+
+	id_articulo = models.AutoField(primary_key=True)
+	nombre = models.CharField(max_length=200)
+	clasificacion = models.ForeignKey(
+		RequisicionesClasificacion,
+		on_delete=models.PROTECT,
+		related_name='articulos'
+	)
+	descripcion = models.TextField(blank=True)
+	unidad_medida = models.CharField(max_length=20, choices=UNIDAD_MEDIDA_CHOICES, default='pieza')
+	stock_actual = models.PositiveIntegerField(default=0)
+	precio_referencia = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	imagen = models.ImageField(upload_to='requisiciones/articulos/', null=True, blank=True)
+	activo = models.BooleanField(default=True)
+	fecha_captura = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+	usuario_captura = models.CharField(max_length=100, blank=True)
+	usuario_modificacion = models.CharField(max_length=100, blank=True)
+
+	class Meta:
+		db_table = 'requisiciones_catalogodearticulos'
+		verbose_name = 'Artículo de Requisiciones'
+		verbose_name_plural = 'Catálogo de Artículos para Requisiciones'
+		ordering = ['nombre']
+		indexes = [
+			models.Index(fields=['activo', 'nombre']),
+		]
+
+	def __str__(self):
+		return self.nombre
+
+
+class RequisicionesSolicitud(models.Model):
+	ESTATUS_CHOICES = [
+		('pendiente', 'Pendiente de atender'),
+		('en_proceso', 'En proceso'),
+		('para_entrega', 'Para entrega'),
+		('no_autorizado', 'No autorizado'),
+		('entregado', 'Entregado'),
+	]
+
+	id_requisicion = models.AutoField(primary_key=True)
+	folio = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+	solicitante = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.PROTECT,
+		related_name='requisiciones_solicitadas'
+	)
+	departamento_solicitante = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='requisiciones_solicitadas'
+	)
+	departamento_atencion = models.ForeignKey(
+		PersonalDepartamento,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='requisiciones_recibidas'
+	)
+	atendido_por = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='requisiciones_atendidas'
+	)
+	recibido_por = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='requisiciones_recibidas_empleado'
+	)
+	estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='pendiente')
+	comentarios_compra = models.TextField(blank=True)
+	no_autorizado_motivo = models.TextField(blank=True)
+	fecha_toma = models.DateTimeField(null=True, blank=True)
+	fecha_para_entrega = models.DateTimeField(null=True, blank=True)
+	fecha_entrega = models.DateTimeField(null=True, blank=True)
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'requisiciones_solicitudes'
+		verbose_name = 'Requisición'
+		verbose_name_plural = 'Requisiciones'
+		ordering = ['-fecha_creacion']
+		indexes = [
+			models.Index(fields=['estatus', 'fecha_creacion']),
+			models.Index(fields=['departamento_solicitante', 'estatus']),
+		]
+
+	def __str__(self):
+		return f"REQ #{self.id_requisicion} – {self.solicitante.nombre_completo}"
+
+	@property
+	def folio_corto(self):
+		return str(self.folio).upper()[:8]
+
+	@property
+	def total_estimado(self):
+		return sum(detalle.subtotal for detalle in self.detalles.all())
+
+	@property
+	def total_entregado(self):
+		return sum(detalle.subtotal_entregado for detalle in self.detalles.all())
+
+
+class RequisicionesSolicitudDetalle(models.Model):
+	ESTATUS_DETALLE_CHOICES = [
+		('pendiente', 'Pendiente'),
+		('parcial', 'Parcial'),
+		('no_autorizado', 'No autorizado'),
+		('para_entrega', 'Para entrega'),
+		('entregado', 'Entregado'),
+	]
+
+	id_detalle = models.AutoField(primary_key=True)
+	requisicion = models.ForeignKey(
+		RequisicionesSolicitud,
+		on_delete=models.CASCADE,
+		related_name='detalles'
+	)
+	articulo = models.ForeignKey(
+		RequisicionesCatalogoArticulos,
+		on_delete=models.PROTECT,
+		related_name='detalles_requisicion'
+	)
+	motivo = models.TextField(help_text='Justificación, descripción o motivo de solicitud')
+	cantidad_solicitada = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+	unidad_medida = models.CharField(max_length=20, choices=RequisicionesCatalogoArticulos.UNIDAD_MEDIDA_CHOICES, default='pieza')
+	cantidad_autorizada = models.PositiveIntegerField(default=0)
+	cantidad_entregada = models.PositiveIntegerField(default=0)
+	costo_unitario = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	estatus_detalle = models.CharField(max_length=20, choices=ESTATUS_DETALLE_CHOICES, default='pendiente')
+	observaciones_compra = models.TextField(blank=True)
+
+	class Meta:
+		db_table = 'requisiciones_detalle'
+		verbose_name = 'Detalle de Requisición'
+		verbose_name_plural = 'Detalles de Requisición'
+		ordering = ['id_detalle']
+
+	def __str__(self):
+		return f"{self.requisicion_id} - {self.articulo.nombre}"
+
+	@property
+	def subtotal(self):
+		return self.cantidad_autorizada * self.costo_unitario
+
+	@property
+	def subtotal_entregado(self):
+		return self.cantidad_entregada * self.costo_unitario
+
+
+class RequisicionesDocumento(models.Model):
+	TIPO_DOCUMENTO_CHOICES = [
+		('cotizacion', 'Cotización'),
+		('factura', 'Factura'),
+	]
+
+	id_documento = models.AutoField(primary_key=True)
+	requisicion = models.ForeignKey(
+		RequisicionesSolicitud,
+		on_delete=models.CASCADE,
+		related_name='documentos'
+	)
+	detalle = models.ForeignKey(
+		RequisicionesSolicitudDetalle,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='documentos'
+	)
+	tipo_documento = models.CharField(max_length=20, choices=TIPO_DOCUMENTO_CHOICES)
+	archivo = models.FileField(upload_to='requisiciones/documentos/%Y/%m/')
+	nombre_original = models.CharField(max_length=255)
+	proveedor = models.CharField(max_length=200, blank=True)
+	descripcion = models.CharField(max_length=255, blank=True)
+	subido_por = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='documentos_requisiciones_subidos'
+	)
+	fecha_subida = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'requisiciones_documentos'
+		verbose_name = 'Documento de Requisición'
+		verbose_name_plural = 'Documentos de Requisiciones'
+		ordering = ['-fecha_subida']
+
+	def __str__(self):
+		return self.nombre_original
+
+	@property
+	def es_pdf(self):
+		return self.nombre_original.lower().endswith('.pdf')
+
+
+class RequisicionesSeguimiento(models.Model):
+	TIPO_CHOICES = [
+		('estado', 'Cambio de estado'),
+		('comentario', 'Comentario'),
+		('documento', 'Documento'),
+		('entrega', 'Entrega'),
+	]
+
+	id_seguimiento = models.AutoField(primary_key=True)
+	requisicion = models.ForeignKey(
+		RequisicionesSolicitud,
+		on_delete=models.CASCADE,
+		related_name='seguimientos'
+	)
+	autor = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='seguimientos_requisiciones'
+	)
+	tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='comentario')
+	mensaje = models.TextField()
+	estatus_anterior = models.CharField(max_length=20, blank=True)
+	estatus_nuevo = models.CharField(max_length=20, blank=True)
+	fecha = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'requisiciones_seguimiento'
+		verbose_name = 'Seguimiento de Requisición'
+		verbose_name_plural = 'Seguimientos de Requisiciones'
+		ordering = ['fecha']
+
+	def __str__(self):
+		return f"REQ #{self.requisicion_id} – {self.tipo}"
+
+
 # ==================== MODELOS DE VEHICULOS ====================
 
 class VehiculosMarcas(models.Model):
@@ -1432,3 +1712,282 @@ class VehiculoFoto(models.Model):
 
 	def __str__(self):
 		return f"Foto {self.idfoto} - {self.vehiculo_id}"
+
+
+class ViaticosZonaTarifa(models.Model):
+	ZONA_NORTE = 'norte'
+	ZONA_CENTRO = 'centro'
+	ZONA_SUR = 'sur'
+
+	ZONA_CHOICES = [
+		(ZONA_NORTE, 'Norte'),
+		(ZONA_CENTRO, 'Centro'),
+		(ZONA_SUR, 'Sur'),
+	]
+
+	clave = models.CharField(max_length=20, choices=ZONA_CHOICES, unique=True)
+	nombre = models.CharField(max_length=50)
+	hospedaje_noche = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	alimentacion_diaria = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	combustible_km = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+	activo = models.BooleanField(default=True)
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'viaticos_zona_tarifa'
+		verbose_name = 'Tarifa de Zona de Viaticos'
+		verbose_name_plural = 'Tarifas de Zonas de Viaticos'
+		ordering = ['clave']
+
+	def __str__(self):
+		return self.nombre
+
+
+class ViaticosPresupuestoDireccion(models.Model):
+	iddireccion = models.ForeignKey(
+		PersonalDireccion,
+		on_delete=models.CASCADE,
+		related_name='presupuestos_viaticos'
+	)
+	ejercicio = models.PositiveIntegerField(default=_current_year)
+	monto_asignado = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(0)])
+	activo = models.BooleanField(default=True)
+	observaciones = models.TextField(blank=True)
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'viaticos_presupuesto_direccion'
+		verbose_name = 'Presupuesto de Viaticos por Direccion'
+		verbose_name_plural = 'Presupuestos de Viaticos por Direccion'
+		ordering = ['-ejercicio', 'iddireccion__direccion']
+		unique_together = ('iddireccion', 'ejercicio')
+
+	def __str__(self):
+		return f"{self.iddireccion} - {self.ejercicio}"
+
+	def monto_comprometido(self, excluir_solicitud_id=None):
+		queryset = self.solicitudes.filter(estatus__in=[ViaticosSolicitud.ESTATUS_CAPTURADO, ViaticosSolicitud.ESTATUS_AUTORIZADO])
+		if excluir_solicitud_id:
+			queryset = queryset.exclude(pk=excluir_solicitud_id)
+		resultado = queryset.aggregate(total=models.Sum('total_estimado'))
+		return resultado.get('total') or Decimal('0.00')
+
+	def monto_disponible(self, excluir_solicitud_id=None):
+		disponible = self.monto_asignado - self.monto_comprometido(excluir_solicitud_id=excluir_solicitud_id)
+		return disponible.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+class ViaticosSolicitud(models.Model):
+	TRANSPORTE_VEHICULO = 'vehiculo_interno'
+	TRANSPORTE_AUTOBUS = 'autobus'
+	TRANSPORTE_AVION = 'avion'
+	TRANSPORTE_MIXTO = 'mixto'
+
+	TRANSPORTE_CHOICES = [
+		(TRANSPORTE_VEHICULO, 'Vehiculo interno'),
+		(TRANSPORTE_AUTOBUS, 'Autobus'),
+		(TRANSPORTE_AVION, 'Avion'),
+		(TRANSPORTE_MIXTO, 'Mixto'),
+	]
+
+	ESTATUS_CAPTURADO = 'capturado'
+	ESTATUS_AUTORIZADO = 'autorizado'
+	ESTATUS_CANCELADO = 'cancelado'
+
+	ESTATUS_CHOICES = [
+		(ESTATUS_CAPTURADO, 'Capturado'),
+		(ESTATUS_AUTORIZADO, 'Autorizado'),
+		(ESTATUS_CANCELADO, 'Cancelado'),
+	]
+
+	folio = models.CharField(max_length=30, unique=True, blank=True)
+	empleado = models.ForeignKey(PersonalEmpleados, on_delete=models.PROTECT, related_name='viaticos')
+	direccion = models.ForeignKey(
+		PersonalDireccion,
+		on_delete=models.PROTECT,
+		related_name='solicitudes_viaticos'
+	)
+	presupuesto = models.ForeignKey(
+		ViaticosPresupuestoDireccion,
+		on_delete=models.PROTECT,
+		related_name='solicitudes'
+	)
+	zona = models.ForeignKey(ViaticosZonaTarifa, on_delete=models.PROTECT, related_name='solicitudes')
+	motivo_comision = models.TextField()
+	origen = models.CharField(max_length=255)
+	destino = models.CharField(max_length=255)
+	origen_latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+	origen_longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+	destino_latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+	destino_longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+	distancia_km = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	viaje_redondo = models.BooleanField(default=True)
+	dias = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+	transporte = models.CharField(max_length=20, choices=TRANSPORTE_CHOICES, default=TRANSPORTE_VEHICULO)
+	pasajes_estimados = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	taxis_estimados = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	combustible_estimado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	hospedaje_estimado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	alimentacion_estimada = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	total_estimado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default=ESTATUS_CAPTURADO)
+	seguimiento_activo = models.BooleanField(default=False)
+	ultima_latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+	ultima_longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+	ultima_precision_metros = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+	ultima_velocidad_kmh = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+	ultima_actualizacion_ubicacion = models.DateTimeField(null=True, blank=True)
+	observaciones = models.TextField(blank=True)
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	fecha_modificacion = models.DateTimeField(auto_now=True)
+	creado_por = models.ForeignKey(
+		PersonalEmpleados,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name='viaticos_capturados'
+	)
+
+	class Meta:
+		db_table = 'viaticos_solicitud'
+		verbose_name = 'Solicitud de Viaticos'
+		verbose_name_plural = 'Solicitudes de Viaticos'
+		ordering = ['-fecha_creacion', '-id']
+
+	def __str__(self):
+		return self.folio or f"Viaticos #{self.pk}"
+
+	@staticmethod
+	def _money(valor):
+		return Decimal(valor or 0).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+	def _calcular_hospedaje(self):
+		noches = max(int(self.dias or 0) - 1, 0)
+		return self._money(noches * Decimal(self.zona.hospedaje_noche or 0))
+
+	def _calcular_alimentacion(self):
+		return self._money(int(self.dias or 0) * Decimal(self.zona.alimentacion_diaria or 0))
+
+	def _calcular_combustible(self):
+		if self.transporte not in [self.TRANSPORTE_VEHICULO, self.TRANSPORTE_MIXTO]:
+			return Decimal('0.00')
+		factor = Decimal('2') if self.viaje_redondo else Decimal('1')
+		distancia_total = Decimal(self.distancia_km or 0) * factor
+		return self._money(distancia_total * Decimal(self.zona.combustible_km or 0))
+
+	def recalcular_totales(self):
+		self.hospedaje_estimado = self._calcular_hospedaje()
+		self.alimentacion_estimada = self._calcular_alimentacion()
+		self.combustible_estimado = self._calcular_combustible()
+		pasajes = self._money(self.pasajes_estimados)
+		taxis = self._money(self.taxis_estimados)
+		self.total_estimado = self._money(
+			Decimal(self.hospedaje_estimado or 0)
+			+ Decimal(self.alimentacion_estimada or 0)
+			+ Decimal(self.combustible_estimado or 0)
+			+ pasajes
+			+ taxis
+		)
+
+	def clean(self):
+		errores = {}
+
+		if self.empleado_id:
+			departamento = getattr(self.empleado, 'iddepartamento', None)
+			direccion_empleado = getattr(departamento, 'iddireccion', None)
+			if direccion_empleado is None:
+				errores['empleado'] = 'El empleado seleccionado no tiene direccion asignada por departamento.'
+			elif self.direccion_id and self.direccion_id != direccion_empleado.iddireccion:
+				errores['empleado'] = 'La direccion del viatico debe coincidir con la direccion del empleado.'
+			else:
+				self.direccion = direccion_empleado
+
+		if self.presupuesto_id and self.direccion_id and self.presupuesto.iddireccion_id != self.direccion_id:
+			errores['presupuesto'] = 'El presupuesto seleccionado no corresponde a la direccion del empleado.'
+
+		if self.dias and self.dias < 1:
+			errores['dias'] = 'Los dias deben ser al menos 1.'
+
+		if self.transporte == self.TRANSPORTE_VEHICULO:
+			self.pasajes_estimados = Decimal('0.00')
+
+		self.recalcular_totales()
+
+		if self.presupuesto_id and self.estatus != self.ESTATUS_CANCELADO:
+			disponible = self.presupuesto.monto_disponible(excluir_solicitud_id=self.pk)
+			if self.total_estimado > disponible:
+				errores['__all__'] = (
+					f'El viatico excede el presupuesto disponible de la direccion. '
+					f'Disponible: ${disponible}.'
+				)
+
+		if errores:
+			raise ValidationError(errores)
+
+	def save(self, *args, **kwargs):
+		self.full_clean()
+		if not self.folio:
+			year = timezone.localdate().year
+			ultimo = ViaticosSolicitud.objects.filter(folio__startswith=f'VIA-{year}-').count() + 1
+			self.folio = f'VIA-{year}-{ultimo:04d}'
+		return super().save(*args, **kwargs)
+
+	def registrar_ubicacion(self, empleado, latitud, longitud, precision_metros=None, velocidad_kmh=None, fuente='navegador'):
+		if self.estatus == self.ESTATUS_CANCELADO:
+			raise ValidationError('No se puede registrar ubicacion en un viatico cancelado.')
+
+		ubicacion = ViaticosUbicacion.objects.create(
+			viatico=self,
+			empleado=empleado,
+			latitud=latitud,
+			longitud=longitud,
+			precision_metros=precision_metros,
+			velocidad_kmh=velocidad_kmh,
+			fuente=fuente,
+		)
+		self.seguimiento_activo = True
+		self.ultima_latitud = latitud
+		self.ultima_longitud = longitud
+		self.ultima_precision_metros = precision_metros
+		self.ultima_velocidad_kmh = velocidad_kmh
+		self.ultima_actualizacion_ubicacion = ubicacion.fecha_reporte
+		super().save(update_fields=[
+			'seguimiento_activo',
+			'ultima_latitud',
+			'ultima_longitud',
+			'ultima_precision_metros',
+			'ultima_velocidad_kmh',
+			'ultima_actualizacion_ubicacion',
+			'fecha_modificacion',
+		])
+		return ubicacion
+
+
+class ViaticosUbicacion(models.Model):
+	FUENTE_NAVEGADOR = 'navegador'
+	FUENTE_MANUAL = 'manual'
+
+	FUENTE_CHOICES = [
+		(FUENTE_NAVEGADOR, 'Navegador'),
+		(FUENTE_MANUAL, 'Manual'),
+	]
+
+	viatico = models.ForeignKey(ViaticosSolicitud, on_delete=models.CASCADE, related_name='ubicaciones')
+	empleado = models.ForeignKey(PersonalEmpleados, on_delete=models.CASCADE, related_name='ubicaciones_viaticos')
+	latitud = models.DecimalField(max_digits=9, decimal_places=6)
+	longitud = models.DecimalField(max_digits=9, decimal_places=6)
+	precision_metros = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+	velocidad_kmh = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+	fuente = models.CharField(max_length=20, choices=FUENTE_CHOICES, default=FUENTE_NAVEGADOR)
+	fecha_reporte = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		db_table = 'viaticos_ubicacion'
+		verbose_name = 'Ubicacion de Viaticos'
+		verbose_name_plural = 'Ubicaciones de Viaticos'
+		ordering = ['-fecha_reporte', '-id']
+
+	def __str__(self):
+		return f"{self.viatico.folio} @ {self.fecha_reporte:%Y-%m-%d %H:%M:%S}"

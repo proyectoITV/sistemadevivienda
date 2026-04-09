@@ -6,12 +6,16 @@ from django.db.models.signals import post_migrate
 from django.core.management import call_command
 from django.conf import settings
 import os
+import sys
 
 class PortalConfig(AppConfig):
     name = 'portal'
     label = 'anuncios'
 
     def ready(self):
+        if 'test' in sys.argv:
+            return
+
         from portal.models import PersonalEmpleados
         def crear_usuario_demo_signal(sender, **kwargs):
             if PersonalEmpleados.objects.count() == 0:

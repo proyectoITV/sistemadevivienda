@@ -281,6 +281,16 @@
                                 {% endif %}
                                 <small class="form-text text-muted">Este departamento recibirá automáticamente las solicitudes del módulo Servicio de Mantenimiento.</small>
                             </div>
+                            <div class="col-md-12 mb-3">
+                                <label for="{{ form.departamento_compras_requisiciones.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.departamento_compras_requisiciones.label }}
+                                </label>
+                                {{ form.departamento_compras_requisiciones }}
+                                {% if form.departamento_compras_requisiciones.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.departamento_compras_requisiciones.errors.0 }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">Este departamento atenderá el catálogo, la cola de compras y las requisiciones capturadas por el personal.</small>
+                            </div>
                         </div>
                     </div>
                 </div>

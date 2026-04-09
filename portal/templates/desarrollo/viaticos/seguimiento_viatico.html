@@ -1,0 +1,744 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4 seguimiento-page">
+    <div class="tracking-hero mb-4">
+        <div>
+            <span class="hero-kicker">Seguimiento de viatico</span>
+            <h1>{{ viatico.folio }}</h1>
+            <p class="mb-0">{{ viatico.empleado.nombre_completo }} · {{ viatico.origen }} a {{ viatico.destino }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <a href="{% url 'listar_viaticos' %}" class="btn btn-outline-secondary">Volver</a>
+            <a href="https://www.google.com/maps/dir/?api=1&origin={{ viatico.origen|urlencode }}&destination={{ viatico.destino|urlencode }}&travelmode=driving" target="_blank" class="btn btn-outline-danger">Abrir ruta en Google Maps</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="tracking-card p-4 mb-4">
+                <span class="block-label">Estado operativo</span>
+                <div class="status-stack">
+                    <div class="status-row"><span>Empleado</span><strong>{{ viatico.empleado.nombre_completo }}</strong></div>
+                    <div class="status-row"><span>Direccion</span><strong>{{ viatico.direccion.direccion }}</strong></div>
+                    <div class="status-row"><span>Zona</span><strong>{{ viatico.zona.nombre }}</strong></div>
+                    <div class="status-row"><span>Estatus</span><strong>{{ viatico.get_estatus_display }}</strong></div>
+                    <div class="status-row"><span>Seguimiento</span><strong id="trackingStatusText">{% if viatico.seguimiento_activo %}Activo{% else %}Pausado{% endif %}</strong></div>
+                    <div class="status-row"><span>Ultima actualización</span><strong id="trackingLastUpdate">{% if viatico.ultima_actualizacion_ubicacion %}{{ viatico.ultima_actualizacion_ubicacion }}{% else %}Sin reportes{% endif %}</strong></div>
+                    <div class="status-row"><span>Coordenadas</span><strong id="trackingCoordinates">{% if viatico.ultima_latitud and viatico.ultima_longitud %}{{ viatico.ultima_latitud }}, {{ viatico.ultima_longitud }}{% else %}Pendiente{% endif %}</strong></div>
+                </div>
+
+                <div class="stats-grid mt-4">
+                    <div class="stats-card">
+                        <span>Puntos</span>
+                        <strong id="historyPointCount">0</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Kilómetros</span>
+                        <strong id="historyDistance">0 km</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Duración</span>
+                        <strong id="historyDuration">0 min</strong>
+                    </div>
+                    <div class="stats-card">
+                        <span>Velocidad máx.</span>
+                        <strong id="historyMaxSpeed">0 km/h</strong>
+                    </div>
+                </div>
+
+                {% if es_dueno %}
+                <div class="action-stack mt-4">
+                    <button type="button" class="btn btn-primary btn-lg" id="startTrackingBtn">Iniciar seguimiento</button>
+                    <button type="button" class="btn btn-outline-dark btn-lg" id="stopTrackingBtn">Pausar seguimiento</button>
+                </div>
+                <p class="small text-muted mt-3 mb-0">Mantén esta pantalla abierta en tu celular durante la comisión. El navegador solicitará permiso de ubicación.</p>
+                {% else %}
+                <div class="alert alert-info mt-4 mb-0">Vista administrativa. Solo el empleado asignado puede transmitir ubicación desde su navegador.</div>
+                {% endif %}
+
+                <div class="alert alert-secondary mt-3 mb-0" id="trackingMessage">Esperando acción.</div>
+            </div>
+
+            <div class="tracking-card p-4">
+                <div class="d-flex justify-content-between gap-2 align-items-start mb-3 flex-wrap">
+                    <div>
+                        <span class="block-label">Línea de tiempo</span>
+                        <h4 class="mb-0">Últimos puntos del recorrido</h4>
+                    </div>
+                    <span class="timeline-badge" id="timelineModeBadge">Sin datos</span>
+                </div>
+                <div class="timeline-list" id="historyTimeline">
+                    <div class="text-muted">No hay puntos de recorrido todavía.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="tracking-card p-4 mb-4">
+                <div class="d-flex justify-content-between gap-2 align-items-start mb-3 flex-wrap">
+                    <div>
+                        <span class="block-label">Mapa de recorrido</span>
+                        <h4 class="mb-0">Trazado histórico y reproducción</h4>
+                    </div>
+                    <a id="currentGoogleLink" href="#" class="btn btn-sm btn-outline-danger disabled" target="_blank">Ver punto en Google Maps</a>
+                </div>
+
+                <div class="playback-toolbar mb-3">
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <button type="button" class="btn btn-outline-dark btn-sm" id="playHistoryBtn">Reproducir</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="pauseHistoryBtn">Pausar</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" id="restartHistoryBtn">Reiniciar</button>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <label for="playbackSpeed" class="small text-muted mb-0">Velocidad</label>
+                        <select id="playbackSpeed" class="form-select form-select-sm playback-select">
+                            <option value="1500">1x</option>
+                            <option value="900">1.5x</option>
+                            <option value="500">3x</option>
+                            <option value="250">6x</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-dark btn-sm" id="refreshHistoryBtn">Actualizar traza</button>
+                    </div>
+                </div>
+
+                <div class="playback-range-wrap mb-3">
+                    <input type="range" id="historyScrubber" min="0" max="0" step="1" value="0" class="form-range">
+                    <div class="small text-muted d-flex justify-content-between gap-2 flex-wrap">
+                        <span id="historyScrubberLabel">Punto 0 de 0</span>
+                        <span id="playbackCurrentLabel">Sin reproducción</span>
+                    </div>
+                </div>
+
+                <div id="seguimientoMapa"></div>
+            </div>
+
+            <div class="tracking-card p-4">
+                <div class="d-flex justify-content-between gap-2 align-items-start mb-3 flex-wrap">
+                    <div>
+                        <span class="block-label">Google Maps</span>
+                        <h4 class="mb-0">Vista centrada</h4>
+                    </div>
+                </div>
+                <iframe id="trackingGoogleFrame" title="Google Maps viatico" src="{% if google_embed_url %}{{ google_embed_url }}{% else %}about:blank{% endif %}"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .seguimiento-page {
+        --vino: #7a1d2c;
+        --terracota: #c27a4b;
+        --noche: #1d2b36;
+    }
+
+    .tracking-hero,
+    .tracking-card {
+        border-radius: 24px;
+        background: rgba(255,255,255,0.82);
+        border: 1px solid rgba(29, 43, 54, 0.08);
+        box-shadow: 0 18px 45px rgba(29, 43, 54, 0.08);
+    }
+
+    .tracking-hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #fff8ef 0%, #f2ebe0 45%, #eadcc4 100%);
+    }
+
+    .hero-kicker,
+    .block-label {
+        display: inline-block;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--vino);
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .tracking-hero h1,
+    .tracking-card h4 {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        color: var(--noche);
+    }
+
+    .status-stack {
+        display: grid;
+        gap: 0.85rem;
+    }
+
+    .status-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.9rem 1rem;
+        border-radius: 16px;
+        background: #f8f3e7;
+    }
+
+    .status-row span {
+        color: rgba(29, 43, 54, 0.64);
+    }
+
+    .status-row strong {
+        color: var(--noche);
+        text-align: right;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+    }
+
+    .stats-card {
+        padding: 0.95rem;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff, #f8f2e8);
+        border: 1px solid rgba(29, 43, 54, 0.08);
+    }
+
+    .stats-card span {
+        display: block;
+        color: rgba(29, 43, 54, 0.62);
+        font-size: 0.82rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .stats-card strong {
+        color: var(--noche);
+        font-size: 1.1rem;
+    }
+
+    .action-stack {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .playback-toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .playback-select {
+        min-width: 96px;
+    }
+
+    .playback-range-wrap {
+        padding: 0.85rem 1rem;
+        border-radius: 16px;
+        background: #f8f3e7;
+    }
+
+    .timeline-badge {
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        background: #f8f3e7;
+        color: var(--terracota);
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+
+    .timeline-list {
+        display: grid;
+        gap: 0.8rem;
+        max-height: 420px;
+        overflow: auto;
+    }
+
+    .timeline-item {
+        display: grid;
+        gap: 0.3rem;
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #ffffff, #f8f2e8);
+        border: 1px solid rgba(29, 43, 54, 0.08);
+        cursor: pointer;
+    }
+
+    .timeline-item.active {
+        border-color: rgba(122, 29, 44, 0.26);
+        box-shadow: 0 8px 18px rgba(122, 29, 44, 0.08);
+    }
+
+    .timeline-item-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    #seguimientoMapa,
+    #trackingGoogleFrame {
+        width: 100%;
+        height: 420px;
+        border: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #f7f3ea;
+    }
+
+    @media (max-width: 767.98px) {
+        .tracking-hero,
+        .status-row,
+        .playback-toolbar,
+        .timeline-item-top {
+            flex-direction: column;
+            align-items: start;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        #seguimientoMapa,
+        #trackingGoogleFrame {
+            height: 280px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const esDueno = {{ es_dueno|yesno:'true,false' }};
+        const startBtn = document.getElementById('startTrackingBtn');
+        const stopBtn = document.getElementById('stopTrackingBtn');
+        const messageBox = document.getElementById('trackingMessage');
+        const statusText = document.getElementById('trackingStatusText');
+        const lastUpdate = document.getElementById('trackingLastUpdate');
+        const coordinates = document.getElementById('trackingCoordinates');
+        const googleFrame = document.getElementById('trackingGoogleFrame');
+        const googleLink = document.getElementById('currentGoogleLink');
+        const historyPointCount = document.getElementById('historyPointCount');
+        const historyDistance = document.getElementById('historyDistance');
+        const historyDuration = document.getElementById('historyDuration');
+        const historyMaxSpeed = document.getElementById('historyMaxSpeed');
+        const historyTimeline = document.getElementById('historyTimeline');
+        const timelineModeBadge = document.getElementById('timelineModeBadge');
+        const historyScrubber = document.getElementById('historyScrubber');
+        const historyScrubberLabel = document.getElementById('historyScrubberLabel');
+        const playbackCurrentLabel = document.getElementById('playbackCurrentLabel');
+        const playHistoryBtn = document.getElementById('playHistoryBtn');
+        const pauseHistoryBtn = document.getElementById('pauseHistoryBtn');
+        const restartHistoryBtn = document.getElementById('restartHistoryBtn');
+        const playbackSpeed = document.getElementById('playbackSpeed');
+        const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+
+        let routeHistory = JSON.parse('{{ recorrido_inicial_json|escapejs }}');
+        let map = L.map('seguimientoMapa').setView([23.7369, -99.1411], 6);
+        let currentMarker = null;
+        let playbackMarker = null;
+        let routeLine = null;
+        let playbackLine = null;
+        let startMarker = null;
+        let endMarker = null;
+        let watcherId = null;
+        let playbackTimer = null;
+        let playbackIndex = 0;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        function getCookie(name) {
+            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        }
+
+        function setMessage(text, type) {
+            messageBox.className = `alert mt-3 mb-0 alert-${type || 'secondary'}`;
+            messageBox.textContent = text;
+        }
+
+        function formatDateTime(value) {
+            if (!value) {
+                return 'Sin dato';
+            }
+            return new Date(value).toLocaleString('es-MX');
+        }
+
+        function formatMinutes(value) {
+            if (value < 60) {
+                return `${value} min`;
+            }
+            const hours = Math.floor(value / 60);
+            const minutes = value % 60;
+            return `${hours} h ${minutes} min`;
+        }
+
+        function haversine(lat1, lon1, lat2, lon2) {
+            const toRad = (value) => value * Math.PI / 180;
+            const R = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function getMetrics(items) {
+            let distance = 0;
+            let maxSpeed = 0;
+            for (let index = 1; index < items.length; index += 1) {
+                distance += haversine(items[index - 1].latitud, items[index - 1].longitud, items[index].latitud, items[index].longitud);
+            }
+            items.forEach((item) => {
+                maxSpeed = Math.max(maxSpeed, item.velocidad_kmh || 0);
+            });
+
+            let durationMinutes = 0;
+            if (items.length > 1) {
+                const start = new Date(items[0].fecha_reporte).getTime();
+                const end = new Date(items[items.length - 1].fecha_reporte).getTime();
+                durationMinutes = Math.max(0, Math.round((end - start) / 60000));
+            }
+
+            return { distance, maxSpeed, durationMinutes };
+        }
+
+        function updateCurrentInfo(point) {
+            if (!point) {
+                coordinates.textContent = 'Pendiente';
+                googleLink.href = '#';
+                googleLink.classList.add('disabled');
+                googleFrame.src = 'about:blank';
+                return;
+            }
+
+            coordinates.textContent = `${point.latitud.toFixed(6)}, ${point.longitud.toFixed(6)}`;
+            googleLink.href = point.google_maps_url;
+            googleLink.classList.remove('disabled');
+            googleFrame.src = `https://www.google.com/maps?q=${point.latitud},${point.longitud}&z=15&output=embed`;
+            lastUpdate.textContent = formatDateTime(point.fecha_reporte);
+        }
+
+        function ensureCurrentMarker(point, recenter) {
+            if (!point) {
+                return;
+            }
+            const latLng = [point.latitud, point.longitud];
+            if (currentMarker) {
+                currentMarker.setLatLng(latLng);
+            } else {
+                currentMarker = L.marker(latLng).addTo(map).bindPopup('Posición actual');
+            }
+            if (recenter) {
+                map.setView(latLng, 15);
+            }
+            updateCurrentInfo(point);
+        }
+
+        function renderRouteLine() {
+            if (routeLine) {
+                map.removeLayer(routeLine);
+                routeLine = null;
+            }
+            if (playbackLine) {
+                map.removeLayer(playbackLine);
+                playbackLine = null;
+            }
+            if (startMarker) {
+                map.removeLayer(startMarker);
+                startMarker = null;
+            }
+            if (endMarker) {
+                map.removeLayer(endMarker);
+                endMarker = null;
+            }
+
+            if (!routeHistory.length) {
+                return;
+            }
+
+            const latLngs = routeHistory.map((item) => [item.latitud, item.longitud]);
+            routeLine = L.polyline(latLngs, {
+                color: '#7a1d2c',
+                weight: 4,
+                opacity: 0.55,
+            }).addTo(map);
+            playbackLine = L.polyline([latLngs[0]], {
+                color: '#c27a4b',
+                weight: 5,
+                opacity: 0.95,
+            }).addTo(map);
+            startMarker = L.circleMarker(latLngs[0], { radius: 8, color: '#0f5132', fillColor: '#198754', fillOpacity: 0.8 }).addTo(map).bindPopup('Inicio del recorrido');
+            endMarker = L.circleMarker(latLngs[latLngs.length - 1], { radius: 8, color: '#842029', fillColor: '#dc3545', fillOpacity: 0.8 }).addTo(map).bindPopup('Último punto');
+            map.fitBounds(L.latLngBounds(latLngs).pad(0.12));
+        }
+
+        function renderTimeline() {
+            if (!routeHistory.length) {
+                timelineModeBadge.textContent = 'Sin datos';
+                historyTimeline.innerHTML = '<div class="text-muted">No hay puntos de recorrido todavía.</div>';
+                return;
+            }
+
+            timelineModeBadge.textContent = routeHistory.length > 1 ? 'Recorrido activo' : 'Punto inicial';
+            historyTimeline.innerHTML = routeHistory.slice().reverse().slice(0, 12).map((item) => `
+                <div class="timeline-item ${routeHistory[playbackIndex] && routeHistory[playbackIndex].id === item.id ? 'active' : ''}" data-point-id="${item.id}">
+                    <div class="timeline-item-top">
+                        <strong>${formatDateTime(item.fecha_reporte)}</strong>
+                        <span class="small text-muted">${item.velocidad_kmh ? `${item.velocidad_kmh.toFixed(1)} km/h` : 'Sin velocidad'}</span>
+                    </div>
+                    <div class="small text-muted">${item.latitud.toFixed(6)}, ${item.longitud.toFixed(6)}</div>
+                    <div class="small text-muted">Precisión: ${item.precision_metros ? `${item.precision_metros.toFixed(1)} m` : 'Sin dato'}</div>
+                </div>
+            `).join('');
+
+            historyTimeline.querySelectorAll('.timeline-item').forEach((item) => {
+                item.addEventListener('click', function () {
+                    const pointId = Number(item.dataset.pointId);
+                    const index = routeHistory.findIndex((point) => point.id === pointId);
+                    if (index >= 0) {
+                        stopPlayback();
+                        playbackIndex = index;
+                        renderPlaybackPosition(true);
+                    }
+                });
+            });
+        }
+
+        function renderMetrics() {
+            const metrics = getMetrics(routeHistory);
+            historyPointCount.textContent = String(routeHistory.length);
+            historyDistance.textContent = `${metrics.distance.toFixed(2)} km`;
+            historyDuration.textContent = formatMinutes(metrics.durationMinutes);
+            historyMaxSpeed.textContent = `${metrics.maxSpeed.toFixed(1)} km/h`;
+            historyScrubber.max = Math.max(routeHistory.length - 1, 0);
+            historyScrubber.value = Math.min(playbackIndex, Math.max(routeHistory.length - 1, 0));
+            historyScrubberLabel.textContent = `Punto ${routeHistory.length ? playbackIndex + 1 : 0} de ${routeHistory.length}`;
+        }
+
+        function renderPlaybackPosition(recenter) {
+            if (!routeHistory.length) {
+                updateCurrentInfo(null);
+                renderTimeline();
+                renderMetrics();
+                return;
+            }
+
+            const currentPoint = routeHistory[playbackIndex];
+            const segment = routeHistory.slice(0, playbackIndex + 1).map((point) => [point.latitud, point.longitud]);
+            if (playbackLine) {
+                playbackLine.setLatLngs(segment);
+            }
+            if (playbackMarker) {
+                playbackMarker.setLatLng([currentPoint.latitud, currentPoint.longitud]);
+            } else {
+                playbackMarker = L.marker([currentPoint.latitud, currentPoint.longitud]).addTo(map).bindPopup('Reproducción del recorrido');
+            }
+            if (recenter) {
+                map.flyTo([currentPoint.latitud, currentPoint.longitud], Math.max(map.getZoom(), 14), { duration: 0.5 });
+            }
+
+            ensureCurrentMarker(routeHistory[routeHistory.length - 1], false);
+            playbackCurrentLabel.textContent = `${formatDateTime(currentPoint.fecha_reporte)} · ${playbackIndex + 1}/${routeHistory.length}`;
+            historyScrubber.value = playbackIndex;
+            historyScrubberLabel.textContent = `Punto ${playbackIndex + 1} de ${routeHistory.length}`;
+            renderTimeline();
+            renderMetrics();
+            updateCurrentInfo(currentPoint);
+        }
+
+        function stopPlayback() {
+            if (playbackTimer !== null) {
+                window.clearInterval(playbackTimer);
+                playbackTimer = null;
+            }
+        }
+
+        function playHistory() {
+            if (routeHistory.length < 2) {
+                setMessage('Se requieren al menos dos puntos para reproducir el recorrido.', 'warning');
+                return;
+            }
+
+            stopPlayback();
+            playbackTimer = window.setInterval(() => {
+                if (playbackIndex >= routeHistory.length - 1) {
+                    stopPlayback();
+                    setMessage('Reproducción finalizada.', 'secondary');
+                    return;
+                }
+                playbackIndex += 1;
+                renderPlaybackPosition(true);
+            }, Number(playbackSpeed.value || '1500'));
+            setMessage('Reproducción del recorrido en curso.', 'primary');
+        }
+
+        async function refreshRouteHistory(showMessage) {
+            try {
+                const response = await fetch('{% url "api_recorrido_viatico" viatico.id %}', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'No fue posible cargar el recorrido.');
+                }
+                const previousLastId = routeHistory.length ? routeHistory[routeHistory.length - 1].id : null;
+                routeHistory = data.items || [];
+                renderRouteLine();
+                if (routeHistory.length) {
+                    if (previousLastId !== null && routeHistory[routeHistory.length - 1].id !== previousLastId) {
+                        playbackIndex = routeHistory.length - 1;
+                    } else {
+                        playbackIndex = Math.min(playbackIndex, routeHistory.length - 1);
+                    }
+                } else {
+                    playbackIndex = 0;
+                }
+                renderPlaybackPosition(false);
+                if (showMessage) {
+                    setMessage('Recorrido histórico actualizado.', 'success');
+                }
+            } catch (error) {
+                if (showMessage) {
+                    setMessage(error.message, 'danger');
+                }
+            }
+        }
+
+        async function toggleTracking(active) {
+            const response = await fetch('{% url "cambiar_seguimiento_viatico" viatico.id %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: new URLSearchParams({ activo: String(active) }),
+            });
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'No fue posible cambiar el estado de seguimiento.');
+            }
+            statusText.textContent = data.activo ? 'Activo' : 'Pausado';
+        }
+
+        async function sendLocation(position) {
+            const speedMs = typeof position.coords.speed === 'number' && position.coords.speed >= 0 ? position.coords.speed : null;
+            const speedKmh = speedMs !== null ? (speedMs * 3.6).toFixed(2) : '';
+            const params = new URLSearchParams({
+                latitud: position.coords.latitude.toFixed(6),
+                longitud: position.coords.longitude.toFixed(6),
+                precision_metros: position.coords.accuracy.toFixed(2),
+                velocidad_kmh: speedKmh,
+            });
+
+            const response = await fetch('{% url "actualizar_ubicacion_viatico" viatico.id %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: params,
+            });
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'No fue posible enviar la ubicación.');
+            }
+
+            await refreshRouteHistory(false);
+            setMessage('Ubicación enviada correctamente.', 'success');
+        }
+
+        function startTracking() {
+            if (!navigator.geolocation) {
+                setMessage('Este dispositivo no soporta geolocalización en navegador.', 'danger');
+                return;
+            }
+
+            if (watcherId !== null) {
+                setMessage('El seguimiento ya está activo.', 'info');
+                return;
+            }
+
+            toggleTracking(true)
+                .then(() => {
+                    watcherId = navigator.geolocation.watchPosition(
+                        (position) => {
+                            sendLocation(position).catch((error) => setMessage(error.message, 'danger'));
+                        },
+                        (error) => {
+                            setMessage(`No fue posible obtener la ubicación: ${error.message}`, 'danger');
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            maximumAge: 5000,
+                            timeout: 15000,
+                        }
+                    );
+                    setMessage('Seguimiento iniciado. Mantén esta pantalla abierta.', 'primary');
+                })
+                .catch((error) => setMessage(error.message, 'danger'));
+        }
+
+        function stopTracking() {
+            if (watcherId !== null) {
+                navigator.geolocation.clearWatch(watcherId);
+                watcherId = null;
+            }
+            toggleTracking(false)
+                .then(() => setMessage('Seguimiento pausado.', 'secondary'))
+                .catch((error) => setMessage(error.message, 'danger'));
+        }
+
+        if (routeHistory.length) {
+            playbackIndex = routeHistory.length - 1;
+            renderRouteLine();
+            renderPlaybackPosition(false);
+        } else {
+            renderTimeline();
+            renderMetrics();
+        }
+
+        playHistoryBtn.addEventListener('click', playHistory);
+        pauseHistoryBtn.addEventListener('click', function () {
+            stopPlayback();
+            setMessage('Reproducción pausada.', 'secondary');
+        });
+        restartHistoryBtn.addEventListener('click', function () {
+            stopPlayback();
+            playbackIndex = 0;
+            renderPlaybackPosition(true);
+            setMessage('Reproducción reiniciada.', 'secondary');
+        });
+        historyScrubber.addEventListener('input', function () {
+            stopPlayback();
+            playbackIndex = Number(historyScrubber.value || '0');
+            renderPlaybackPosition(true);
+        });
+        playbackSpeed.addEventListener('change', function () {
+            if (playbackTimer !== null) {
+                playHistory();
+            }
+        });
+        refreshHistoryBtn.addEventListener('click', function () {
+            refreshRouteHistory(true);
+        });
+
+        if (esDueno) {
+            startBtn.addEventListener('click', startTracking);
+            stopBtn.addEventListener('click', stopTracking);
+        }
+
+        window.setInterval(function () {
+            refreshRouteHistory(false);
+        }, 20000);
+    });
+</script>
+{% endblock %}
