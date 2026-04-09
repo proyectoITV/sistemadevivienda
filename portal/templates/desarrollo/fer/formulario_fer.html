@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titulo }} - Fondo Económico de Reserva{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Encabezado -->
+            <div class="mb-4">
+                <h1 class="h3">
+                    <i class="fas fa-file-alt text-danger"></i>
+                    {{ titulo }}
+                </h1>
+                <p class="text-muted">Completa los datos del beneficiario del Fondo Económico de Reserva</p>
+            </div>
+
+            <!-- Alertas -->
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <!-- Formulario -->
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mt-2"><i class="fas fa-pen"></i> Información del Beneficiario</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" enctype="multipart/form-data" id="formFer">
+                        {% csrf_token %}
+
+                        <!-- Información Personal -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="fas fa-user"></i> Datos Personales</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.nombre.id_for_label }}" class="form-label">{{ form.nombre.label }} <span class="text-danger">*</span></label>
+                                        {{ form.nombre }}
+                                        {% if form.nombre.errors %}
+                                        <small class="text-danger">{{ form.nombre.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.curp.id_for_label }}" class="form-label">{{ form.curp.label }} <span class="text-danger">*</span></label>
+                                        {{ form.curp }}
+                                        {% if form.curp.errors %}
+                                        <small class="text-danger">{{ form.curp.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.fechanacimiento.id_for_label }}" class="form-label">{{ form.fechanacimiento.label }} <span class="text-danger">*</span></label>
+                                        {{ form.fechanacimiento }}
+                                        {% if form.fechanacimiento.errors %}
+                                        <small class="text-danger">{{ form.fechanacimiento.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.id_sexo.id_for_label }}" class="form-label">{{ form.id_sexo.label }} <span class="text-danger">*</span></label>
+                                        {{ form.id_sexo }}
+                                        {% if form.id_sexo.errors %}
+                                        <small class="text-danger">{{ form.id_sexo.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ form.id_municipio.id_for_label }}" class="form-label">{{ form.id_municipio.label }} <span class="text-danger">*</span></label>
+                                        {{ form.id_municipio }}
+                                        {% if form.id_municipio.errors %}
+                                        <small class="text-danger">{{ form.id_municipio.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.domicilio.id_for_label }}" class="form-label">{{ form.domicilio.label }} <span class="text-danger">*</span></label>
+                                        {{ form.domicilio }}
+                                        {% if form.domicilio.errors %}
+                                        <small class="text-danger">{{ form.domicilio.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.telefono.id_for_label }}" class="form-label">{{ form.telefono.label }} <span class="text-danger">*</span></label>
+                                        {{ form.telefono }}
+                                        {% if form.telefono.errors %}
+                                        <small class="text-danger">{{ form.telefono.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.celular.id_for_label }}" class="form-label">{{ form.celular.label }}</label>
+                                        {{ form.celular }}
+                                        {% if form.celular.errors %}
+                                        <small class="text-danger">{{ form.celular.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Información del Subsidio -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="fas fa-money-bill-wave"></i> Información del Subsidio</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.nfer_id.id_for_label }}" class="form-label">{{ form.nfer_id.label }} <span class="text-danger">*</span></label>
+                                        {{ form.nfer_id }}
+                                        {% if form.nfer_id.errors %}
+                                        <small class="text-danger">{{ form.nfer_id.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.contrato.id_for_label }}" class="form-label">{{ form.contrato.label }} <span class="text-danger">*</span></label>
+                                        {{ form.contrato }}
+                                        {% if form.contrato.errors %}
+                                        <small class="text-danger">{{ form.contrato.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.cantidad.id_for_label }}" class="form-label">{{ form.cantidad.label }} <span class="text-danger">*</span></label>
+                                        {{ form.cantidad }}
+                                        {% if form.cantidad.errors %}
+                                        <small class="text-danger">{{ form.cantidad.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.nfer_concepto.id_for_label }}" class="form-label">{{ form.nfer_concepto.label }} <span class="text-danger">*</span></label>
+                                        {{ form.nfer_concepto }}
+                                        {% if form.nfer_concepto.errors %}
+                                        <small class="text-danger">{{ form.nfer_concepto.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.descripcion.id_for_label }}" class="form-label">{{ form.descripcion.label }} <span class="text-danger">*</span></label>
+                                        {{ form.descripcion }}
+                                        {% if form.descripcion.errors %}
+                                        <small class="text-danger">{{ form.descripcion.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Información Adicional -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="fas fa-info-circle"></i> Información Adicional</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.parrafo_opcional.id_for_label }}" class="form-label">{{ form.parrafo_opcional.label }}</label>
+                                        {{ form.parrafo_opcional }}
+                                        {% if form.parrafo_opcional.errors %}
+                                        <small class="text-danger">{{ form.parrafo_opcional.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.archivo_sustento.id_for_label }}" class="form-label">{{ form.archivo_sustento.label }}</label>
+                                        <small class="form-text text-muted d-block mb-2">Formatos permitidos: PDF, JPG, PNG, DOC, DOCX. Máximo 5 MB.</small>
+                                        {{ form.archivo_sustento }}
+                                        {% if form.archivo_sustento.errors %}
+                                        <small class="text-danger">{{ form.archivo_sustento.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-danger btn-lg flex-grow-1">
+                                        <i class="fas fa-save"></i> Disponer
+                                    </button>
+                                    <a href="{% url 'fer_asignacion_listado' %}" class="btn btn-secondary btn-lg flex-grow-1">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Validación en cliente
+document.getElementById('formFer').addEventListener('submit', function(e) {
+    // La validación será hecha en el servidor
+});
+
+// Convertir nombre y CURP a mayúsculas
+document.getElementById('{{ form.nombre.id_for_label }}').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+});
+
+document.getElementById('{{ form.curp.id_for_label }}').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+});
+</script>
+{% endblock %}
